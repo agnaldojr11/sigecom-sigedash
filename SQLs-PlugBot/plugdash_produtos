@@ -1,0 +1,52 @@
+{
+    "handle": "produtos",
+    "label": "Produtos",
+    "isDash": true,
+    "template": "plugdash_template_dash.html",
+    "sincronizacaoHoras": 0,
+    "sincronizacaoMinutos": 10,
+    "ordem": 4,
+    "configurado": true,
+    "previewDados": [],
+    "nextidchart": 2,
+    "charts": [
+        {
+            "idtipo": 4,
+            "nome": "Lista",
+            "sincronizacaoHoras": 0,
+            "sincronizacaoMinutos": "5",
+            "helpMessage": 5,
+            "config": {
+                "template": "dash_list.html",
+                "type": "list",
+                "tema": "dash-dark",
+                "temaSelected": {
+                    "label": "Preto",
+                    "tema": "dash-dark"
+                },
+                "totalizador": "",
+                "titulo": "Os 100 produtos com mais estoque",
+                "subtitulo": "",
+                "mask": "",
+                "label": "",
+                "showMaximo": false,
+                "numberMask": false,
+                "money": true,
+                "moneySymbol": "R$",
+                "casasDecimais": -2,
+                "datagroup": [
+                    {
+                        "label": "Produtos",
+                        "selected": true,
+                        "data": {},
+                        "helpMessage": 2,
+                        "sql": "Select First 100\nCase\nWhen(P.nome_completo is null) Then\n    PB.Nome\nWhen(P.nome_completo is not null) Then\n    P.nome_completo\nEnd as \"nome\", 'Qtde:' || Cast(PE.Estoque As Numeric(12, 2)) As \"info\", 'Categoria: ' ||PG.NomeGrupo As \"descricao\", PETP.Preco_Venda As \"valor\" From Produto_Base As PB\nInner Join Produto As P On PB.CodigoBaseProduto = P.CodigoBaseProduto\nInner Join Produto_Grupo As PG On PB.CodigoGrupo = PG.CodigoGrupo\nInner Join Produto_Estoque As PE On P.CodigoProduto = PE.CodigoProduto\nInner Join Produto_Estoque_Tabela_Preco As PETP On PE.CodigoMercadoria = PETP.Codigo_Mercadoria\nWhere PETP.Codigo_Tabela_Preco = 1 And P.Desativado = 'N'\nOrder By PE.Estoque Desc"
+                    }
+                ],
+                "showtotalizador": false
+            },
+            "id": 41808718,
+            "idchart": 1
+        }
+    ]
+}

@@ -1,0 +1,58 @@
+name: CI — Build & Validate
+
+# Roda em todo push para main/develop e em Pull Requests
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+
+  # ── Backend .NET 8 ───────────────────────────────────────────────────────────
+  backend:
+    name: Backend (.NET 8)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+
+      - name: Restore
+        run: dotnet restore backend/src/SigeDash.Api/SigeDash.Api.csproj
+
+      - name: Build
+        run: dotnet build backend/src/SigeDash.Api/SigeDash.Api.csproj -c Release --no-restore
+
+      - name: Publish (valida que o build de produção funciona)
+        run: |
+          dotnet publish backend/src/SigeDash.Api/SigeDash.Api.csproj \
+            -c Release -o /tmp/publish --no-restore /p:UseAppHost=false
+
+  # ── Agente .NET Framework 4.8 ────────────────────────────────────────────────
+  agente:
+    name: Agente (.NET 4.8)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build agente (Release x64)
+        run: dotnet build agente\SigeDash.Agente\SigeDash.Agente.csproj -c Release
+        shell: cmd
+
+  # ── Docker image (valida que o Dockerfile compila) ───────────────────────────
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image (sem push)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: sigedash:ci

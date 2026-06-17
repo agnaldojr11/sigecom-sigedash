@@ -1,0 +1,104 @@
+{
+    "handle": "estoque",
+    "label": "Estoque",
+    "isDash": true,
+    "template": "plugdash_template_dash.html",
+    "sincronizacaoHoras": 0,
+    "sincronizacaoMinutos": 10,
+    "ordem": 3,
+    "configurado": true,
+    "previewDados": [],
+    "nextidchart": 4,
+    "charts": [
+        {
+            "idtipo": 8,
+            "nome": "Rosquinha",
+            "sincronizacaoHoras": 0,
+            "sincronizacaoMinutos": "5",
+            "helpMessage": 6,
+            "config": {
+                "template": "dash_doughnut.html",
+                "type": "doughnut",
+                "tema": "dash-dark",
+                "temaSelected": {
+                    "label": "Preto",
+                    "tema": "dash-dark"
+                },
+                "titulo": "Os 10 produtos com mais estoque",
+                "subtitulo": "",
+                "mask": "",
+                "label": "",
+                "showsublabel": false,
+                "showLegend": false,
+                "showxAxesLabel": false,
+                "showyAxesLabel": false,
+                "showxAxesLine": false,
+                "showyAxesLine": false,
+                "legendlist": true,
+                "showTotal": true,
+                "fill": false,
+                "money": false,
+                "moneySymbol": "R$",
+                "datagroup": [
+                    {
+                        "label": "Hoje",
+                        "selected": true,
+                        "data": {},
+                        "helpMessage": 2,
+                        "sql": "Select First 5 PB.Nome As \"label\", Cast(PE.Estoque As Numeric(12, 2)) As \"value\" From Produto As P\nInner Join Produto_Base As PB\nInner Join Produto_Estoque As PE\nOn P.CodigoBaseProduto = PB.CodigoBaseProduto\nOn P.CodigoProduto = PE.CodigoProduto\nWhere PE.CodigoEmpresa = 1 And P.Desativado = 'N'\nOrder By PE.Estoque Desc"
+                    }
+                ],
+                "casasDecimais": -2,
+                "numberMask": true
+            },
+            "idchart": 1,
+            "id": 34777805
+        },
+        {
+            "idtipo": 5,
+            "nome": "Barra vertical",
+            "sincronizacaoHoras": 0,
+            "sincronizacaoMinutos": "5",
+            "helpMessage": 7,
+            "config": {
+                "template": "dash_bar.html",
+                "type": "bar",
+                "tema": "dash-dark",
+                "temaSelected": {
+                    "label": "Preto",
+                    "tema": "dash-dark"
+                },
+                "titulo": "Produtos com estoque abaixo do mínimo",
+                "subtitulo": "Com base no campo \"Estoque mínimo\" do cadastro de produto",
+                "mask": "",
+                "label": "",
+                "showMaximo": false,
+                "showsublabel": false,
+                "showLegend": true,
+                "showxAxesLabel": false,
+                "showyAxesLabel": false,
+                "showxAxesLine": false,
+                "showyAxesLine": false,
+                "multiline": true,
+                "multitype": true,
+                "legendlist": false,
+                "fill": true,
+                "numberMask": false,
+                "casasDecimais": -2,
+                "money": false,
+                "moneySymbol": "R$",
+                "datagroup": [
+                    {
+                        "label": "Estoque",
+                        "selected": true,
+                        "data": {},
+                        "helpMessage": 7,
+                        "sql": "Select * From\n(Select First 5 PB.Nome As \"bar\", 'Estoque atual' As \"label\", PE.Estoque As \"value\", PE.Estoque\nFrom Produto_Base As PB\nInner Join Produto As P On PB.CodigoBaseProduto = P.CodigoBaseProduto\nInner Join Produto_Estoque PE On P.CodigoProduto = PE.CodigoProduto\nWhere PE.CodigoEmpresa = 1 And PE.Estoque < PB.EstoqueMinimo\nAnd P.Desativado = 'N' Order By PE.Estoque Asc)\nUNIOn all\nSelect * From\n(Select First 5 PB.Nome As \"bar\", 'Estoque mínimo' As \"label\", PB.EstoqueMinimo As \"value\", PE.Estoque\nFrom Produto_Base As PB\nInner Join Produto As P On PB.CodigoBaseProduto = P.CodigoBaseProduto\nInner Join Produto_Estoque PE On P.CodigoProduto = PE.CodigoProduto\nWhere PE.CodigoEmpresa = 1 And PE.Estoque < PB.EstoqueMinimo\nAnd P.Desativado = 'N' Order By PE.Estoque Asc)"
+                    }
+                ]
+            },
+            "id": 558315256,
+            "idchart": 2
+        }
+    ]
+}

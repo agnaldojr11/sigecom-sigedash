@@ -1,0 +1,498 @@
+{
+    "handle": "vendas",
+    "label": "Vendas",
+    "isDash": true,
+    "template": "plugdash_template_dash.html",
+    "sincronizacaoHoras": 0,
+    "sincronizacaoMinutos": 10,
+    "ordem": 1,
+    "configurado": true,
+    "previewDados": [],
+    "nextidchart": 19,
+    "charts": [
+        {
+            "idtipo": 5,
+            "nome": "Barra vertical",
+            "sincronizacaoHoras": 0,
+            "sincronizacaoMinutos": 10,
+            "helpMessage": 7,
+            "config": {
+                "template": "dash_bar.html",
+                "type": "bar",
+                "tema": "dash-dark",
+                "temaSelected": {
+                    "label": "Preto",
+                    "tema": "dash-dark"
+                },
+                "titulo": "Análise de pico de vendas por horário",
+                "subtitulo": "",
+                "mask": "",
+                "label": "",
+                "showMaximo": false,
+                "showsublabel": false,
+                "showLegend": false,
+                "showxAxesLabel": true,
+                "showyAxesLabel": true,
+                "showxAxesLine": false,
+                "showyAxesLine": true,
+                "multiline": true,
+                "multitype": true,
+                "legendlist": false,
+                "fill": false,
+                "numberMask": false,
+                "casasDecimais": -2,
+                "money": false,
+                "moneySymbol": "R$",
+                "datagroup": [
+                    {
+                        "label": "Ontem",
+                        "selected": false,
+                        "sql": "Select 'Qtde' as \"label\",\n    lpad (extract (hour FROM P.datacadastro),2,'0') || 'h' as \"bar\",\n    count (*) AS \"value\"\n    from PEDIDO P\n    left join PESSOA PESS on PESS.CODIGOPESSOA = P.CODIGOPESSOA\n    left join PESSOA VENDEDOR on VENDEDOR.CODIGOPESSOA = P.CODIGOFUNCIONARIO\n    left join CAIXA as CX on P.CODIGOLANCAMENTO = CX.CODIGOLANCAMENTO\n    where P.CODIGOEMPRESA = 1 and\n        (P.CODIGO_PEDIDO_TIPO <> 8 or (P.CODIGO_PEDIDO_TIPO is null)) and\n        (P.CODIGO_PEDIDO_TIPO <> 4 or (P.CODIGO_PEDIDO_TIPO is null)) and\n        P.CODIGO_PEDIDO_SITUACAO <> 4 and\n        P.CODIGOLANCAMENTO is not null and\n        PESS.CODIGOTIPO = 1 and\n        cast(CX.DATAHORALANCAMENTO as date) = cast(current_date as date)-1\n    group by 2\n    order by 2"
+                    },
+                    {
+                        "label": "Hoje",
+                        "selected": true,
+                        "sql": "Select 'Qtde' as \"label\",\n    lpad (extract (hour FROM P.datacadastro),2,'0') || 'h' as \"bar\",\n    count (*) AS \"value\"\n    from PEDIDO P\n    left join PESSOA PESS on PESS.CODIGOPESSOA = P.CODIGOPESSOA\n    left join PESSOA VENDEDOR on VENDEDOR.CODIGOPESSOA = P.CODIGOFUNCIONARIO\n    left join CAIXA as CX on P.CODIGOLANCAMENTO = CX.CODIGOLANCAMENTO\n    where P.CODIGOEMPRESA = 1 and\n        (P.CODIGO_PEDIDO_TIPO <> 8 or (P.CODIGO_PEDIDO_TIPO is null)) and\n        (P.CODIGO_PEDIDO_TIPO <> 4 or (P.CODIGO_PEDIDO_TIPO is null)) and\n        P.CODIGO_PEDIDO_SITUACAO <> 4 and\n        P.CODIGOLANCAMENTO is not null and\n        PESS.CODIGOTIPO = 1 and\n        cast(CX.DATAHORALANCAMENTO as date) = cast(current_date as date)\n    group by 2\n    order by 2"
+                    },
+                    {
+                        "label": "Esta semana",
+                        "selected": false,
+                        "sql": "Select 'Qtde' as \"label\",\n    lpad (extract (hour FROM P.datacadastro),2,'0') || 'h' as \"bar\",\n    count (*) AS \"value\"\n    from PEDIDO P\n    left join PESSOA PESS on PESS.CODIGOPESSOA = P.CODIGOPESSOA\n    left join PESSOA VENDEDOR on VENDEDOR.CODIGOPESSOA = P.CODIGOFUNCIONARIO\n    left join CAIXA as CX on P.CODIGOLANCAMENTO = CX.CODIGOLANCAMENTO\n    where P.CODIGOEMPRESA = 1 and\n        (P.CODIGO_PEDIDO_TIPO <> 8 or (P.CODIGO_PEDIDO_TIPO is null)) and\n        (P.CODIGO_PEDIDO_TIPO <> 4 or (P.CODIGO_PEDIDO_TIPO is null)) and\n        P.CODIGO_PEDIDO_SITUACAO <> 4 and\n        P.CODIGOLANCAMENTO is not null and\n        PESS.CODIGOTIPO = 1\n        and CX.DataHoraLancamento >= (Select cast(current_date - extract(weekday from current_date) as timestamp) From RDB$DATABASE)\n        and CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to cast(current_date - extract(weekday from current_date) + 6 as timestamp)))) From RDB$DATABASE)\n    group by 2\n    order by 2"
+                    },
+                    {
+                        "label": "Este mês",
+                        "selected": false,
+                        "sql": "Select 'Qtde' as \"label\",\n    lpad (extract (hour FROM P.datacadastro),2,'0') || 'h' as \"bar\",\n    count (*) AS \"value\"\n    from PEDIDO P\n    left join PESSOA PESS on PESS.CODIGOPESSOA = P.CODIGOPESSOA\n    left join PESSOA VENDEDOR on VENDEDOR.CODIGOPESSOA = P.CODIGOFUNCIONARIO\n    left join CAIXA as CX on P.CODIGOLANCAMENTO = CX.CODIGOLANCAMENTO\n    where P.CODIGOEMPRESA = 1 and\n        (P.CODIGO_PEDIDO_TIPO <> 8 or (P.CODIGO_PEDIDO_TIPO is null)) and\n        (P.CODIGO_PEDIDO_TIPO <> 4 or (P.CODIGO_PEDIDO_TIPO is null)) and\n        P.CODIGO_PEDIDO_SITUACAO <> 4 and\n        P.CODIGOLANCAMENTO is not null and\n        PESS.CODIGOTIPO = 1 and\n        extract(day from CX.DATAHORALANCAMENTO) <= extract(day from current_date) and\n        extract(month from CX.DATAHORALANCAMENTO) = extract(month from current_date) and\n        extract(year from CX.DATAHORALANCAMENTO) = extract(year from current_date)        \n    group by 2\n    order by 2"
+                    }
+                ]
+            },
+            "idchart": 8,
+            "id": 499236211
+        },
+        {
+            "idtipo": 9,
+            "nome": "Informativo",
+            "sincronizacaoHoras": 0,
+            "sincronizacaoMinutos": "5",
+            "helpMessage": 9,
+            "config": {
+                "template": "dash_info.html",
+                "type": "info",
+                "tema": "dash-green",
+                "temaSelected": {
+                    "label": "Verde",
+                    "tema": "dash-green"
+                },
+                "titulo": "Total de vendas do mês",
+                "subtitulo": "",
+                "mask": "",
+                "label": "",
+                "showsublabel": false,
+                "showLegend": false,
+                "showxAxesLabel": false,
+                "showyAxesLabel": false,
+                "showxAxesLine": false,
+                "showyAxesLine": false,
+                "legendlist": true,
+                "fill": false,
+                "money": true,
+                "moneySymbol": "R$",
+                "datagroup": [
+                    {
+                        "label": "Este mês",
+                        "selected": true,
+                        "data": {},
+                        "helpMessage": 9,
+                        "sql": "Select sum(P.VALORTOTAL) as \"value\", 'ion-calculator' As \"icon\"\n    from PEDIDO P\n    inner join PESSOA PESS on PESS.CODIGOPESSOA = P.CODIGOPESSOA\n    inner join CAIXA as CX on P.CODIGOLANCAMENTO = CX.CODIGOLANCAMENTO\n    where P.CODIGOEMPRESA = 1 and\n        (P.CODIGO_PEDIDO_TIPO <> 8 or (P.CODIGO_PEDIDO_TIPO is null)) and\n        (P.CODIGO_PEDIDO_TIPO <> 4 or (P.CODIGO_PEDIDO_TIPO is null)) and\n        P.CODIGO_PEDIDO_SITUACAO <> 4 and\n        P.CODIGOLANCAMENTO is not null and\n        PESS.CODIGOTIPO = 1 and\n        extract(day from CX.DATAHORALANCAMENTO) <= extract(day from current_date) and\n        extract(month from CX.DATAHORALANCAMENTO) = extract(month from current_date) and\n        extract(year from CX.DATAHORALANCAMENTO) = extract(year from current_date)"
+                    }
+                ]
+            },
+            "id": 526478344,
+            "idchart": 10
+        },
+        {
+            "idtipo": 9,
+            "nome": "Informativo",
+            "sincronizacaoHoras": 0,
+            "sincronizacaoMinutos": "5",
+            "helpMessage": 9,
+            "config": {
+                "template": "dash_info.html",
+                "type": "info",
+                "tema": "dash-green",
+                "temaSelected": {
+                    "label": "Verde",
+                    "tema": "dash-green"
+                },
+                "titulo": "Total de vendas na semana",
+                "subtitulo": "",
+                "mask": "",
+                "label": "",
+                "showsublabel": false,
+                "showLegend": false,
+                "showxAxesLabel": false,
+                "showyAxesLabel": false,
+                "showxAxesLine": false,
+                "showyAxesLine": false,
+                "legendlist": true,
+                "fill": false,
+                "money": true,
+                "moneySymbol": "R$",
+                "datagroup": [
+                    {
+                        "label": "Esta semana",
+                        "selected": true,
+                        "data": {},
+                        "helpMessage": 9,
+                        "sql": "Select Sum(P.VALORTOTAL) as \"value\", 'ion-calculator' As \"icon\"\n    from PEDIDO P\n    inner join PESSOA PESS on PESS.CODIGOPESSOA = P.CODIGOPESSOA\n    inner join CAIXA as CX on P.CODIGOLANCAMENTO = CX.CODIGOLANCAMENTO\n    where P.CODIGOEMPRESA = 1 and\n        (P.CODIGO_PEDIDO_TIPO <> 8 or (P.CODIGO_PEDIDO_TIPO is null)) and\n        (P.CODIGO_PEDIDO_TIPO <> 4 or (P.CODIGO_PEDIDO_TIPO is null)) and\n        P.CODIGO_PEDIDO_SITUACAO <> 4 and\n        P.CODIGOLANCAMENTO is not null and\n        PESS.CODIGOTIPO = 1\n        and CX.DataHoraLancamento >= (Select cast(current_date - extract(weekday from current_date) as timestamp) From RDB$DATABASE)\n        and CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to cast(current_date - extract(weekday from current_date) + 6 as timestamp)))) From RDB$DATABASE)"
+                    }
+                ]
+            },
+            "id": 128524433,
+            "idchart": 11
+        },
+        {
+            "idtipo": 9,
+            "nome": "Informativo",
+            "sincronizacaoHoras": 0,
+            "sincronizacaoMinutos": "5",
+            "helpMessage": 9,
+            "config": {
+                "template": "dash_info.html",
+                "type": "info",
+                "tema": "dash-green",
+                "temaSelected": {
+                    "label": "Verde",
+                    "tema": "dash-green"
+                },
+                "titulo": "Total de vendas hoje",
+                "subtitulo": "",
+                "mask": "",
+                "label": "",
+                "showsublabel": false,
+                "showLegend": false,
+                "showxAxesLabel": false,
+                "showyAxesLabel": false,
+                "showxAxesLine": false,
+                "showyAxesLine": false,
+                "legendlist": true,
+                "fill": false,
+                "money": true,
+                "moneySymbol": "R$",
+                "datagroup": [
+                    {
+                        "label": "Hoje",
+                        "selected": true,
+                        "data": {},
+                        "helpMessage": 9,
+                        "sql": "Select Sum(P.VALORTOTAL) as \"value\", 'ion-calculator' As \"icon\"\n    from PEDIDO P\n    left join PESSOA PESS on PESS.CODIGOPESSOA = P.CODIGOPESSOA\n    left join PESSOA VENDEDOR on VENDEDOR.CODIGOPESSOA = P.CODIGOFUNCIONARIO\n    left join CAIXA as CX on P.CODIGOLANCAMENTO = CX.CODIGOLANCAMENTO\n    where P.CODIGOEMPRESA = 1 and\n        (P.CODIGO_PEDIDO_TIPO <> 8 or (P.CODIGO_PEDIDO_TIPO is null)) and\n        (P.CODIGO_PEDIDO_TIPO <> 4 or (P.CODIGO_PEDIDO_TIPO is null)) and\n        P.CODIGO_PEDIDO_SITUACAO <> 4 and\n        P.CODIGOLANCAMENTO is not null and\n        PESS.CODIGOTIPO = 1 and\n        cast(CX.DATAHORALANCAMENTO as date) = cast(current_date as date)"
+                    }
+                ]
+            },
+            "id": 663196680,
+            "idchart": 12
+        },
+        {
+            "idtipo": 7,
+            "nome": "Pizza",
+            "sincronizacaoHoras": 0,
+            "sincronizacaoMinutos": "5",
+            "helpMessage": 6,
+            "config": {
+                "template": "dash_pie.html",
+                "type": "pie",
+                "tema": "dash-dark",
+                "temaSelected": {
+                    "label": "Preto",
+                    "tema": "dash-dark"
+                },
+                "titulo": "Ranking dos meios de pagamentos mais utilizados",
+                "subtitulo": "",
+                "mask": "",
+                "label": "",
+                "showsublabel": false,
+                "showLegend": false,
+                "showxAxesLabel": false,
+                "showyAxesLabel": false,
+                "showxAxesLine": false,
+                "showyAxesLine": false,
+                "legendlist": true,
+                "showTotal": true,
+                "fill": false,
+                "money": true,
+                "moneySymbol": "R$",
+                "datagroup": [
+                    {
+                        "label": "Este mês",
+                        "selected": true,
+                        "data": {},
+                        "helpMessage": 2,
+                        "sql": "Select fp.descricao As \"label\", Sum(cp.total) As \"value\"\nFrom Caixa Cx\nInner Join Pedido p on p.codigolancamento = cx.codigolancamento\nInner Join conta con on con.codigolancamento = p.codigoLancamento\nInner Join conta_parcela cp on cp.codigoconta = con.codigoconta\nInner Join forma_pagamento_condicao fpc on fpc.codigo_forma_pagamento_condicao = cp.codigo_forma_pagamento_condicao\nInner Join forma_pagamento fp on fp.codigo_forma_pagamento = fpc.codigo_forma_pagamento\nInner Join caixa_conta_plano ccp on ccp.codigoplanoconta = cp.codigo_plano_conta\nWhere p.codigolancamento is not null And p.CodigoEmpresa = 1\nAnd p.codigo_pedido_situacao = 2\nAnd ccp.operacao_plano_conta = 'C'\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(day from current_date) + 1 As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(day from current_date) + 32 - extract(day from current_date - extract(day from current_date) + 32) as timestamp)))) From RDB$DATABASE)\nGroup By fp.descricao Order By \"value\" Desc"
+                    },
+                    {
+                        "label": "Esta semana",
+                        "selected": false,
+                        "sql": "Select fp.descricao As \"label\", Sum(cp.total) As \"value\"\nFrom Caixa Cx\nInner Join Pedido p on p.codigolancamento = cx.codigolancamento\nInner Join conta con on con.codigolancamento = p.codigoLancamento\nInner Join conta_parcela cp on cp.codigoconta = con.codigoconta\nInner Join forma_pagamento_condicao fpc on fpc.codigo_forma_pagamento_condicao = cp.codigo_forma_pagamento_condicao\nInner Join forma_pagamento fp on fp.codigo_forma_pagamento = fpc.codigo_forma_pagamento\nInner Join caixa_conta_plano ccp on ccp.codigoplanoconta = cp.codigo_plano_conta\nWhere p.codigolancamento is not null And p.CodigoEmpresa = 1\nAnd p.codigo_pedido_situacao = 2\nAnd ccp.operacao_plano_conta = 'C'\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(weekday from current_date) As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(weekday from current_date) + 6 As timestamp)))) From RDB$DATABASE)\nGroup By fp.descricao Order By \"value\" Desc"
+                    },
+                    {
+                        "label": "Hoje",
+                        "selected": false,
+                        "sql": "Select fp.descricao As \"label\", Sum(cp.total) As \"value\"\nFrom Caixa Cx\nInner Join Pedido p on p.codigolancamento = cx.codigolancamento\nInner Join conta con on con.codigolancamento = p.codigoLancamento\nInner Join conta_parcela cp on cp.codigoconta = con.codigoconta\nInner Join forma_pagamento_condicao fpc on fpc.codigo_forma_pagamento_condicao = cp.codigo_forma_pagamento_condicao\nInner Join forma_pagamento fp on fp.codigo_forma_pagamento = fpc.codigo_forma_pagamento\nInner Join caixa_conta_plano ccp on ccp.codigoplanoconta = cp.codigo_plano_conta\nWhere p.codigolancamento is not null And p.CodigoEmpresa = 1\nAnd p.codigo_pedido_situacao = 2\nAnd ccp.operacao_plano_conta = 'C'\nAnd CX.DataHoraLancamento >= (Select cast(current_date as timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to cast(current_date as timestamp)))) From RDB$DATABASE)\nGroup By fp.descricao Order By \"value\" Desc"
+                    }
+                ],
+                "numberMask": true,
+                "casasDecimais": -2
+            },
+            "id": 483845019,
+            "idchart": 13
+        },
+        {
+            "idtipo": 2,
+            "nome": "Barra horizontal",
+            "sincronizacaoHoras": 0,
+            "sincronizacaoMinutos": "5",
+            "helpMessage": 3,
+            "config": {
+                "template": "dash_bar_horizontal.html",
+                "type": "barhorizontal",
+                "tema": "dash-blue",
+                "temaSelected": {
+                    "label": "Azul",
+                    "tema": "dash-blue"
+                },
+                "titulo": "Ranking dos 5 clientes que mais compram",
+                "subtitulo": "",
+                "mask": "",
+                "label": "",
+                "showMaximo": false,
+                "numberMask": false,
+                "money": true,
+                "moneySymbol": "R$",
+                "casasDecimais": -2,
+                "datagroup": [
+                    {
+                        "label": "Este mês",
+                        "selected": true,
+                        "data": {},
+                        "helpMessage": 2,
+                        "sql": "Select First 5\nCliente.Nome As \"label\",\nSum(P.ValorTotal) As \"value\"\nFROM PEDIDO P\nINNER JOIN Caixa CX ON CX.codigolancamento =  P.CodigoLancamento\nINNER JOIN Pessoa Cliente ON P.CodigoPessoa = Cliente.CodigoPessoa\nINNER JOIN Pessoa_Funcionario Funcionario ON Funcionario.CodigoPessoa = P.CodigoFuncionario\nINNER JOIN Pessoa Vendedor ON Vendedor.CodigoPessoa = Funcionario.CodigoPessoa\nWhere P.Codigo_Pedido_Situacao = 2 And P.codigoempresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(day from current_date) + 1 As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(day from current_date) + 32 - extract(day from current_date - extract(day from current_date) + 32) as timestamp)))) From RDB$DATABASE)\nGroup By Cliente.CodigoPessoa, Cliente.Nome Order By \"value\" Desc"
+                    },
+                    {
+                        "label": "Esta semana",
+                        "selected": false,
+                        "sql": "Select First 5\nCliente.Nome As \"label\",\nSum(P.ValorTotal) As \"value\"\nFROM PEDIDO P\nINNER JOIN Caixa CX ON CX.codigolancamento =  P.CodigoLancamento\nINNER JOIN Pessoa Cliente ON P.CodigoPessoa = Cliente.CodigoPessoa\nINNER JOIN Pessoa_Funcionario Funcionario ON Funcionario.CodigoPessoa = P.CodigoFuncionario\nINNER JOIN Pessoa Vendedor ON Vendedor.CodigoPessoa = Funcionario.CodigoPessoa\nWhere P.Codigo_Pedido_Situacao = 2 And P.codigoempresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(weekday from current_date) As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(weekday from current_date) + 6 As timestamp)))) From RDB$DATABASE)\nGroup By Cliente.CodigoPessoa, Cliente.Nome Order By \"value\" Desc"
+                    },
+                    {
+                        "label": "Hoje",
+                        "selected": false,
+                        "sql": "Select First 5\nCliente.Nome As \"label\",\nSum(P.ValorTotal) As \"value\"\nFROM PEDIDO P\nINNER JOIN Caixa CX ON CX.codigolancamento =  P.CodigoLancamento\nINNER JOIN Pessoa Cliente ON P.CodigoPessoa = Cliente.CodigoPessoa\nINNER JOIN Pessoa_Funcionario Funcionario ON Funcionario.CodigoPessoa = P.CodigoFuncionario\nINNER JOIN Pessoa Vendedor ON Vendedor.CodigoPessoa = Funcionario.CodigoPessoa\nWhere P.Codigo_Pedido_Situacao = 2 And P.codigoempresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date as timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to cast(current_date as timestamp)))) From RDB$DATABASE)\nGroup By Cliente.CodigoPessoa, Cliente.Nome Order By \"value\" Desc"
+                    }
+                ]
+            },
+            "id": 399725598,
+            "idchart": 14
+        },
+        {
+            "idtipo": 2,
+            "nome": "Barra horizontal",
+            "sincronizacaoHoras": 0,
+            "sincronizacaoMinutos": "5",
+            "helpMessage": 3,
+            "config": {
+                "template": "dash_bar_horizontal.html",
+                "type": "barhorizontal",
+                "tema": "dash-royal",
+                "temaSelected": {
+                    "label": "Roxo",
+                    "tema": "dash-royal"
+                },
+                "titulo": "Ranking dos 5 produtos mais vendidos",
+                "subtitulo": "",
+                "mask": "",
+                "label": "",
+                "showMaximo": false,
+                "numberMask": false,
+                "money": true,
+                "moneySymbol": "R$",
+                "casasDecimais": -2,
+                "datagroup": [
+                    {
+                        "label": "Este mês",
+                        "selected": true,
+                        "data": {},
+                        "helpMessage": 2,
+                        "sql": "SELECT First 5\ncase\nwhen(PRO.nome_completo is null) then\n    PB.Nome\nwhen(PRO.nome_completo is not null) then\n    PRO.nome_completo\nend As \"label\",\nSum(PP.ValorTotal) As \"value\"\nFROM PEDIDO P\nINNER JOIN Pedido_Produto PP ON PP.CodigoPedido = P.CodigoPedido\nINNER JOIN Caixa CX ON CX.codigolancamento =  P.CodigoLancamento\nINNER JOIN Produto PRO ON PRO.CodigoProduto = PP.CodigoProduto\nINNER JOIN Produto_Base PB ON PRO.CodigoBaseProduto = PB.CodigoBaseProduto\nWHERE P.Codigo_Pedido_Situacao = 2 And P.codigoempresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(day from current_date) + 1 As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(day from current_date) + 32 - extract(day from current_date - extract(day from current_date) + 32) as timestamp)))) From RDB$DATABASE)\nGroup By PP.CodigoProduto, PB.nome, PRO.Nome_Completo Order By \"value\" Desc"
+                    },
+                    {
+                        "label": "Esta semana",
+                        "selected": false,
+                        "sql": "Select First 5\ncase\nwhen(PRO.nome_completo is null) then\n    PB.Nome\nwhen(PRO.nome_completo is not null) then\n    PRO.nome_completo\nend as \"label\",\nSum(PP.ValorTotal) as \"value\"\nFrom PEDIDO P\ninner join Pedido_Produto PP on PP.CodigoPedido = P.CodigoPedido\ninner join Caixa CX on CX.codigolancamento =  P.CodigoLancamento\ninner join Produto PRO on PRO.CodigoProduto = PP.CodigoProduto\ninner join Produto_Base PB on PRO.CodigoBaseProduto = PB.CodigoBaseProduto\nWhere P.Codigo_Pedido_Situacao = 2 and P.codigoempresa = 1\nand CX.DataHoraLancamento >= (Select cast(current_date - extract(weekday from current_date) as timestamp) From RDB$DATABASE)\nand CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to cast(current_date - extract(weekday from current_date) + 6 as timestamp)))) From RDB$DATABASE)\nGroup By PP.CodigoProduto, PB.nome, PRO.Nome_Completo Order By \"value\" Desc"
+                    },
+                    {
+                        "label": "Hoje",
+                        "selected": false,
+                        "sql": "Select First 5\ncase\nwhen(PRO.nome_completo is null) then\n    PB.Nome\nwhen(PRO.nome_completo is not null) then\n    PRO.nome_completo\nend as \"label\",\nSum(PP.ValorTotal) as \"value\"\nFrom PEDIDO P\ninner join Pedido_Produto PP on PP.CodigoPedido = P.CodigoPedido\ninner join Caixa CX on CX.codigolancamento =  P.CodigoLancamento\ninner join Produto PRO on PRO.CodigoProduto = PP.CodigoProduto\ninner join Produto_Base PB on PRO.CodigoBaseProduto = PB.CodigoBaseProduto\nWhere P.Codigo_Pedido_Situacao = 2 and P.codigoempresa = 1\nand CX.DataHoraLancamento >= (Select cast(current_date as timestamp) From RDB$DATABASE)\nand CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to cast(current_date as timestamp)))) From RDB$DATABASE)\nGroup By PP.CodigoProduto, PB.nome, PRO.Nome_Completo Order By \"value\" Desc"
+                    }
+                ]
+            },
+            "id": 648323732,
+            "idchart": 15
+        },
+        {
+            "idtipo": 7,
+            "nome": "Pizza",
+            "sincronizacaoHoras": 0,
+            "sincronizacaoMinutos": "5",
+            "helpMessage": 6,
+            "config": {
+                "template": "dash_pie.html",
+                "type": "pie",
+                "tema": "dash-royal",
+                "temaSelected": {
+                    "label": "Roxo",
+                    "tema": "dash-royal"
+                },
+                "titulo": "Ranking das 5 categorias mais vendidas",
+                "subtitulo": "",
+                "mask": "",
+                "label": "",
+                "showsublabel": false,
+                "showLegend": false,
+                "showxAxesLabel": false,
+                "showyAxesLabel": false,
+                "showxAxesLine": false,
+                "showyAxesLine": false,
+                "legendlist": true,
+                "showTotal": true,
+                "fill": false,
+                "money": true,
+                "moneySymbol": "R$",
+                "datagroup": [
+                    {
+                        "label": "Este mês",
+                        "selected": true,
+                        "data": {},
+                        "helpMessage": 2,
+                        "sql": "Select First 5 NOMEGRUPO As \"label\",\nSUM(VALORTOTALGRUPO) As \"value\"\nFrom (Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL),0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL),0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO),0) AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\nINNER JOIN PEDIDO_PRODUTO PP ON PP.CODIGOPEDIDO = P.CODIGOPEDIDO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWHERE P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is not null And P.codigoempresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(day from current_date) + 1 As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(day from current_date) + 32 - extract(day from current_date - extract(day from current_date) + 32) as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All SELECT\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\n0 AS CUSTOTOTALGRUPO,\n0 AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\ninner join PEDIDO_OS PO on PO.CODIGOPEDIDO = P.CODIGOPEDIDO\ninner join OS_PRODUTO PP on PP.CODIGOOS = PO.CODIGOOS\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWHERE P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(day from current_date) + 1 As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(day from current_date) + 32 - extract(day from current_date - extract(day from current_date) + 32) as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\n0 AS CUSTOTOTALGRUPO,\n0 AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\ninner join PEDIDO_ORCAMENTO PO on PO.CODIGOPEDIDO = P.CODIGOPEDIDO\ninner join ORCAMENTO_PRODUTO PP on PP.CODIGOORCAMENTO = PO.CODIGOORCAMENTO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(day from current_date) + 1 As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(day from current_date) + 32 - extract(day from current_date - extract(day from current_date) + 32) as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL) ,0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO) ,0) AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\nINNER JOIN PEDIDO_PRODUTO PP ON PP.CODIGOPEDIDO = P.CODIGOPEDIDO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(day from current_date) + 1 As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(day from current_date) + 32 - extract(day from current_date - extract(day from current_date) + 32) as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL * -1),0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL * -1),0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO * -1),0) AS MARGEMCONTRIBUICAOGRUPO\nfrom PEDIDO_DEVOLUCAO PD\ninner join PEDIDO P on P.CODIGOPEDIDO = PD.CODIGO_PEDIDO_DEVOLUCAO\ninner join PEDIDO_PRODUTO PP on PP.CODIGOPEDIDOPRODUTO = PD.CODIGO_PEDIDO_PRODUTO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_TIPO = 4 and P.CODIGO_PEDIDO_SITUACAO is null And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(day from current_date) + 1 As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(day from current_date) + 32 - extract(day from current_date - extract(day from current_date) + 32) as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\n) Group By CODIGOGRUPO, NOMEGRUPO, CODIGOGRUPOPAI, NIVELGRUPO Order By \"value\" Desc"
+                    },
+                    {
+                        "label": "Esta semana",
+                        "selected": false,
+                        "sql": "Select First 5 NOMEGRUPO As \"label\",\nSUM(VALORTOTALGRUPO) As \"value\"\nFrom (Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL),0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL),0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO),0) AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\nINNER JOIN PEDIDO_PRODUTO PP ON PP.CODIGOPEDIDO = P.CODIGOPEDIDO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWHERE P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is not null And P.codigoempresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(weekday from current_date) As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(weekday from current_date) + 6 As timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All SELECT\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\n0 AS CUSTOTOTALGRUPO,\n0 AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\ninner join PEDIDO_OS PO on PO.CODIGOPEDIDO = P.CODIGOPEDIDO\ninner join OS_PRODUTO PP on PP.CODIGOOS = PO.CODIGOOS\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWHERE P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(weekday from current_date) As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(weekday from current_date) + 6 As timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\n0 AS CUSTOTOTALGRUPO,\n0 AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\ninner join PEDIDO_ORCAMENTO PO on PO.CODIGOPEDIDO = P.CODIGOPEDIDO\ninner join ORCAMENTO_PRODUTO PP on PP.CODIGOORCAMENTO = PO.CODIGOORCAMENTO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(weekday from current_date) As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(weekday from current_date) + 6 As timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL) ,0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO) ,0) AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\nINNER JOIN PEDIDO_PRODUTO PP ON PP.CODIGOPEDIDO = P.CODIGOPEDIDO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(weekday from current_date) As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(weekday from current_date) + 6 As timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL * -1),0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL * -1),0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO * -1),0) AS MARGEMCONTRIBUICAOGRUPO\nfrom PEDIDO_DEVOLUCAO PD\ninner join PEDIDO P on P.CODIGOPEDIDO = PD.CODIGO_PEDIDO_DEVOLUCAO\ninner join PEDIDO_PRODUTO PP on PP.CODIGOPEDIDOPRODUTO = PD.CODIGO_PEDIDO_PRODUTO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_TIPO = 4 and P.CODIGO_PEDIDO_SITUACAO is null And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(weekday from current_date) As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(weekday from current_date) + 6 As timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\n) Group By CODIGOGRUPO, NOMEGRUPO, CODIGOGRUPOPAI, NIVELGRUPO Order By \"value\" Desc"
+                    },
+                    {
+                        "label": "Hoje",
+                        "selected": false,
+                        "sql": "Select First 5 NOMEGRUPO As \"label\",\nSUM(VALORTOTALGRUPO) As \"value\"\nFrom (Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL),0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL),0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO),0) AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\nINNER JOIN PEDIDO_PRODUTO PP ON PP.CODIGOPEDIDO = P.CODIGOPEDIDO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWHERE P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is not null And P.codigoempresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date as timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to cast(current_date as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All SELECT\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\n0 AS CUSTOTOTALGRUPO,\n0 AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\ninner join PEDIDO_OS PO on PO.CODIGOPEDIDO = P.CODIGOPEDIDO\ninner join OS_PRODUTO PP on PP.CODIGOOS = PO.CODIGOOS\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWHERE P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date as timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to cast(current_date as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\n0 AS CUSTOTOTALGRUPO,\n0 AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\ninner join PEDIDO_ORCAMENTO PO on PO.CODIGOPEDIDO = P.CODIGOPEDIDO\ninner join ORCAMENTO_PRODUTO PP on PP.CODIGOORCAMENTO = PO.CODIGOORCAMENTO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date as timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to cast(current_date as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL) ,0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO) ,0) AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\nINNER JOIN PEDIDO_PRODUTO PP ON PP.CODIGOPEDIDO = P.CODIGOPEDIDO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date as timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to cast(current_date as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL * -1),0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL * -1),0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO * -1),0) AS MARGEMCONTRIBUICAOGRUPO\nfrom PEDIDO_DEVOLUCAO PD\ninner join PEDIDO P on P.CODIGOPEDIDO = PD.CODIGO_PEDIDO_DEVOLUCAO\ninner join PEDIDO_PRODUTO PP on PP.CODIGOPEDIDOPRODUTO = PD.CODIGO_PEDIDO_PRODUTO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_TIPO = 4 and P.CODIGO_PEDIDO_SITUACAO is null And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date as timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to cast(current_date as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\n) Group By CODIGOGRUPO, NOMEGRUPO, CODIGOGRUPOPAI, NIVELGRUPO Order By \"value\" Desc"
+                    }
+                ],
+                "numberMask": true,
+                "casasDecimais": -2
+            },
+            "id": 508398878,
+            "idchart": 16
+        },
+        {
+            "idtipo": 2,
+            "nome": "Barra horizontal",
+            "sincronizacaoHoras": 0,
+            "sincronizacaoMinutos": "5",
+            "helpMessage": 3,
+            "config": {
+                "template": "dash_bar_horizontal.html",
+                "type": "barhorizontal",
+                "tema": "dash-green",
+                "temaSelected": {
+                    "label": "Verde",
+                    "tema": "dash-green"
+                },
+                "titulo": "Ranking dos 5 vendedores que mais venderam",
+                "subtitulo": "",
+                "mask": "",
+                "label": "",
+                "showMaximo": false,
+                "numberMask": false,
+                "money": true,
+                "moneySymbol": "R$",
+                "casasDecimais": -2,
+                "datagroup": [
+                    {
+                        "label": "Este mês",
+                        "selected": true,
+                        "data": {},
+                        "helpMessage": 2,
+                        "sql": "Select First 5\nVendedor.Nome As \"label\",\nSum(P.ValorTotal) As \"value\"\nFROM PEDIDO P\nINNER JOIN Caixa CX ON CX.codigolancamento =  P.CodigoLancamento\nINNER JOIN Pessoa Cliente ON P.CodigoPessoa = Cliente.CodigoPessoa\nINNER JOIN Pessoa_Funcionario Funcionario ON Funcionario.CodigoPessoa = P.CodigoFuncionario\nINNER JOIN Pessoa Vendedor ON Vendedor.CodigoPessoa = Funcionario.CodigoPessoa\nWhere P.Codigo_Pedido_Situacao = 2 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(day from current_date) + 1 As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(day from current_date) + 32 - extract(day from current_date - extract(day from current_date) + 32) as timestamp)))) From RDB$DATABASE)\nGroup By Vendedor.CodigoPessoa, Vendedor.Nome Order By \"value\" Desc"
+                    },
+                    {
+                        "label": "Esta semana",
+                        "selected": false,
+                        "sql": "Select First 5\nVendedor.Nome As \"label\",\nSum(P.ValorTotal) As \"value\"\nFROM PEDIDO P\nINNER JOIN Caixa CX ON CX.codigolancamento =  P.CodigoLancamento\nINNER JOIN Pessoa Cliente ON P.CodigoPessoa = Cliente.CodigoPessoa\nINNER JOIN Pessoa_Funcionario Funcionario ON Funcionario.CodigoPessoa = P.CodigoFuncionario\nINNER JOIN Pessoa Vendedor ON Vendedor.CodigoPessoa = Funcionario.CodigoPessoa\nWhere P.Codigo_Pedido_Situacao = 2 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(weekday from current_date) As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(weekday from current_date) + 6 As timestamp)))) From RDB$DATABASE)\nGroup By Vendedor.CodigoPessoa, Vendedor.Nome Order By \"value\" Desc"
+                    },
+                    {
+                        "label": "Hoje",
+                        "selected": false,
+                        "sql": "Select First 5\nVendedor.Nome As \"label\",\nSum(P.ValorTotal) As \"value\"\nFROM PEDIDO P\nINNER JOIN Caixa CX ON CX.codigolancamento =  P.CodigoLancamento\nINNER JOIN Pessoa Cliente ON P.CodigoPessoa = Cliente.CodigoPessoa\nINNER JOIN Pessoa_Funcionario Funcionario ON Funcionario.CodigoPessoa = P.CodigoFuncionario\nINNER JOIN Pessoa Vendedor ON Vendedor.CodigoPessoa = Funcionario.CodigoPessoa\nWhere P.Codigo_Pedido_Situacao = 2 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date as timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to cast(current_date as timestamp)))) From RDB$DATABASE)\nGroup By Vendedor.CodigoPessoa, Vendedor.Nome Order By \"value\" Desc"
+                    }
+                ]
+            },
+            "id": 28645480,
+            "idchart": 17
+        },
+        {
+            "idtipo": 5,
+            "nome": "Barra vertical",
+            "sincronizacaoHoras": 0,
+            "sincronizacaoMinutos": "5",
+            "helpMessage": 7,
+            "config": {
+                "template": "dash_bar.html",
+                "type": "bar",
+                "tema": "dash-dark",
+                "temaSelected": {
+                    "label": "Preto",
+                    "tema": "dash-dark"
+                },
+                "titulo": "Relação de custo e venda",
+                "subtitulo": "Das 5 categorias mais vendidas",
+                "mask": "",
+                "label": "",
+                "showMaximo": false,
+                "showsublabel": false,
+                "showLegend": false,
+                "showxAxesLabel": true,
+                "showyAxesLabel": false,
+                "showxAxesLine": false,
+                "showyAxesLine": false,
+                "multiline": true,
+                "multitype": true,
+                "legendlist": true,
+                "fill": false,
+                "numberMask": true,
+                "casasDecimais": -2,
+                "money": true,
+                "moneySymbol": "R$",
+                "datagroup": [
+                    {
+                        "label": "Este mês",
+                        "selected": true,
+                        "data": {},
+                        "helpMessage": 7,
+                        "sql": "Select * From\n(Select * From (Select First 3 'Custo|color:rgb(228, 86, 86)|type:line' As \"label\", NOMEGRUPO As \"bar\",\nSUM(CUSTOTOTALGRUPO) As \"value\"\nFrom (Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL),0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL),0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO),0) AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\nINNER JOIN PEDIDO_PRODUTO PP ON PP.CODIGOPEDIDO = P.CODIGOPEDIDO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWHERE P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is not null And P.codigoempresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(day from current_date) + 1 As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(day from current_date) + 32 - extract(day from current_date - extract(day from current_date) + 32) as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All SELECT\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\n0 AS CUSTOTOTALGRUPO,\n0 AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\ninner join PEDIDO_OS PO on PO.CODIGOPEDIDO = P.CODIGOPEDIDO\ninner join OS_PRODUTO PP on PP.CODIGOOS = PO.CODIGOOS\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWHERE P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(day from current_date) + 1 As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(day from current_date) + 32 - extract(day from current_date - extract(day from current_date) + 32) as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\n0 AS CUSTOTOTALGRUPO,\n0 AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\ninner join PEDIDO_ORCAMENTO PO on PO.CODIGOPEDIDO = P.CODIGOPEDIDO\ninner join ORCAMENTO_PRODUTO PP on PP.CODIGOORCAMENTO = PO.CODIGOORCAMENTO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(day from current_date) + 1 As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(day from current_date) + 32 - extract(day from current_date - extract(day from current_date) + 32) as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL) ,0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO) ,0) AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\nINNER JOIN PEDIDO_PRODUTO PP ON PP.CODIGOPEDIDO = P.CODIGOPEDIDO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(day from current_date) + 1 As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(day from current_date) + 32 - extract(day from current_date - extract(day from current_date) + 32) as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL * -1),0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL * -1),0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO * -1),0) AS MARGEMCONTRIBUICAOGRUPO\nfrom PEDIDO_DEVOLUCAO PD\ninner join PEDIDO P on P.CODIGOPEDIDO = PD.CODIGO_PEDIDO_DEVOLUCAO\ninner join PEDIDO_PRODUTO PP on PP.CODIGOPEDIDOPRODUTO = PD.CODIGO_PEDIDO_PRODUTO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_TIPO = 4 and P.CODIGO_PEDIDO_SITUACAO is null And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(day from current_date) + 1 As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(day from current_date) + 32 - extract(day from current_date - extract(day from current_date) + 32) as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\n) Group By CODIGOGRUPO, NOMEGRUPO, CODIGOGRUPOPAI, NIVELGRUPO Order By \"value\" Desc)\nUnion All\nSelect * From (Select First 3 'Venda|color:rgba(0, 115, 201, 0.6)' As \"label\", NOMEGRUPO As \"bar\",\nSUM(VALORTOTALGRUPO) As \"value\"\nFrom (Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL),0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL),0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO),0) AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\nINNER JOIN PEDIDO_PRODUTO PP ON PP.CODIGOPEDIDO = P.CODIGOPEDIDO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWHERE P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is not null And P.codigoempresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(day from current_date) + 1 As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(day from current_date) + 32 - extract(day from current_date - extract(day from current_date) + 32) as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All SELECT\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\n0 AS CUSTOTOTALGRUPO,\n0 AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\ninner join PEDIDO_OS PO on PO.CODIGOPEDIDO = P.CODIGOPEDIDO\ninner join OS_PRODUTO PP on PP.CODIGOOS = PO.CODIGOOS\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWHERE P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(day from current_date) + 1 As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(day from current_date) + 32 - extract(day from current_date - extract(day from current_date) + 32) as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\n0 AS CUSTOTOTALGRUPO,\n0 AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\ninner join PEDIDO_ORCAMENTO PO on PO.CODIGOPEDIDO = P.CODIGOPEDIDO\ninner join ORCAMENTO_PRODUTO PP on PP.CODIGOORCAMENTO = PO.CODIGOORCAMENTO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(day from current_date) + 1 As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(day from current_date) + 32 - extract(day from current_date - extract(day from current_date) + 32) as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL) ,0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO) ,0) AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\nINNER JOIN PEDIDO_PRODUTO PP ON PP.CODIGOPEDIDO = P.CODIGOPEDIDO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(day from current_date) + 1 As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(day from current_date) + 32 - extract(day from current_date - extract(day from current_date) + 32) as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL * -1),0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL * -1),0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO * -1),0) AS MARGEMCONTRIBUICAOGRUPO\nfrom PEDIDO_DEVOLUCAO PD\ninner join PEDIDO P on P.CODIGOPEDIDO = PD.CODIGO_PEDIDO_DEVOLUCAO\ninner join PEDIDO_PRODUTO PP on PP.CODIGOPEDIDOPRODUTO = PD.CODIGO_PEDIDO_PRODUTO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_TIPO = 4 and P.CODIGO_PEDIDO_SITUACAO is null And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(day from current_date) + 1 As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(day from current_date) + 32 - extract(day from current_date - extract(day from current_date) + 32) as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\n) Group By CODIGOGRUPO, NOMEGRUPO, CODIGOGRUPOPAI, NIVELGRUPO Order By \"value\" Desc))"
+                    },
+                    {
+                        "label": "Esta semana",
+                        "selected": false,
+                        "sql": "Select * From\n(Select * From (Select First 3 'Custo|color:red|type:line' As \"label\", NOMEGRUPO As \"bar\",\nSUM(CUSTOTOTALGRUPO) As \"value\"\nFrom (Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL),0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL),0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO),0) AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\nINNER JOIN PEDIDO_PRODUTO PP ON PP.CODIGOPEDIDO = P.CODIGOPEDIDO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWHERE P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is not null And P.codigoempresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(weekday from current_date) As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(weekday from current_date) + 6 As timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All SELECT\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\n0 AS CUSTOTOTALGRUPO,\n0 AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\ninner join PEDIDO_OS PO on PO.CODIGOPEDIDO = P.CODIGOPEDIDO\ninner join OS_PRODUTO PP on PP.CODIGOOS = PO.CODIGOOS\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWHERE P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(weekday from current_date) As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(weekday from current_date) + 6 As timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\n0 AS CUSTOTOTALGRUPO,\n0 AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\ninner join PEDIDO_ORCAMENTO PO on PO.CODIGOPEDIDO = P.CODIGOPEDIDO\ninner join ORCAMENTO_PRODUTO PP on PP.CODIGOORCAMENTO = PO.CODIGOORCAMENTO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(weekday from current_date) As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(weekday from current_date) + 6 As timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL) ,0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO) ,0) AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\nINNER JOIN PEDIDO_PRODUTO PP ON PP.CODIGOPEDIDO = P.CODIGOPEDIDO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(weekday from current_date) As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(weekday from current_date) + 6 As timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL * -1),0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL * -1),0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO * -1),0) AS MARGEMCONTRIBUICAOGRUPO\nfrom PEDIDO_DEVOLUCAO PD\ninner join PEDIDO P on P.CODIGOPEDIDO = PD.CODIGO_PEDIDO_DEVOLUCAO\ninner join PEDIDO_PRODUTO PP on PP.CODIGOPEDIDOPRODUTO = PD.CODIGO_PEDIDO_PRODUTO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_TIPO = 4 and P.CODIGO_PEDIDO_SITUACAO is null And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(weekday from current_date) As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(weekday from current_date) + 6 As timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\n) Group By CODIGOGRUPO, NOMEGRUPO, CODIGOGRUPOPAI, NIVELGRUPO Order By \"value\" Desc)\nUnion All\nSelect * From (Select First 3 'Venda|color:blue' As \"label\", NOMEGRUPO As \"bar\",\nSUM(VALORTOTALGRUPO) As \"value\"\nFrom (Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL),0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL),0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO),0) AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\nINNER JOIN PEDIDO_PRODUTO PP ON PP.CODIGOPEDIDO = P.CODIGOPEDIDO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWHERE P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is not null And P.codigoempresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(weekday from current_date) As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(weekday from current_date) + 6 As timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All SELECT\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\n0 AS CUSTOTOTALGRUPO,\n0 AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\ninner join PEDIDO_OS PO on PO.CODIGOPEDIDO = P.CODIGOPEDIDO\ninner join OS_PRODUTO PP on PP.CODIGOOS = PO.CODIGOOS\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWHERE P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(weekday from current_date) As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(weekday from current_date) + 6 As timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\n0 AS CUSTOTOTALGRUPO,\n0 AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\ninner join PEDIDO_ORCAMENTO PO on PO.CODIGOPEDIDO = P.CODIGOPEDIDO\ninner join ORCAMENTO_PRODUTO PP on PP.CODIGOORCAMENTO = PO.CODIGOORCAMENTO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(weekday from current_date) As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(weekday from current_date) + 6 As timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL) ,0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO) ,0) AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\nINNER JOIN PEDIDO_PRODUTO PP ON PP.CODIGOPEDIDO = P.CODIGOPEDIDO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(weekday from current_date) As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(weekday from current_date) + 6 As timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL * -1),0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL * -1),0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO * -1),0) AS MARGEMCONTRIBUICAOGRUPO\nfrom PEDIDO_DEVOLUCAO PD\ninner join PEDIDO P on P.CODIGOPEDIDO = PD.CODIGO_PEDIDO_DEVOLUCAO\ninner join PEDIDO_PRODUTO PP on PP.CODIGOPEDIDOPRODUTO = PD.CODIGO_PEDIDO_PRODUTO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_TIPO = 4 and P.CODIGO_PEDIDO_SITUACAO is null And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date - extract(weekday from current_date) As timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(weekday from current_date) + 6 As timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\n) Group By CODIGOGRUPO, NOMEGRUPO, CODIGOGRUPOPAI, NIVELGRUPO Order By \"value\" Desc))"
+                    },
+                    {
+                        "label": "Hoje",
+                        "selected": false,
+                        "sql": "Select * From\n(Select * From (Select First 3 'Custo|color:red|type:line' As \"label\", NOMEGRUPO As \"bar\",\nSUM(CUSTOTOTALGRUPO) As \"value\"\nFrom (Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL),0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL),0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO),0) AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\nINNER JOIN PEDIDO_PRODUTO PP ON PP.CODIGOPEDIDO = P.CODIGOPEDIDO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWHERE P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is not null And P.codigoempresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date as timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to cast(current_date as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All SELECT\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\n0 AS CUSTOTOTALGRUPO,\n0 AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\ninner join PEDIDO_OS PO on PO.CODIGOPEDIDO = P.CODIGOPEDIDO\ninner join OS_PRODUTO PP on PP.CODIGOOS = PO.CODIGOOS\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWHERE P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date as timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to cast(current_date as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\n0 AS CUSTOTOTALGRUPO,\n0 AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\ninner join PEDIDO_ORCAMENTO PO on PO.CODIGOPEDIDO = P.CODIGOPEDIDO\ninner join ORCAMENTO_PRODUTO PP on PP.CODIGOORCAMENTO = PO.CODIGOORCAMENTO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date as timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to cast(current_date as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL) ,0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO) ,0) AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\nINNER JOIN PEDIDO_PRODUTO PP ON PP.CODIGOPEDIDO = P.CODIGOPEDIDO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date as timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to cast(current_date as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL * -1),0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL * -1),0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO * -1),0) AS MARGEMCONTRIBUICAOGRUPO\nfrom PEDIDO_DEVOLUCAO PD\ninner join PEDIDO P on P.CODIGOPEDIDO = PD.CODIGO_PEDIDO_DEVOLUCAO\ninner join PEDIDO_PRODUTO PP on PP.CODIGOPEDIDOPRODUTO = PD.CODIGO_PEDIDO_PRODUTO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_TIPO = 4 and P.CODIGO_PEDIDO_SITUACAO is null And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date as timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to cast(current_date as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\n) Group By CODIGOGRUPO, NOMEGRUPO, CODIGOGRUPOPAI, NIVELGRUPO Order By \"value\" Desc)\nUnion All\nSelect * From (Select First 3 'Venda|color:blue' As \"label\", NOMEGRUPO As \"bar\",\nSUM(VALORTOTALGRUPO) As \"value\"\nFrom (Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL),0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL),0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO),0) AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\nINNER JOIN PEDIDO_PRODUTO PP ON PP.CODIGOPEDIDO = P.CODIGOPEDIDO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWHERE P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is not null And P.codigoempresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date as timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to cast(current_date as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All SELECT\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\n0 AS CUSTOTOTALGRUPO,\n0 AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\ninner join PEDIDO_OS PO on PO.CODIGOPEDIDO = P.CODIGOPEDIDO\ninner join OS_PRODUTO PP on PP.CODIGOOS = PO.CODIGOOS\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWHERE P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date as timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to cast(current_date as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\n0 AS CUSTOTOTALGRUPO,\n0 AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\ninner join PEDIDO_ORCAMENTO PO on PO.CODIGOPEDIDO = P.CODIGOPEDIDO\ninner join ORCAMENTO_PRODUTO PP on PP.CODIGOORCAMENTO = PO.CODIGOORCAMENTO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date as timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to cast(current_date as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL) ,0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL) ,0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO) ,0) AS MARGEMCONTRIBUICAOGRUPO\nFROM PEDIDO P\nINNER JOIN PEDIDO_PRODUTO PP ON PP.CODIGOPEDIDO = P.CODIGOPEDIDO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_SITUACAO = 2 and p.CODIGO_OPERACAO is null and PP.VALORTOTAL > 0 And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date as timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to cast(current_date as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\nUnion All Select\nPG.CODIGOGRUPO AS CODIGOGRUPO,\nPG.NOMEGRUPO AS NOMEGRUPO,\nPG.CODIGO_GRUPO_PAI AS CODIGOGRUPOPAI,\nPG.CODIGO_CLASSIFICACAO_CATEGORIA AS NIVELGRUPO,\nCOALESCE(SUM(PP.VALORTOTAL * -1),0) AS VALORTOTALGRUPO,\nCOALESCE(SUM(PP.CUSTO_TOTAL * -1),0) AS CUSTOTOTALGRUPO,\nCOALESCE(SUM(PP.MARGEM_CONTRIBUICAO * -1),0) AS MARGEMCONTRIBUICAOGRUPO\nfrom PEDIDO_DEVOLUCAO PD\ninner join PEDIDO P on P.CODIGOPEDIDO = PD.CODIGO_PEDIDO_DEVOLUCAO\ninner join PEDIDO_PRODUTO PP on PP.CODIGOPEDIDOPRODUTO = PD.CODIGO_PEDIDO_PRODUTO\nINNER JOIN CAIXA CX ON CX.CODIGOLANCAMENTO =  P.CODIGOLANCAMENTO\nINNER JOIN PESSOA CLIENTE ON P.CODIGOPESSOA = CLIENTE.CODIGOPESSOA\nINNER JOIN PRODUTO PRO ON PRO.CODIGOPRODUTO = PP.CODIGOPRODUTO\nINNER JOIN PRODUTO_BASE PB ON PRO.CODIGOBASEPRODUTO = PB.CODIGOBASEPRODUTO\nINNER JOIN PRODUTO_GRUPO PG ON PG.CODIGOGRUPO = PB.CODIGOGRUPO\nWhere P.CODIGO_PEDIDO_TIPO = 4 and P.CODIGO_PEDIDO_SITUACAO is null And P.CodigoEmpresa = 1\nAnd CX.DataHoraLancamento >= (Select cast(current_date as timestamp) From RDB$DATABASE)\nAnd CX.DataHoraLancamento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to cast(current_date as timestamp)))) From RDB$DATABASE)\nGROUP BY PG.CODIGOGRUPO, PG.NOMEGRUPO, PG.CODIGO_GRUPO_PAI, PG.CODIGO_CLASSIFICACAO_CATEGORIA\n) Group By CODIGOGRUPO, NOMEGRUPO, CODIGOGRUPOPAI, NIVELGRUPO Order By \"value\" Desc))"
+                    }
+                ]
+            },
+            "id": 449321158,
+            "idchart": 18
+        }
+    ]
+}

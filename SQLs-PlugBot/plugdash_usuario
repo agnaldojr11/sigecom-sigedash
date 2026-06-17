@@ -1,0 +1,118 @@
+{
+    "handle": "usuario",
+    "label": "Usuário",
+    "template": "plugdash_template_dados.html",
+    "selectPreProcesso": {
+        "id": 0,
+        "nome": "Nada fazer"
+    },
+    "selectPosProcesso": {
+        "id": 0,
+        "nome": "Nada fazer"
+    },
+    "sincronizacaoHoras": 0,
+    "sincronizacaoMinutos": "5",
+    "campos": [
+        {
+            "nome": "ID",
+            "origem": {
+                "key": "CODIGOUSUARIO"
+            },
+            "required": true,
+            "help": "Campo inteiro que identifica o usuário."
+        },
+        {
+            "nome": "NOME",
+            "origem": {
+                "key": "LOGIN"
+            },
+            "required": true,
+            "help": "Campo string com o nome do usuário, esta informação será listada na tela de login do app."
+        },
+        {
+            "nome": "SENHA",
+            "origem": {
+                "key": "SENHA_APP"
+            },
+            "required": true,
+            "help": "Campo string contendo a senha do usuário, esta senha pode ser em MD5, SHA-1 ou não ter criptografia.",
+            "subCampos": [
+                {
+                    "nome": "CRIPTOGRAFIA",
+                    "valor": "SHA-1",
+                    "opcoes": [
+                        {
+                            "value": "Selecione uma criptografia",
+                            "label": "Selecione uma criptografia"
+                        },
+                        {
+                            "value": "MD5",
+                            "label": "MD5"
+                        },
+                        {
+                            "value": "SHA-1",
+                            "label": "SHA-1"
+                        },
+                        {
+                            "value": "Nenhuma",
+                            "label": "Nenhuma"
+                        }
+                    ],
+                    "tipo": "select"
+                }
+            ]
+        },
+        {
+            "nome": "DEPARTAMENTO",
+            "origem": {
+                "key": "GRUPO"
+            },
+            "required": true,
+            "help": "Campo string que poderá ser utilizado para restringir a visualização de um determinado gráfico caso seja informado o campo \"Depart. permitido\"."
+        },
+        {
+            "nome": "EMAIL",
+            "origem": {
+                "key": "EMAIL"
+            },
+            "required": false,
+            "help": "O campo EMAIL é necessário caso o cliente esteja configurado para usar login por e-mail.",
+            "subCampos": [
+                {
+                    "nome": "USUARIO_LOGIN",
+                    "descricao": "Utilizar para login",
+                    "action": "useUserToLogin",
+                    "valor": false,
+                    "tipo": "checkbox"
+                }
+            ]
+        }
+    ],
+    "tabela": {
+        "NAME": "USUARIO",
+        "name": "USUARIO"
+    },
+    "useSqlOrigem": true,
+    "previewDados": [],
+    "carregandoDados": false,
+    "message": "",
+    "colunas": [
+        {
+            "key": "CODIGOUSUARIO"
+        },
+        {
+            "key": "LOGIN"
+        },
+        {
+            "key": "SENHA_APP"
+        },
+        {
+            "key": "GRUPO"
+        },
+        {
+            "key": "EMAIL"
+        }
+    ],
+    "sqlOrigem": "Select CodigoUsuario, Login, Senha_App, UG.Nome As Grupo, PC.Contato As Email From Usuario U\nLeft Join Usuario_Grupo As UG On U.CodigoUsuarioGrupo = UG.CodigoUsuarioGrupo\nLeft Join Pessoa As P On U.CodigoFuncionario = P.CodigoPessoa\nLeft Join Pessoa_Contato As PC On P.CodigoPessoa = PC.CodigoPessoa And PC.CodigoTipo = 4\nWhere U.CodigoEmpresa = 1 And U.desativado='N'",
+    "configurado": true
+}

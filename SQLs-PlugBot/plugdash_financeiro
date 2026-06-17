@@ -1,0 +1,261 @@
+{
+    "handle": "financeiro",
+    "label": "Financeiro",
+    "isDash": true,
+    "template": "plugdash_template_dash.html",
+    "sincronizacaoHoras": 0,
+    "sincronizacaoMinutos": 10,
+    "ordem": 2,
+    "configurado": true,
+    "previewDados": [],
+    "nextidchart": 7,
+    "charts": [
+        {
+            "idtipo": 9,
+            "nome": "Informativo",
+            "sincronizacaoHoras": 0,
+            "sincronizacaoMinutos": "5",
+            "helpMessage": 9,
+            "config": {
+                "template": "dash_info.html",
+                "type": "info",
+                "tema": "dash-blue",
+                "temaSelected": {
+                    "label": "Azul",
+                    "tema": "dash-blue"
+                },
+                "titulo": "Contas a receber este mês",
+                "subtitulo": "",
+                "mask": "",
+                "label": "",
+                "showsublabel": false,
+                "showLegend": false,
+                "showxAxesLabel": false,
+                "showyAxesLabel": false,
+                "showxAxesLine": false,
+                "showyAxesLine": false,
+                "legendlist": true,
+                "fill": false,
+                "money": true,
+                "moneySymbol": "R$",
+                "datagroup": [
+                    {
+                        "label": "Este mês",
+                        "selected": true,
+                        "data": {},
+                        "helpMessage": 9,
+                        "sql": "SELECT DISTINCT Sum(cP.Total) As \"value\", 'ion-cash' As \"icon\"\nFROM Conta_Parcela cP                             \nINNER JOIN Conta AS c ON c.CodigoConta = cP.CodigoConta\nINNER JOIN Pessoa AS p ON P.CodigoPessoa = c.CodigoPessoa\nInner Join Pessoa_Tipo As PT On P.CodigoTipo = PT.CodigoTipo\nInner Join Caixa As CX On c.CodigoLancamento = CX.CodigoLancamento\nINNER JOIN Usuario AS u ON u.CodigoUsuario = CX.CodigoUsuario\nINNER JOIN Empresa AS e ON u.CodigoEmpresa = e.CodigoEmpresa\nINNER JOIN Caixa_Conta_Plano AS cxCP ON cxCP.CodigoPlanoConta = c.CodigoPlanoConta                             \nInner Join Caixa_Abertura As CA On CX.CodigoAbertura = CA.CodigoAbertura\nLEFT JOIN (SELECT List(DISTINCT Nfe.NumeroNota, ', ') as NumeroNota, ped.CodigoLancamento\n           FROM Pedido AS ped\n           INNER JOIN Pedido_Nfe AS pedNfe ON ped.CodigoPedido = pedNfe.CodigoPedido\n           INNER JOIN Nfe ON pedNfe.CodigoNfe = Nfe.CodigoNfe\n           GROUP BY ped.codigoLancamento) AS NumNfe ON CX.CodigoLancamento = NumNfe.CodigoLancamento\nLEFT JOIN (SELECT List(DISTINCT Sat.NumeroCupom, ', ') as NumeroCupom, ped.CodigoLancamento\n           FROM Pedido AS ped\n           INNER JOIN Sat_Pedido AS pedSat ON ped.CodigoPedido = pedSat.CodigoPedido\n           INNER JOIN Sat ON pedSat.CodigoSat = Sat.CodigoSat\n           GROUP BY ped.codigoLancamento) AS NumSat ON CX.CodigoLancamento = NumSat.CodigoLancamento\nLEFT JOIN (SELECT List(DISTINCT nfce.numero_nota, ', ') as NumeroCupomNFCE, ped.CodigoLancamento\n           FROM Pedido AS ped\n           INNER JOIN nfce_pedido AS p_nfce ON ped.CodigoPedido = p_nfce.codigo_pedido\n           INNER JOIN nfce ON p_nfce.codigo_nfce = nfce.codigo_nfce\n           GROUP BY ped.codigoLancamento) AS NumNfce ON CX.CodigoLancamento = NumNfce.CodigoLancamento\nLeft join(Select cbsub.Codigo_Parcela, cbsub.Codigo_Boleto, cbsub.Titulo_Nosso_Numero, cbsub.Situacao\n          From CONTA_BOLETO cbsub)\n          As cb On cb.Codigo_Parcela = cp.CodigoParcela\nWhere cP.Total > 0\nAnd Upper(cP.Situacao) = 'PENDENTE' AND cP.CODIGO_CONTA_CHEQUE IS NULL\nAND cP.DataVencimento >= (Select cast(current_date - extract(day from current_date) + 1 As timestamp) From RDB$DATABASE)\nAND cP.DataVencimento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(day from current_date) + 32 - extract(day from current_date - extract(day from current_date) + 32) as timestamp)))) From RDB$DATABASE)\nAND e.CodigoEmpresa = 1 And PT.CodigoTipo = 1"
+                    }
+                ]
+            },
+            "departamento": "",
+            "id": 662974015,
+            "idchart": 1
+        },
+        {
+            "idtipo": 9,
+            "nome": "Informativo",
+            "sincronizacaoHoras": 0,
+            "sincronizacaoMinutos": "5",
+            "helpMessage": 9,
+            "config": {
+                "template": "dash_info.html",
+                "type": "info",
+                "tema": "dash-blue",
+                "temaSelected": {
+                    "label": "Azul",
+                    "tema": "dash-blue"
+                },
+                "titulo": "Contas a receber esta semana",
+                "subtitulo": "",
+                "mask": "",
+                "label": "",
+                "showsublabel": false,
+                "showLegend": false,
+                "showxAxesLabel": false,
+                "showyAxesLabel": false,
+                "showxAxesLine": false,
+                "showyAxesLine": false,
+                "legendlist": true,
+                "fill": false,
+                "money": true,
+                "moneySymbol": "R$",
+                "datagroup": [
+                    {
+                        "label": "Esta semana",
+                        "selected": true,
+                        "data": {},
+                        "helpMessage": 9,
+                        "sql": "SELECT DISTINCT Sum(cP.Total) As \"value\", 'ion-cash' As \"icon\"\nFROM Conta_Parcela cP                             \nINNER JOIN Conta AS c ON c.CodigoConta = cP.CodigoConta\nINNER JOIN Pessoa AS p ON P.CodigoPessoa = c.CodigoPessoa\nInner Join Pessoa_Tipo As PT On P.CodigoTipo = PT.CodigoTipo\nInner Join Caixa As CX On c.CodigoLancamento = CX.CodigoLancamento\nINNER JOIN Usuario AS u ON u.CodigoUsuario = CX.CodigoUsuario\nINNER JOIN Empresa AS e ON u.CodigoEmpresa = e.CodigoEmpresa\nINNER JOIN Caixa_Conta_Plano AS cxCP ON cxCP.CodigoPlanoConta = c.CodigoPlanoConta                             \nInner Join Caixa_Abertura As CA On CX.CodigoAbertura = CA.CodigoAbertura\nLEFT JOIN (SELECT List(DISTINCT Nfe.NumeroNota, ', ') as NumeroNota, ped.CodigoLancamento\n           FROM Pedido AS ped\n           INNER JOIN Pedido_Nfe AS pedNfe ON ped.CodigoPedido = pedNfe.CodigoPedido\n           INNER JOIN Nfe ON pedNfe.CodigoNfe = Nfe.CodigoNfe\n           GROUP BY ped.codigoLancamento) AS NumNfe ON CX.CodigoLancamento = NumNfe.CodigoLancamento\nLEFT JOIN (SELECT List(DISTINCT Sat.NumeroCupom, ', ') as NumeroCupom, ped.CodigoLancamento\n           FROM Pedido AS ped\n           INNER JOIN Sat_Pedido AS pedSat ON ped.CodigoPedido = pedSat.CodigoPedido\n           INNER JOIN Sat ON pedSat.CodigoSat = Sat.CodigoSat\n           GROUP BY ped.codigoLancamento) AS NumSat ON CX.CodigoLancamento = NumSat.CodigoLancamento\nLEFT JOIN (SELECT List(DISTINCT nfce.numero_nota, ', ') as NumeroCupomNFCE, ped.CodigoLancamento\n           FROM Pedido AS ped\n           INNER JOIN nfce_pedido AS p_nfce ON ped.CodigoPedido = p_nfce.codigo_pedido\n           INNER JOIN nfce ON p_nfce.codigo_nfce = nfce.codigo_nfce\n           GROUP BY ped.codigoLancamento) AS NumNfce ON CX.CodigoLancamento = NumNfce.CodigoLancamento\nLeft join(Select cbsub.Codigo_Parcela, cbsub.Codigo_Boleto, cbsub.Titulo_Nosso_Numero, cbsub.Situacao\n          From CONTA_BOLETO cbsub)\n          As cb On cb.Codigo_Parcela = cp.CodigoParcela\nWhere cP.Total > 0\nAnd Upper(cP.Situacao) = 'PENDENTE' AND cP.CODIGO_CONTA_CHEQUE IS NULL\nAND cP.DataVencimento >= (Select cast(current_date - extract(weekday from current_date) As timestamp) From RDB$DATABASE)\nAND cP.DataVencimento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(weekday from current_date) + 6 As timestamp)))) From RDB$DATABASE)\nAND e.CodigoEmpresa = 1 And PT.CodigoTipo = 1"
+                    }
+                ]
+            },
+            "id": 30968309,
+            "idchart": 2
+        },
+        {
+            "idtipo": 9,
+            "nome": "Informativo",
+            "sincronizacaoHoras": 0,
+            "sincronizacaoMinutos": "5",
+            "helpMessage": 9,
+            "config": {
+                "template": "dash_info.html",
+                "type": "info",
+                "tema": "dash-blue",
+                "temaSelected": {
+                    "label": "Azul",
+                    "tema": "dash-blue"
+                },
+                "titulo": "Contas a receber hoje",
+                "subtitulo": "",
+                "mask": "",
+                "label": "",
+                "showsublabel": false,
+                "showLegend": false,
+                "showxAxesLabel": false,
+                "showyAxesLabel": false,
+                "showxAxesLine": false,
+                "showyAxesLine": false,
+                "legendlist": true,
+                "fill": false,
+                "money": true,
+                "moneySymbol": "R$",
+                "datagroup": [
+                    {
+                        "label": "Hoje",
+                        "selected": true,
+                        "data": {},
+                        "helpMessage": 9,
+                        "sql": "SELECT DISTINCT Sum(cP.Total) As \"value\", 'ion-cash' As \"icon\"\nFROM Conta_Parcela cP                             \nINNER JOIN Conta AS c ON c.CodigoConta = cP.CodigoConta\nINNER JOIN Pessoa AS p ON P.CodigoPessoa = c.CodigoPessoa\nInner Join Pessoa_Tipo As PT On P.CodigoTipo = PT.CodigoTipo\nInner Join Caixa As CX On c.CodigoLancamento = CX.CodigoLancamento\nINNER JOIN Usuario AS u ON u.CodigoUsuario = CX.CodigoUsuario\nINNER JOIN Empresa AS e ON u.CodigoEmpresa = e.CodigoEmpresa\nINNER JOIN Caixa_Conta_Plano AS cxCP ON cxCP.CodigoPlanoConta = c.CodigoPlanoConta                             \nInner Join Caixa_Abertura As CA On CX.CodigoAbertura = CA.CodigoAbertura\nLEFT JOIN (SELECT List(DISTINCT Nfe.NumeroNota, ', ') as NumeroNota, ped.CodigoLancamento\n           FROM Pedido AS ped\n           INNER JOIN Pedido_Nfe AS pedNfe ON ped.CodigoPedido = pedNfe.CodigoPedido\n           INNER JOIN Nfe ON pedNfe.CodigoNfe = Nfe.CodigoNfe\n           GROUP BY ped.codigoLancamento) AS NumNfe ON CX.CodigoLancamento = NumNfe.CodigoLancamento\nLEFT JOIN (SELECT List(DISTINCT Sat.NumeroCupom, ', ') as NumeroCupom, ped.CodigoLancamento\n           FROM Pedido AS ped\n           INNER JOIN Sat_Pedido AS pedSat ON ped.CodigoPedido = pedSat.CodigoPedido\n           INNER JOIN Sat ON pedSat.CodigoSat = Sat.CodigoSat\n           GROUP BY ped.codigoLancamento) AS NumSat ON CX.CodigoLancamento = NumSat.CodigoLancamento\nLEFT JOIN (SELECT List(DISTINCT nfce.numero_nota, ', ') as NumeroCupomNFCE, ped.CodigoLancamento\n           FROM Pedido AS ped\n           INNER JOIN nfce_pedido AS p_nfce ON ped.CodigoPedido = p_nfce.codigo_pedido\n           INNER JOIN nfce ON p_nfce.codigo_nfce = nfce.codigo_nfce\n           GROUP BY ped.codigoLancamento) AS NumNfce ON CX.CodigoLancamento = NumNfce.CodigoLancamento\nLeft join(Select cbsub.Codigo_Parcela, cbsub.Codigo_Boleto, cbsub.Titulo_Nosso_Numero, cbsub.Situacao\n          From CONTA_BOLETO cbsub)\n          As cb On cb.Codigo_Parcela = cp.CodigoParcela\nWhere cP.Total > 0\nAnd Upper(cP.Situacao) = 'PENDENTE' AND cP.CODIGO_CONTA_CHEQUE IS NULL\nAND cP.DataVencimento >= (Select cast(current_date as timestamp) From RDB$DATABASE)\nAND cP.DataVencimento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to cast(current_date as timestamp)))) From RDB$DATABASE)\nAND e.CodigoEmpresa = 1 And PT.CodigoTipo = 1"
+                    }
+                ]
+            },
+            "id": 431073,
+            "idchart": 3
+        },
+        {
+            "idtipo": 9,
+            "nome": "Informativo",
+            "sincronizacaoHoras": 0,
+            "sincronizacaoMinutos": "5",
+            "helpMessage": 9,
+            "config": {
+                "template": "dash_info.html",
+                "type": "info",
+                "tema": "dash-red",
+                "temaSelected": {
+                    "label": "Vermelho",
+                    "tema": "dash-red"
+                },
+                "titulo": "Contas a pagar este mês",
+                "subtitulo": "",
+                "mask": "",
+                "label": "",
+                "showsublabel": false,
+                "showLegend": false,
+                "showxAxesLabel": false,
+                "showyAxesLabel": false,
+                "showxAxesLine": false,
+                "showyAxesLine": false,
+                "legendlist": true,
+                "fill": false,
+                "money": true,
+                "moneySymbol": "R$",
+                "datagroup": [
+                    {
+                        "label": "Este mês",
+                        "selected": true,
+                        "data": {},
+                        "helpMessage": 9,
+                        "sql": "SELECT DISTINCT Sum(cP.Total) As \"value\", 'ion-cash' As \"icon\"\nFROM Conta_Parcela cP                             \nINNER JOIN Conta AS c ON c.CodigoConta = cP.CodigoConta\nINNER JOIN Pessoa AS p ON P.CodigoPessoa = c.CodigoPessoa\nInner Join Pessoa_Tipo As PT On P.CodigoTipo = PT.CodigoTipo\nInner Join Caixa As CX On c.CodigoLancamento = CX.CodigoLancamento\nINNER JOIN Usuario AS u ON u.CodigoUsuario = CX.CodigoUsuario\nINNER JOIN Empresa AS e ON u.CodigoEmpresa = e.CodigoEmpresa\nINNER JOIN Caixa_Conta_Plano AS cxCP ON cxCP.CodigoPlanoConta = c.CodigoPlanoConta                             \nInner Join Caixa_Abertura As CA On CX.CodigoAbertura = CA.CodigoAbertura\nLEFT JOIN (SELECT List(DISTINCT Nfe.NumeroNota, ', ') as NumeroNota, ped.CodigoLancamento\n           FROM Pedido AS ped\n           INNER JOIN Pedido_Nfe AS pedNfe ON ped.CodigoPedido = pedNfe.CodigoPedido\n           INNER JOIN Nfe ON pedNfe.CodigoNfe = Nfe.CodigoNfe\n           GROUP BY ped.codigoLancamento) AS NumNfe ON CX.CodigoLancamento = NumNfe.CodigoLancamento\nLEFT JOIN (SELECT List(DISTINCT Sat.NumeroCupom, ', ') as NumeroCupom, ped.CodigoLancamento\n           FROM Pedido AS ped\n           INNER JOIN Sat_Pedido AS pedSat ON ped.CodigoPedido = pedSat.CodigoPedido\n           INNER JOIN Sat ON pedSat.CodigoSat = Sat.CodigoSat\n           GROUP BY ped.codigoLancamento) AS NumSat ON CX.CodigoLancamento = NumSat.CodigoLancamento\nLEFT JOIN (SELECT List(DISTINCT nfce.numero_nota, ', ') as NumeroCupomNFCE, ped.CodigoLancamento\n           FROM Pedido AS ped\n           INNER JOIN nfce_pedido AS p_nfce ON ped.CodigoPedido = p_nfce.codigo_pedido\n           INNER JOIN nfce ON p_nfce.codigo_nfce = nfce.codigo_nfce\n           GROUP BY ped.codigoLancamento) AS NumNfce ON CX.CodigoLancamento = NumNfce.CodigoLancamento\nLeft join(Select cbsub.Codigo_Parcela, cbsub.Codigo_Boleto, cbsub.Titulo_Nosso_Numero, cbsub.Situacao\n          From CONTA_BOLETO cbsub)\n          As cb On cb.Codigo_Parcela = cp.CodigoParcela\nWhere cP.Total > 0\nAnd Upper(cP.Situacao) = 'PENDENTE' AND cP.CODIGO_CONTA_CHEQUE IS NULL\nAND cP.DataVencimento >= (Select cast(current_date - extract(day from current_date) + 1 As timestamp) From RDB$DATABASE)\nAND cP.DataVencimento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(day from current_date) + 32 - extract(day from current_date - extract(day from current_date) + 32) as timestamp)))) From RDB$DATABASE)\nAND e.CodigoEmpresa = 1 And (PT.CodigoTipo = 3 Or PT.CodigoTipo = 4)"
+                    }
+                ]
+            },
+            "id": 825226592,
+            "idchart": 4
+        },
+        {
+            "idtipo": 9,
+            "nome": "Informativo",
+            "sincronizacaoHoras": 0,
+            "sincronizacaoMinutos": "5",
+            "helpMessage": 9,
+            "config": {
+                "template": "dash_info.html",
+                "type": "info",
+                "tema": "dash-red",
+                "temaSelected": {
+                    "label": "Vermelho",
+                    "tema": "dash-red"
+                },
+                "titulo": "Contas a pagar esta semana",
+                "subtitulo": "",
+                "mask": "",
+                "label": "",
+                "showsublabel": false,
+                "showLegend": false,
+                "showxAxesLabel": false,
+                "showyAxesLabel": false,
+                "showxAxesLine": false,
+                "showyAxesLine": false,
+                "legendlist": true,
+                "fill": false,
+                "money": true,
+                "moneySymbol": "R$",
+                "datagroup": [
+                    {
+                        "label": "Esta semana",
+                        "selected": true,
+                        "data": {},
+                        "helpMessage": 9,
+                        "sql": "SELECT DISTINCT Sum(cP.Total) As \"value\", 'ion-cash' As \"icon\"\nFROM Conta_Parcela cP                             \nINNER JOIN Conta AS c ON c.CodigoConta = cP.CodigoConta\nINNER JOIN Pessoa AS p ON P.CodigoPessoa = c.CodigoPessoa\nInner Join Pessoa_Tipo As PT On P.CodigoTipo = PT.CodigoTipo\nInner Join Caixa As CX On c.CodigoLancamento = CX.CodigoLancamento\nINNER JOIN Usuario AS u ON u.CodigoUsuario = CX.CodigoUsuario\nINNER JOIN Empresa AS e ON u.CodigoEmpresa = e.CodigoEmpresa\nINNER JOIN Caixa_Conta_Plano AS cxCP ON cxCP.CodigoPlanoConta = c.CodigoPlanoConta                             \nInner Join Caixa_Abertura As CA On CX.CodigoAbertura = CA.CodigoAbertura\nLEFT JOIN (SELECT List(DISTINCT Nfe.NumeroNota, ', ') as NumeroNota, ped.CodigoLancamento\n           FROM Pedido AS ped\n           INNER JOIN Pedido_Nfe AS pedNfe ON ped.CodigoPedido = pedNfe.CodigoPedido\n           INNER JOIN Nfe ON pedNfe.CodigoNfe = Nfe.CodigoNfe\n           GROUP BY ped.codigoLancamento) AS NumNfe ON CX.CodigoLancamento = NumNfe.CodigoLancamento\nLEFT JOIN (SELECT List(DISTINCT Sat.NumeroCupom, ', ') as NumeroCupom, ped.CodigoLancamento\n           FROM Pedido AS ped\n           INNER JOIN Sat_Pedido AS pedSat ON ped.CodigoPedido = pedSat.CodigoPedido\n           INNER JOIN Sat ON pedSat.CodigoSat = Sat.CodigoSat\n           GROUP BY ped.codigoLancamento) AS NumSat ON CX.CodigoLancamento = NumSat.CodigoLancamento\nLEFT JOIN (SELECT List(DISTINCT nfce.numero_nota, ', ') as NumeroCupomNFCE, ped.CodigoLancamento\n           FROM Pedido AS ped\n           INNER JOIN nfce_pedido AS p_nfce ON ped.CodigoPedido = p_nfce.codigo_pedido\n           INNER JOIN nfce ON p_nfce.codigo_nfce = nfce.codigo_nfce\n           GROUP BY ped.codigoLancamento) AS NumNfce ON CX.CodigoLancamento = NumNfce.CodigoLancamento\nLeft join(Select cbsub.Codigo_Parcela, cbsub.Codigo_Boleto, cbsub.Titulo_Nosso_Numero, cbsub.Situacao\n          From CONTA_BOLETO cbsub)\n          As cb On cb.Codigo_Parcela = cp.CodigoParcela\nWhere cP.Total > 0\nAnd Upper(cP.Situacao) = 'PENDENTE' AND cP.CODIGO_CONTA_CHEQUE IS NULL\nAND cP.DataVencimento >= (Select cast(current_date - extract(weekday from current_date) As timestamp) From RDB$DATABASE)\nAND cP.DataVencimento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to Cast(current_date - extract(weekday from current_date) + 6 As timestamp)))) From RDB$DATABASE)\nAND e.CodigoEmpresa = 1 And (PT.CodigoTipo = 3 Or PT.CodigoTipo = 4)"
+                    }
+                ]
+            },
+            "id": 831050976,
+            "idchart": 5
+        },
+        {
+            "idtipo": 9,
+            "nome": "Informativo",
+            "sincronizacaoHoras": 0,
+            "sincronizacaoMinutos": "5",
+            "helpMessage": 9,
+            "config": {
+                "template": "dash_info.html",
+                "type": "info",
+                "tema": "dash-red",
+                "temaSelected": {
+                    "label": "Vermelho",
+                    "tema": "dash-red"
+                },
+                "titulo": "Contas a pagar hoje",
+                "subtitulo": "",
+                "mask": "",
+                "label": "",
+                "showsublabel": false,
+                "showLegend": false,
+                "showxAxesLabel": false,
+                "showyAxesLabel": false,
+                "showxAxesLine": false,
+                "showyAxesLine": false,
+                "legendlist": true,
+                "fill": false,
+                "money": true,
+                "moneySymbol": "R$",
+                "datagroup": [
+                    {
+                        "label": "Hoje",
+                        "selected": true,
+                        "data": {},
+                        "helpMessage": 9,
+                        "sql": "SELECT DISTINCT Sum(cP.Total) As \"value\", 'ion-cash' As \"icon\"\nFROM Conta_Parcela cP                             \nINNER JOIN Conta AS c ON c.CodigoConta = cP.CodigoConta\nINNER JOIN Pessoa AS p ON P.CodigoPessoa = c.CodigoPessoa\nInner Join Pessoa_Tipo As PT On P.CodigoTipo = PT.CodigoTipo\nInner Join Caixa As CX On c.CodigoLancamento = CX.CodigoLancamento\nINNER JOIN Usuario AS u ON u.CodigoUsuario = CX.CodigoUsuario\nINNER JOIN Empresa AS e ON u.CodigoEmpresa = e.CodigoEmpresa\nINNER JOIN Caixa_Conta_Plano AS cxCP ON cxCP.CodigoPlanoConta = c.CodigoPlanoConta                             \nInner Join Caixa_Abertura As CA On CX.CodigoAbertura = CA.CodigoAbertura\nLEFT JOIN (SELECT List(DISTINCT Nfe.NumeroNota, ', ') as NumeroNota, ped.CodigoLancamento\n           FROM Pedido AS ped\n           INNER JOIN Pedido_Nfe AS pedNfe ON ped.CodigoPedido = pedNfe.CodigoPedido\n           INNER JOIN Nfe ON pedNfe.CodigoNfe = Nfe.CodigoNfe\n           GROUP BY ped.codigoLancamento) AS NumNfe ON CX.CodigoLancamento = NumNfe.CodigoLancamento\nLEFT JOIN (SELECT List(DISTINCT Sat.NumeroCupom, ', ') as NumeroCupom, ped.CodigoLancamento\n           FROM Pedido AS ped\n           INNER JOIN Sat_Pedido AS pedSat ON ped.CodigoPedido = pedSat.CodigoPedido\n           INNER JOIN Sat ON pedSat.CodigoSat = Sat.CodigoSat\n           GROUP BY ped.codigoLancamento) AS NumSat ON CX.CodigoLancamento = NumSat.CodigoLancamento\nLEFT JOIN (SELECT List(DISTINCT nfce.numero_nota, ', ') as NumeroCupomNFCE, ped.CodigoLancamento\n           FROM Pedido AS ped\n           INNER JOIN nfce_pedido AS p_nfce ON ped.CodigoPedido = p_nfce.codigo_pedido\n           INNER JOIN nfce ON p_nfce.codigo_nfce = nfce.codigo_nfce\n           GROUP BY ped.codigoLancamento) AS NumNfce ON CX.CodigoLancamento = NumNfce.CodigoLancamento\nLeft join(Select cbsub.Codigo_Parcela, cbsub.Codigo_Boleto, cbsub.Titulo_Nosso_Numero, cbsub.Situacao\n          From CONTA_BOLETO cbsub)\n          As cb On cb.Codigo_Parcela = cp.CodigoParcela\nWhere cP.Total > 0\nAnd Upper(cP.Situacao) = 'PENDENTE' AND cP.CODIGO_CONTA_CHEQUE IS NULL\nAND cP.DataVencimento >= (Select cast(current_date as timestamp) From RDB$DATABASE)\nAND cP.DataVencimento <= (Select dateadd(59 second to dateadd(59 minute to dateadd(23 hour to cast(current_date as timestamp)))) From RDB$DATABASE)\nAND e.CodigoEmpresa = 1 And (PT.CodigoTipo = 3 Or PT.CodigoTipo = 4)"
+                    }
+                ]
+            },
+            "idchart": 6,
+            "id": 314316679
+        }
+    ]
+}

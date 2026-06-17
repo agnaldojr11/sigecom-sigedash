@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(cd \"c:\\\\Users\\\\Dell\\\\Desktop\\\\ClaudeSigecom\\\\sigedash-br\"; Remove-Item \"C:\\\\Temp\\\\agente_out.txt\",\"C:\\\\Temp\\\\agente_err.txt\" -ErrorAction SilentlyContinue; $proc = Start-Process -FilePath \"agente\\\\SigeDash.Agente\\\\bin\\\\Debug\\\\net48\\\\SigeDash.Agente.exe\" -ArgumentList \"--console\" -RedirectStandardOutput \"C:\\\\Temp\\\\agente_out.txt\" -RedirectStandardError \"C:\\\\Temp\\\\agente_err.txt\" -NoNewWindow -PassThru; $proc.Id)",
+      "PowerShell(cd \"c:\\\\Users\\\\Dell\\\\Desktop\\\\ClaudeSigecom\\\\sigedash-br\"; $p = Start-Process -FilePath \"agente\\\\SigeDash.Agente\\\\bin\\\\Debug\\\\net48\\\\SigeDash.Agente.exe\" -ArgumentList \"--console\" -WindowStyle Normal -PassThru; Write-Host \"PID=$\\($p.Id\\)\")",
+      "PowerShell(cd \"c:\\\\Users\\\\Dell\\\\Desktop\\\\ClaudeSigecom\\\\sigedash-br\"; $p2 = Start-Process -FilePath \"agente\\\\SigeDash.Agente\\\\bin\\\\Debug\\\\net48\\\\SigeDash.Agente.exe\" -ArgumentList \"--console\" -WindowStyle Normal -PassThru; $p2.Id)",
+      "PowerShell($pid2 = 3976; $t = 0; do { Start-Sleep -Seconds 5; $t += 5; $lin = \\(Get-Content \"c:\\\\Users\\\\Dell\\\\Desktop\\\\ClaudeSigecom\\\\sigedash-br\\\\agente\\\\SigeDash.Agente\\\\bin\\\\Debug\\\\net48\\\\logs\\\\agente-20260616.log\" | Measure-Object -Line\\).Lines; Write-Host \"t=$t | linhas=$lin\" } while \\($t -lt 40 -and \\(Get-Process -Id $pid2 -ErrorAction SilentlyContinue\\) -ne $null\\); \"Ok\")",
+      "PowerShell(cd \"c:\\\\Users\\\\Dell\\\\Desktop\\\\ClaudeSigecom\\\\sigedash-br\"; $p3 = Start-Process -FilePath \"agente\\\\SigeDash.Agente\\\\bin\\\\Debug\\\\net48\\\\SigeDash.Agente.exe\" -ArgumentList \"--console\" -WindowStyle Normal -PassThru; $p3.Id)",
+      "Bash(dir \"C:\\\\Users\\\\Dell\\\\Desktop\\\\ClaudeSigecom\\\\sigedash-br\\\\imagens-app-antigo\")",
+      "Bash(dir \"C:\\\\Users\\\\Dell\\\\Desktop\\\\ClaudeSigecom\\\\sigedash-br\\\\Logo-BG\")",
+      "Bash(npx playwright *)",
+      "Read(//tmp/**)",
+      "Read(//c/tmp/**)",
+      "Bash(curl -s -X POST http://localhost:5000/auth/login -H 'Content-Type: application/json' -d '{\"cliente\":\"5 Estrelas\",\"login\":\"ADMIN\",\"senha\":\"sigedash@123\"}')",
+      "Bash(node verify.mjs)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Dell\\\\Desktop\\\\ClaudeSigecom\\\\sigedash-br\" -Recurse -Depth 2)",
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "Bash(Sort-Object FullName)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\Dell\\Desktop\\ClaudeSigecom\\sigedash-br\\Logo-BG"
+    ]
+  }
+}

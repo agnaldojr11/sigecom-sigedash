@@ -1,0 +1,90 @@
+{
+    "handle": "saldodiario",
+    "label": "Saldo diário",
+    "isDash": true,
+    "template": "plugdash_template_dash.html",
+    "sincronizacaoHoras": 0,
+    "sincronizacaoMinutos": 10,
+    "ordem": 5,
+    "configurado": true,
+    "previewDados": [],
+    "nextidchart": 3,
+    "charts": [
+        {
+            "idtipo": 4,
+            "nome": "Lista",
+            "sincronizacaoHoras": 0,
+            "sincronizacaoMinutos": 10,
+            "helpMessage": 5,
+            "config": {
+                "template": "dash_list.html",
+                "type": "list",
+                "tema": "dash-dark",
+                "temaSelected": {
+                    "label": "Preto",
+                    "tema": "dash-dark"
+                },
+                "totalizador": "",
+                "titulo": "Saldo dos caixas",
+                "subtitulo": "",
+                "mask": "",
+                "label": "",
+                "showMaximo": false,
+                "numberMask": false,
+                "money": true,
+                "moneySymbol": "R$",
+                "casasDecimais": -2,
+                "datagroup": [
+                    {
+                        "label": "Valor em caixa",
+                        "selected": true,
+                        "data": {},
+                        "helpMessage": 2,
+                        "sql": "select\n    CXC.NOME AS \"nome\",\n    'Caixa (Dinheiro)' AS \"descricao\",\n    'Saldo disponível' AS \"info\",\n    sum(\n       case\n         when CC.OPERACAO_PLANO_CONTA = 'C' then CP.TOTAL\n         else 0\n       end) - sum(\n       case\n         when CC.OPERACAO_PLANO_CONTA = 'D' then CP.TOTAL\n         else 0\n       end) as \"valor\",\n       'ion-cash' As \"icon\"\nfrom CAIXA CX\ninner join CAIXA_ABERTURA as CA on CX.CODIGOABERTURA = CA.CODIGOABERTURA\ninner join CAIXA_CONFIG as CXC on CA.CODIGOCAIXA = CXC.CODIGOCAIXA\ninner join CONTA_BAIXA CB on CX.CODIGOLANCAMENTO = CB.CODIGOLANCAMENTO\ninner join CONTA_BAIXA_CONTA_PARCELA CBCP on CB.CODIGOBAIXA = CBCP.CODIGOBAIXA\ninner join CONTA_PARCELA CP on CBCP.CODIGOPARCELA = CP.CODIGOPARCELA\ninner join CAIXA_CONTA_PLANO CC on CP.CODIGO_PLANO_CONTA = CC.CODIGOPLANOCONTA\ninner join CONTA C on CP.CODIGOCONTA = C.CODIGOCONTA\ninner join PESSOA P on C.CODIGOPESSOA = P.CODIGOPESSOA\nleft join FORMA_PAGAMENTO_CONDICAO FPC on CP.CODIGO_FORMA_PAGAMENTO_CONDICAO = FPC.CODIGO_FORMA_PAGAMENTO_CONDICAO\nleft join CONDICAO_PAGAMENTO as CPA on FPC.CODIGO_CONDICAO_PAGAMENTO = CPA.CODIGO_CONDICAO_PAGAMENTO\nleft join FORMA_PAGAMENTO as FP on FPC.CODIGO_FORMA_PAGAMENTO = FP.CODIGO_FORMA_PAGAMENTO\nleft join CAIXA_FECHAMENTO as CF on CA.CODIGOABERTURA = CF.CODIGOABERTURA\nleft join PEDIDO as PED on CX.CODIGOLANCAMENTO = PED.CODIGOLANCAMENTO\nwhere upper(CP.SITUACAO) = 'LIQUIDADA' and\n      (FP.CODIGO_MEIO_PAGAMENTO_FISCAL <> 15 and\n      FP.CODIGO_MEIO_PAGAMENTO_FISCAL <> 18 or FP.CODIGO_MEIO_PAGAMENTO_FISCAL is null) and\n      (FP.DESCRICAO is null or FP.CHEQUE_PROPRIO = 'N') and\n      (CPA.MOVIMENTA_CAIXA = 'S' or CPA.MOVIMENTA_CAIXA is null) and\n      (CC.PLANOCONTA <> 'Saque bancário' or CC.OPERACAO_PLANO_CONTA = 'C') and\n      (CC.PLANOCONTA <> 'Depósito bancário' or CC.OPERACAO_PLANO_CONTA = 'D') and\n      CF.CODIGOABERTURA is null and cc.planoconta <> 'Haver'\ngroup by CXC.NOME"
+                    }
+                ],
+                "showtotalizador": true
+            },
+            "idchart": 1,
+            "id": 409768324
+        },
+        {
+            "idtipo": 4,
+            "nome": "Lista",
+            "sincronizacaoHoras": 0,
+            "sincronizacaoMinutos": 10,
+            "helpMessage": 5,
+            "config": {
+                "template": "dash_list.html",
+                "type": "list",
+                "tema": "dash-dark",
+                "temaSelected": {
+                    "label": "Preto",
+                    "tema": "dash-dark"
+                },
+                "totalizador": "",
+                "titulo": "Saldo bancário",
+                "subtitulo": "",
+                "mask": "",
+                "label": "",
+                "showMaximo": false,
+                "numberMask": false,
+                "money": true,
+                "moneySymbol": "R$",
+                "casasDecimais": -2,
+                "datagroup": [
+                    {
+                        "label": "Banco",
+                        "selected": true,
+                        "data": {},
+                        "helpMessage": 2,
+                        "sql": "SELECT teste.nomebanco as \"nome\",'Conta Bancária' as \"descricao\", 'Saldo disponível' as \"info\", sum(TESTE.\"valor\") as \"valor\" FROM (select BANCO.CODIGOCONTABANCO, BANCO.NOMEBANCO, 'Conta Bancária' as \"descricao\", 'Saldo disponível' as \"info\", sum(\n       case\n         when BANCO.OPERACAO = 'C' then BANCO.VALOR\n         else 0\n       end) - sum(\n       case\n         when OPERACAO = 'D' then VALOR\n         else 0\n       end) as \"valor\"\nfrom (select distinct CB.CODIGOBAIXA, P.NOME, P.CODIGOPESSOA, PT.CODIGOTIPO, CCP.OPERACAO_PLANO_CONTA as OPERACAO,\n                      CNTB.NOME as NOMEBANCO, CBCB.VALOR, CNTB.CODIGOCONTABANCO\n      from CONTA_BAIXA as CB\n      inner join CONTA_BAIXA_CONTA_PARCELA as CBCP on CB.CODIGOBAIXA = CBCP.CODIGOBAIXA\n      inner join CONTA_PARCELA as CPAR on CPAR.CODIGOPARCELA = CBCP.CODIGOPARCELA\n      inner join CONTA as C on C.CODIGOCONTA = CPAR.CODIGOCONTA\n      inner join PESSOA as P on P.CODIGOPESSOA = C.CODIGOPESSOA\n      inner join PESSOA_TIPO as PT on P.CODIGOTIPO = PT.CODIGOTIPO\n      inner join CAIXA_CONTA_PLANO as CCP on C.CODIGOPLANOCONTA = CCP.CODIGOPLANOCONTA\n      inner join CAIXA as CX on C.CODIGOLANCAMENTO = CX.CODIGOLANCAMENTO\n      inner join CAIXA_ABERTURA as CA on CX.CODIGOABERTURA = CA.CODIGOABERTURA\n      inner join CAIXA_CONFIG as CXC on CA.CODIGOCAIXA = CXC.CODIGOCAIXA\n      inner join CONTA_BAIXA_CONTA_BANCO as CBCB on CB.CODIGOBAIXA = CBCB.CODIGOBAIXA\n      inner join CONTA_BANCO CNTB on CBCB.CODIGOCONTABANCO = CNTB.CODIGOCONTABANCO\n      where CXC.CODIGOEMPRESA = 1 and\n            CBCB.DATACOMPENSACAO is not null and\n            CNTB.DESATIVADO = 'N') as BANCO\ngroup by BANCO.NOMEBANCO, BANCO.CODIGOCONTABANCO\n\nunion all\n\nselect BANCOCARTAO.CODIGOCONTABANCOSUB, BANCOCARTAO.NOMEBANCO, 'Conta Bancária' as \"descricao\",\n       'Saldo disponível' as \"info\", sum(\n       case\n         when BANCOCARTAO.OPERACAO = 'C' then BANCOCARTAO.VALOR\n         else 0\n       end) - sum(\n       case\n         when OPERACAO = 'D' then VALOR\n         else 0\n       end) as \"valor\"\nfrom (select distinct CB.CODIGOBAIXA, P.NOME, P.CODIGOPESSOA, PT.CODIGOTIPO, CCP.OPERACAO_PLANO_CONTA as OPERACAO,\n                      CCA.TITULAR, CCA.NSU, CCAP.*, CCAP.CODIGOCONTABANCO as CODIGOCONTABANCOSUB,\n                      CNTB.NOME as NOMEBANCO\n      from CONTA_BAIXA as CB\n      inner join CONTA_BAIXA_CONTA_PARCELA as CBCP on CB.CODIGOBAIXA = CBCP.CODIGOBAIXA\n      inner join CONTA_PARCELA as CPAR on CPAR.CODIGOPARCELA = CBCP.CODIGOPARCELA\n      inner join CONTA as C on C.CODIGOCONTA = CPAR.CODIGOCONTA\n      inner join PESSOA as P on P.CODIGOPESSOA = C.CODIGOPESSOA\n      inner join PESSOA_TIPO as PT on P.CODIGOTIPO = PT.CODIGOTIPO\n      inner join CAIXA_CONTA_PLANO as CCP on CPAR.CODIGO_PLANO_CONTA = CCP.CODIGOPLANOCONTA\n      inner join CAIXA as CX on C.CODIGOLANCAMENTO = CX.CODIGOLANCAMENTO\n      inner join CAIXA_ABERTURA as CA on CX.CODIGOABERTURA = CA.CODIGOABERTURA\n      inner join CAIXA_CONFIG as CXC on CA.CODIGOCAIXA = CXC.CODIGOCAIXA\n      inner join CONTA_BAIXA_CONTA_CARTAO as CBCCA on CB.CODIGOBAIXA = CBCCA.CODIGOBAIXA\n      inner join CONTA_CARTAO as CCA on CBCCA.CODIGOCARTAO = CCA.CODIGOCARTAO\n      inner join CONTA_CARTAO_PARCELA CCAP on CCA.CODIGOCARTAO = CCAP.CODIGOCARTAO\n      inner join CONTA_BANCO CNTB on CCAP.CODIGOCONTABANCO = CNTB.CODIGOCONTABANCO\n      where CCAP.DATACOMPENSACAO is not null and\n            CNTB.DESATIVADO = 'N') as BANCOCARTAO\ngroup by BANCOCARTAO.NOMEBANCO, BANCOCARTAO.CODIGOCONTABANCOSUB\n\nunion all\nselect BANCOCHEQUE.CODIGOCONTABANCOSUB, BANCOCHEQUE.NOMEBANCO, 'Conta Bancária' as \"descricao\",\n       'Saldo disponível' as \"info\", sum(\n       case\n         when BANCOCHEQUE.OPERACAO = 'C' then BANCOCHEQUE.VALOR\n         else 0\n       end) - sum(\n       case\n         when OPERACAO = 'D' then VALOR\n         else 0\n       end) as \"valor\"\nfrom (select distinct CB.CODIGOBAIXA, P.NOME, P.CODIGOPESSOA, PT.CODIGOTIPO, CCP.OPERACAO_PLANO_CONTA as OPERACAO,\n                      CCH.*, CCH.CODIGOCONTABANCODEPOSITO as CODIGOCONTABANCOSUB, CNTB.NOME as NOMEBANCO\n      from CONTA_BAIXA as CB\n      inner join CONTA_BAIXA_CONTA_PARCELA as CBCP on CB.CODIGOBAIXA = CBCP.CODIGOBAIXA\n      inner join CONTA_PARCELA as CPAR on CPAR.CODIGOPARCELA = CBCP.CODIGOPARCELA\n      inner join CONTA as C on C.CODIGOCONTA = CPAR.CODIGOCONTA\n      inner join PESSOA as P on P.CODIGOPESSOA = C.CODIGOPESSOA\n      inner join PESSOA_TIPO as PT on P.CODIGOTIPO = PT.CODIGOTIPO\n      inner join CAIXA_CONTA_PLANO as CCP on C.CODIGOPLANOCONTA = CCP.CODIGOPLANOCONTA\n      inner join CAIXA as CX on C.CODIGOLANCAMENTO = CX.CODIGOLANCAMENTO\n      inner join CAIXA_ABERTURA as CA on CX.CODIGOABERTURA = CA.CODIGOABERTURA\n      inner join CAIXA_CONFIG as CXC on CA.CODIGOCAIXA = CXC.CODIGOCAIXA\n      left join CONTA_BAIXA_CONTA_CHEQUE as CBCCH on CB.CODIGOBAIXA = CBCCH.CODIGOBAIXA\n      left join CONTA_CHEQUE CCH on CBCCH.CODIGOCHEQUE = CCH.CODIGOCHEQUE\n      inner join CONTA_BANCO CNTB on CCH.CODIGOCONTABANCODEPOSITO = CNTB.CODIGOCONTABANCO\n      where PT.CODIGOTIPO <> 2 and\n            CCH.DATACOMPENSACAO is not null and\n            CNTB.DESATIVADO = 'N') as BANCOCHEQUE\ngroup by BANCOCHEQUE.NOMEBANCO, BANCOCHEQUE.CODIGOCONTABANCOSUB) AS TESTE\nGROUP BY teste.nomebanco, TESTE.CODIGOCONTABANCO"
+                    }
+                ],
+                "showtotalizador": true
+            },
+            "id": 352088974,
+            "idchart": 2
+        }
+    ]
+}

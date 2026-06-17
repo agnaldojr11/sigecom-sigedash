@@ -1,0 +1,36 @@
+# ── Bancos de dados (NUNCA versionar) ────────────────────────────────────────
+Bancos/
+*.FDB
+*.fdb
+*.GDB
+*.gdb
+
+# ── Segredos e configuração local ────────────────────────────────────────────
+.env
+*.env.local
+agente.config.json
+
+# ── Build .NET ────────────────────────────────────────────────────────────────
+bin/
+obj/
+dist/
+publish/
+*.user
+*.suo
+.vs/
+*.nupkg
+
+# ── Node / PWA ────────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+nginx/certs/
+
+# ── wwwroot gerado ────────────────────────────────────────────────────────────
+backend/src/SigeDash.Api/wwwroot/
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
