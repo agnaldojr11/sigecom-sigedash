@@ -58,7 +58,7 @@ Write-Host ("=" * 55) -ForegroundColor Green
 # Limpa saidas anteriores
 Titulo "0" "Limpando dist anterior..."
 New-Item -ItemType Directory -Path $DIST -Force | Out-Null
-if (Test-Path $PUBLISH) { Get-ChildItem $PUBLISH | ForEach-Object { $_.Delete() }; Remove-Item $PUBLISH -Recurse -Force -ErrorAction SilentlyContinue }
+if (Test-Path $PUBLISH) { Remove-Item $PUBLISH -Recurse -Force -ErrorAction SilentlyContinue }
 if (Test-Path $PKG_DIR) { Remove-Item $PKG_DIR  -Recurse -Force -ErrorAction SilentlyContinue }
 if (Test-Path $ZIP_OUT) { Remove-Item $ZIP_OUT  -Force   -ErrorAction SilentlyContinue }
 New-Item -ItemType Directory -Path $PKG_DIR -Force | Out-Null
