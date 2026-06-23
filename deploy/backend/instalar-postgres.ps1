@@ -26,7 +26,6 @@ $ErrorActionPreference = "Stop"
 
 $PG_VERSION    = "16"
 $PG_INSTALLDIR = "C:\Program Files\PostgreSQL\$PG_VERSION"
-$PG_BIN        = "$PG_INSTALLDIR\bin"
 $PG_SVC        = "postgresql-x64-$PG_VERSION"
 $LOG_FILE      = "$env:TEMP\sigedash-postgres-install.log"
 
@@ -95,7 +94,6 @@ if ($jaInstalado) {
         Log "Verifique se o PostgreSQL esta instalado corretamente e psql.exe esta no PATH."
         exit 1
     }
-    $PG_BIN = Split-Path $psqlExe
 
     # Descobre a senha do superusuario postgres existente
     # -t -A: saida sem cabecalho nem contagem de linhas (evita variacao de idioma "1 row" vs "1 linha")
@@ -177,7 +175,6 @@ if ($jaInstalado) {
     Log "PostgreSQL instalado com sucesso."
 
     $psqlExe = "$PG_INSTALLDIR\bin\psql.exe"
-    $PG_BIN  = "$PG_INSTALLDIR\bin"
 }
 
 # --- Garante que o servico esta rodando ---
@@ -208,21 +205,30 @@ if ($svcAtual) {
 # --- Cria usuario e banco sigedash ---
 function Psql($sql, $db = "postgres") {
     $env:PGPASSWORD = $SuperSenha
+    # Continue evita que stderr do psql.exe vire excecao com ErrorActionPreference=Stop
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
     # -t -A: saida sem cabecalho/contagem (locale-independent)
     $out = & $psqlExe -U postgres -d $db -t -A -c $sql 2>&1
+    $ErrorActionPreference = $prevEAP
     $env:PGPASSWORD = $null
     return $out
 }
 
 Log "Criando usuario 'sigedash' no PostgreSQL..."
-Psql "CREATE USER sigedash WITH PASSWORD '$SigeDashSenha'" | Out-Null
-$out = Psql "ALTER USER sigedash WITH PASSWORD '$SigeDashSenha'"
-Log "Usuario: $out"
+$userExiste = Psql "SELECT 1 FROM pg_roles WHERE rolname='sigedash'"
+if (($userExiste | Out-String).Trim() -match "^1") {
+    Log "Usuario 'sigedash' ja existe - atualizando senha."
+    Psql "ALTER USER sigedash WITH PASSWORD '$SigeDashSenha'" | Out-Null
+} else {
+    Psql "CREATE USER sigedash WITH PASSWORD '$SigeDashSenha'" | Out-Null
+    Log "Usuario 'sigedash' criado."
+}
 
 $dbExiste = Psql "SELECT 1 FROM pg_database WHERE datname='sigedash'"
 if (($dbExiste | Out-String).Trim() -notmatch "^1") {
     $out = Psql "CREATE DATABASE sigedash OWNER sigedash ENCODING 'UTF8'"
-    Log "Banco criado: $out"
+    Log "Banco 'sigedash' criado: $out"
 } else {
     Log "Banco 'sigedash' ja existe."
 }
