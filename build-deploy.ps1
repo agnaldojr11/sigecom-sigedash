@@ -142,7 +142,48 @@ if (Test-Path $cfJson) {
     Write-Host "  Execute .\configurar-cf.ps1 para habilitar criacao automatica de tunnels." -ForegroundColor Yellow
 }
 
-# 4c. Grava version.txt no pacote
+# 4d. Gera Instalar-SigeDash.exe via ps2exe
+Titulo "4d" "Gerando Instalar-SigeDash.exe..."
+$ps2exeModule = Get-Module -ListAvailable ps2exe | Select-Object -First 1
+if ($ps2exeModule) {
+    $launcherSrc = Join-Path $env:TEMP "sigedash-launcher.ps1"
+    $exePath     = Join-Path $PKG_DIR "Instalar-SigeDash.exe"
+
+    # Script minimo que o exe vai executar
+    $launcherLines = @(
+        'Get-ChildItem "$PSScriptRoot\*.ps1" -ErrorAction SilentlyContinue | Unblock-File',
+        '& "$PSScriptRoot\instalar-tudo.ps1"',
+        'Write-Host ""',
+        'Read-Host "Pressione Enter para fechar"'
+    )
+    $launcherLines | Out-File $launcherSrc -Encoding UTF8
+
+    Import-Module ps2exe -ErrorAction SilentlyContinue
+    $versaoExe = "$Versao.0"   # ps2exe exige formato X.X.X.X
+    Invoke-ps2exe `
+        -InputFile    $launcherSrc `
+        -OutputFile   $exePath `
+        -requireAdmin `
+        -title        "SigeDash Instalador" `
+        -description  "Instalacao automatica do SigeDash - SistemasBr" `
+        -company      "SistemasBr" `
+        -product      "SigeDash" `
+        -version      $versaoExe
+
+    Remove-Item $launcherSrc -ErrorAction SilentlyContinue
+
+    if (Test-Path $exePath) {
+        $exeSizeKB = [math]::Round((Get-Item $exePath).Length / 1KB, 0)
+        Log "Instalar-SigeDash.exe gerado (${exeSizeKB} KB)."
+    } else {
+        Write-Host "  AVISO: falha ao gerar exe - iniciar.cmd disponivel como alternativa." -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "  AVISO: ps2exe nao instalado - pulando geracao do exe." -ForegroundColor Yellow
+    Write-Host "  Execute: Install-Module ps2exe -Force -Scope CurrentUser" -ForegroundColor Yellow
+}
+
+# 4f. Grava version.txt no pacote
 $versionPath = Join-Path $PKG_DIR "version.txt"
 $Versao | Out-File $versionPath -Encoding UTF8 -NoNewline
 Log "version.txt: $Versao"
