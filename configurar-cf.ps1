@@ -42,6 +42,9 @@ $tokenSec   = Read-Host "API Token do Cloudflare (nao sera exibido)" -AsSecureSt
 $tokenPlain = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
                   [Runtime.InteropServices.Marshal]::SecureStringToBSTR($tokenSec))
 
+# Remove caracteres de controle invisiveis que podem vir ao colar o token
+$tokenPlain = ($tokenPlain -replace '[\x00-\x1F\x7F]', '').Trim()
+
 if ([string]::IsNullOrWhiteSpace($tokenPlain)) {
     Log "ERRO: token nao informado." Red; exit 1
 }
