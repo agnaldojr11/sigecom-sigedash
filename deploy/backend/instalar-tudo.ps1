@@ -350,7 +350,22 @@ Log "AdminKey para gerenciar clientes: $AdminKey"
 Log ""
 Log "Log completo salvo em: $LOG_GERAL"
 Log ""
+
+# Destaque da URL do cliente
+if (-not [string]::IsNullOrWhiteSpace($TunnelUrl)) {
+    Write-Host ""
+    Write-Host ("=" * 60) -ForegroundColor Green
+    Write-Host "  URL DO CLIENTE (compartilhe agora):" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "  $TunnelUrl" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  Acesso pelo celular, tablet ou computador." -ForegroundColor White
+    Write-Host ("=" * 60) -ForegroundColor Green
+    Write-Host ""
+    Log "URL do cliente: $TunnelUrl"
+}
+
 Log "PROXIMOS PASSOS:"
 Log "  1. Aguarde 30 minutos para o agente sincronizar os primeiros dados"
-Log "  2. Acesse a URL do tunel Cloudflare pelo celular"
+Log "  2. Envie a URL acima ao cliente para acesso pelo celular"
 Log "  3. Faca login com as credenciais criadas automaticamente"
