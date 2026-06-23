@@ -16,7 +16,7 @@
 
 .PARAMETER FdbPath
     Caminho completo para o arquivo .FDB do Sigecom no servidor.
-    Exemplo: C:\SIGECOM\BANCOS\EMPRESA.FDB
+    Padrao: C:\SIGECOM\SIGECOM.FDB (caminho padrao de instalacao do Sigecom)
 
 .PARAMETER TunnelToken
     Token do tunel Cloudflare (obtido no painel Zero Trust antes de rodar este script).
@@ -29,17 +29,14 @@
     Pasta onde esta o SigeDashAgente-Setup.exe. Padrao: mesma pasta deste script.
 
 .EXAMPLE
-    .\instalar-tudo.ps1 `
-        -NomeCliente "Amaral Ferragens" `
-        -FdbPath "C:\SIGECOM\BANCOS\AMARAL.FDB" `
-        -TunnelToken "eyJhIjoiMT..."
+    .\instalar-tudo.ps1 -NomeCliente "Amaral Ferragens" -TunnelToken "eyJhIjoiMT..."
+    .\instalar-tudo.ps1 -NomeCliente "Amaral Ferragens" -FdbPath "D:\SIGECOM\SIGECOM.FDB" -TunnelToken "eyJhIjoiMT..."
 #>
 param(
     [Parameter(Mandatory)]
     [string]$NomeCliente,
 
-    [Parameter(Mandatory)]
-    [string]$FdbPath,
+    [string]$FdbPath           = "C:\SIGECOM\SIGECOM.FDB",
 
     [string]$TunnelToken       = "",
     [string]$SigeDashSenha     = "",

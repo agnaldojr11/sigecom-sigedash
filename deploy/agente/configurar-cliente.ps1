@@ -4,7 +4,7 @@ param(
     [string]$ClienteNome,
     [string]$FdbPath,
     [string]$Sysdba      = "masterkey",
-    [string]$ConfigDir    = "$PSScriptRoot\Config"
+    [string]$ConfigDir    = "C:\SIGECOM\SIGEDASH"
 )
 
 function Log($msg) {
