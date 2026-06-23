@@ -108,6 +108,15 @@ foreach ($s in $SCRIPTS) {
     }
 }
 
+# 3b. Re-salva scripts com UTF-8 BOM para evitar parse errors no PS 5.1 do cliente
+Titulo "3b" "Gravando UTF-8 BOM nos scripts..."
+$utf8Bom = New-Object System.Text.UTF8Encoding $true
+Get-ChildItem $PKG_DIR -Filter "*.ps1" | ForEach-Object {
+    $content = [System.IO.File]::ReadAllText($_.FullName, [System.Text.Encoding]::UTF8)
+    [System.IO.File]::WriteAllText($_.FullName, $content, $utf8Bom)
+    Log "  BOM: $($_.Name)"
+}
+
 # 4. Compila agente + instalador InnoSetup
 Titulo "4" "Compilando agente e instalador InnoSetup..."
 $ISCC      = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"

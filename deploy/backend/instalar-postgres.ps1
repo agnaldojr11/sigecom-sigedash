@@ -61,12 +61,58 @@ if ([string]::IsNullOrWhiteSpace($SuperSenha)) {
     Log "SuperSenha do postgres gerada automaticamente."
 }
 
-# Verifica se ja esta instalado
+# Verifica se ja esta instalado (checa exe v16, servico v16, ou qualquer psql no PATH)
 $psqlExe     = "$PG_BIN\psql.exe"
-$jaInstalado = Test-Path $psqlExe
+$pgSvcExists = Get-Service $PG_SVC -ErrorAction SilentlyContinue
+$psqlNoPATH  = (Get-Command psql.exe -ErrorAction SilentlyContinue) -ne $null
+$jaInstalado = (Test-Path $psqlExe) -or ($null -ne $pgSvcExists) -or $psqlNoPATH
 
 if ($jaInstalado) {
-    Log "PostgreSQL $PG_VERSION ja instalado em $PG_BIN - pulando instalacao."
+    if ($null -ne $pgSvcExists) {
+        Log "PostgreSQL $PG_VERSION ja instalado (servico $PG_SVC encontrado) - pulando instalacao."
+    } else {
+        Log "PostgreSQL ja instalado ($psqlExe ou no PATH) - pulando instalacao."
+    }
+
+    # Descobre o psql.exe real (pode estar em versao diferente ou PATH)
+    if (-not (Test-Path $psqlExe)) {
+        $psqlCmd = Get-Command psql.exe -ErrorAction SilentlyContinue
+        if ($psqlCmd) {
+            $psqlExe = $psqlCmd.Source
+            $PG_BIN  = Split-Path $psqlExe
+            Log "psql.exe encontrado via PATH: $psqlExe"
+        }
+    }
+
+    # Descobre a senha do postgres existente: tenta trust (sem senha) antes
+    $env:PGPASSWORD = ""
+    $testOut = & $psqlExe -U postgres -d postgres -c "SELECT 1" 2>&1
+    $env:PGPASSWORD = $null
+
+    if ($testOut -match "1 row") {
+        $SuperSenha = ""
+        Log "PostgreSQL aceita conexao local sem senha (trust). Continuando."
+    } else {
+        # Pede a senha do postgres existente
+        Write-Host ""
+        Write-Host "PostgreSQL ja esta instalado nesta maquina." -ForegroundColor Yellow
+        Write-Host "Precisamos da senha do usuario 'postgres' para criar o banco do SigeDash." -ForegroundColor Yellow
+        Write-Host "Se nao souber a senha, consulte quem instalou o PostgreSQL nesta maquina." -ForegroundColor Yellow
+        Write-Host ""
+        $pgSenhaSegura = Read-Host -AsSecureString "Senha do usuario postgres"
+        $SuperSenha    = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+            [Runtime.InteropServices.Marshal]::SecureStringToBSTR($pgSenhaSegura))
+
+        # Valida a senha informada
+        $env:PGPASSWORD = $SuperSenha
+        $testOut2 = & $psqlExe -U postgres -d postgres -c "SELECT 1" 2>&1
+        $env:PGPASSWORD = $null
+        if ($testOut2 -notmatch "1 row") {
+            Log "ERRO: senha do postgres invalida ou conexao recusada: $testOut2"
+            exit 1
+        }
+        Log "Conexao com postgres OK usando senha fornecida."
+    }
 } else {
     # Baixa o installer se necessario
     if ([string]::IsNullOrWhiteSpace($InstallerExe) -or -not (Test-Path $InstallerExe)) {
@@ -93,15 +139,14 @@ if ($jaInstalado) {
 
     # Executa instalacao silenciosa
     Log "Instalando PostgreSQL $PG_VERSION (modo silencioso)..."
-    $installerArgs = @(
-        "--mode", "unattended",
-        "--superpassword", $SuperSenha,
-        "--servicename", $PG_SVC,
-        "--servicepassword", $SuperSenha,
-        "--serverport", "5432",
-        "--datadir", "$PG_INSTALLDIR\data",
-        "--install_runtimes", "0"
-    )
+    # Aspas no datadir evitam quebra de argumento por espaco em "Program Files"
+    $installerArgs = "--mode unattended " +
+        "--superpassword `"$SuperSenha`" " +
+        "--servicename $PG_SVC " +
+        "--servicepassword `"$SuperSenha`" " +
+        "--serverport 5432 " +
+        "--datadir `"$PG_INSTALLDIR\data`" " +
+        "--install_runtimes 0"
 
     $proc = Start-Process -FilePath $InstallerExe -ArgumentList $installerArgs -Wait -PassThru
     if ($proc.ExitCode -ne 0) {
