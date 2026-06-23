@@ -64,13 +64,25 @@ try {
 
 # Descobre Account ID automaticamente
 Log "Buscando Account ID..." DarkGray
+$accountId = ""
 try {
     $accounts  = Invoke-RestMethod "https://api.cloudflare.com/client/v4/accounts" -Headers $headers
     $account   = $accounts.result | Select-Object -First 1
     $accountId = $account.id
-    Log "Account: $($account.name) ($accountId)" Green
-} catch {
-    Log "ERRO ao buscar accounts: $_" Red; exit 1
+    if ($accountId) {
+        Log "Account: $($account.name) ($accountId)" Green
+    }
+} catch {}
+
+# Fallback: solicita manualmente se nao encontrou
+if ([string]::IsNullOrWhiteSpace($accountId)) {
+    Log "Nao foi possivel detectar o Account ID automaticamente." Yellow
+    Log "Encontre em: dash.cloudflare.com -> seu dominio -> lateral direita -> API -> Account ID"
+    $accountId = (Read-Host "Account ID").Trim()
+    if ([string]::IsNullOrWhiteSpace($accountId)) {
+        Log "ERRO: Account ID nao informado." Red; exit 1
+    }
+    Log "Account ID informado: $accountId" Green
 }
 
 # Descobre Zone ID pelo dominio
