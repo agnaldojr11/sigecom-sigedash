@@ -12,7 +12,7 @@
     Todos os passos geram log em C:\SigeDash\install.log.
 
 .PARAMETER NomeCliente
-    Nome do cliente (ex: "Amaral Ferragens"). Usado para criar o usuario no sistema.
+    Nome do cliente. Se omitido, detectado automaticamente via NOMEFANTASIA do banco Firebird.
 
 .PARAMETER FdbPath
     Caminho completo para o arquivo .FDB do Sigecom no servidor.
@@ -29,13 +29,12 @@
     Pasta onde esta o SigeDashAgente-Setup.exe. Padrao: mesma pasta deste script.
 
 .EXAMPLE
+    .\instalar-tudo.ps1 -TunnelToken "eyJhIjoiMT..."
+    .\instalar-tudo.ps1 -FdbPath "D:\SIGECOM\SIGECOM.FDB" -TunnelToken "eyJhIjoiMT..."
     .\instalar-tudo.ps1 -NomeCliente "Amaral Ferragens" -TunnelToken "eyJhIjoiMT..."
-    .\instalar-tudo.ps1 -NomeCliente "Amaral Ferragens" -FdbPath "D:\SIGECOM\SIGECOM.FDB" -TunnelToken "eyJhIjoiMT..."
 #>
 param(
-    [Parameter(Mandatory)]
-    [string]$NomeCliente,
-
+    [string]$NomeCliente       = "",
     [string]$FdbPath           = "C:\SIGECOM\SIGECOM.FDB",
 
     [string]$TunnelToken       = "",
@@ -74,11 +73,54 @@ function Falha($msg) {
     exit 1
 }
 
+function BuscarNomeFantasia($fdbPath) {
+    $candidatos = @(
+        "C:\Program Files\Firebird\Firebird_2_5\bin\isql.exe",
+        "C:\Program Files (x86)\Firebird\Firebird_2_5\bin\isql.exe",
+        "C:\Program Files\Firebird\Firebird_3_0\bin\isql.exe",
+        "C:\Program Files (x86)\Firebird\Firebird_3_0\bin\isql.exe"
+    )
+    $isql = $candidatos | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $isql) {
+        Log "AVISO: isql.exe nao encontrado - informe -NomeCliente manualmente."
+        return $null
+    }
+    $sqlFile = Join-Path $env:TEMP "sigedash_query.sql"
+    @("SELECT NOMEFANTASIA FROM EMPRESA WHERE CODIGOEMPRESA = 1;", "EXIT;") |
+        Out-File $sqlFile -Encoding ASCII
+    try {
+        $saida = & $isql -user SYSDBA -password masterkey $fdbPath -q -i $sqlFile 2>&1
+        $nome  = $saida | Where-Object {
+            $_ -and
+            $_ -notmatch '^\s*$' -and
+            $_ -notmatch '^NOMEFANTASIA' -and
+            $_ -notmatch '^[= ]+$' -and
+            $_ -notmatch '^Database:'
+        } | Select-Object -First 1
+        return ($nome -as [string]).Trim()
+    } catch {
+        Log "AVISO: erro ao consultar Firebird: $_"
+        return $null
+    } finally {
+        Remove-Item $sqlFile -ErrorAction SilentlyContinue
+    }
+}
+
 # Verifica privilegio de admin
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
     ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Error "Execute este script como Administrador (clique direito -> Executar como administrador)."
     exit 1
+}
+
+# Auto-detecta nome do cliente via Firebird se nao informado
+if ([string]::IsNullOrWhiteSpace($NomeCliente)) {
+    Log "NomeCliente nao informado — buscando NOMEFANTASIA no banco Firebird..."
+    $NomeCliente = BuscarNomeFantasia $FdbPath
+    if ([string]::IsNullOrWhiteSpace($NomeCliente)) {
+        Falha "Nao foi possivel detectar o nome do cliente. Informe -NomeCliente manualmente."
+    }
+    Log "Nome detectado automaticamente: $NomeCliente"
 }
 
 # Gera senha do banco se nao informada
@@ -115,7 +157,7 @@ $scriptBack = Join-Path $SCRIPT_DIR "instalar-backend.ps1"
 if (-not (Test-Path $scriptBack)) { Falha "instalar-backend.ps1 nao encontrado em $SCRIPT_DIR" }
 
 try {
-    $resultBack = & $scriptBack -PostgresSenha $SigeDashSenha -PublishDir $SCRIPT_DIR
+    & $scriptBack -PostgresSenha $SigeDashSenha -PublishDir $SCRIPT_DIR
     # Extrai a AdminKey do log de instalacao
     $adminKeyLine = Get-Content "C:\SigeDash\Backend\install.log" -ErrorAction SilentlyContinue |
                     Where-Object { $_ -match "AdminKey\s*:" } | Select-Object -Last 1
