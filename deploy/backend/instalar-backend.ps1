@@ -110,13 +110,14 @@ if (-not $psqlCmd) {
 }
 if ($psqlCmd) {
     $env:PGPASSWORD = $PostgresSenha
-    $dbTest = & $psqlCmd.Source -U sigedash -d sigedash -h localhost -c "SELECT 1" 2>&1
+    # -t -A: saida sem cabecalho nem contagem de linhas (funciona em qualquer idioma do PostgreSQL)
+    $dbTest = & $psqlCmd.Source -U sigedash -d sigedash -h localhost -t -A -c "SELECT 1" 2>&1
     $env:PGPASSWORD = $null
-    if ($dbTest -match "1 row") {
+    if (($dbTest | Out-String).Trim() -match "^1") {
         Log "Conexao com banco 'sigedash' verificada com sucesso."
     } else {
         Log "ERRO: nao foi possivel conectar ao banco 'sigedash'. Verifique se o PostgreSQL esta rodando e o banco existe."
-        Log "Detalhe: $dbTest"
+        Log "Detalhe: $($dbTest | Out-String)"
         exit 1
     }
 } else {

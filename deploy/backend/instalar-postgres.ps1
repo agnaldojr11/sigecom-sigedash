@@ -98,12 +98,12 @@ if ($jaInstalado) {
     $PG_BIN = Split-Path $psqlExe
 
     # Descobre a senha do superusuario postgres existente
-    # Tenta trust auth primeiro (sem senha) - comum em instalacoes locais
+    # -t -A: saida sem cabecalho nem contagem de linhas (evita variacao de idioma "1 row" vs "1 linha")
     $env:PGPASSWORD = ""
-    $testOut = & $psqlExe -U postgres -d postgres -c "SELECT 1" 2>&1
+    $testOut = & $psqlExe -U postgres -d postgres -t -A -c "SELECT 1" 2>&1
     $env:PGPASSWORD = $null
 
-    if ($testOut -match "1 row") {
+    if (($testOut | Out-String).Trim() -match "^1") {
         $SuperSenha = ""
         Log "PostgreSQL aceita conexao local sem senha (trust). Continuando."
     } else {
@@ -117,11 +117,11 @@ if ($jaInstalado) {
             [Runtime.InteropServices.Marshal]::SecureStringToBSTR($pgSenhaSegura))
 
         $env:PGPASSWORD = $SuperSenha
-        $testOut2 = & $psqlExe -U postgres -d postgres -c "SELECT 1" 2>&1
+        $testOut2 = & $psqlExe -U postgres -d postgres -t -A -c "SELECT 1" 2>&1
         $env:PGPASSWORD = $null
 
-        if ($testOut2 -notmatch "1 row") {
-            Log "ERRO: senha invalida ou acesso recusado: $testOut2"
+        if (($testOut2 | Out-String).Trim() -notmatch "^1") {
+            Log "ERRO: senha invalida ou acesso recusado: $($testOut2 | Out-String)"
             exit 1
         }
         Log "Conexao com postgres OK usando senha informada."
@@ -208,7 +208,8 @@ if ($svcAtual) {
 # --- Cria usuario e banco sigedash ---
 function Psql($sql, $db = "postgres") {
     $env:PGPASSWORD = $SuperSenha
-    $out = & $psqlExe -U postgres -d $db -c $sql 2>&1
+    # -t -A: saida sem cabecalho/contagem (locale-independent)
+    $out = & $psqlExe -U postgres -d $db -t -A -c $sql 2>&1
     $env:PGPASSWORD = $null
     return $out
 }
@@ -219,7 +220,7 @@ $out = Psql "ALTER USER sigedash WITH PASSWORD '$SigeDashSenha'"
 Log "Usuario: $out"
 
 $dbExiste = Psql "SELECT 1 FROM pg_database WHERE datname='sigedash'"
-if ($dbExiste -notmatch "1 row") {
+if (($dbExiste | Out-String).Trim() -notmatch "^1") {
     $out = Psql "CREATE DATABASE sigedash OWNER sigedash ENCODING 'UTF8'"
     Log "Banco criado: $out"
 } else {
