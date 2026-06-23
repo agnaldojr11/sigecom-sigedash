@@ -89,6 +89,7 @@ Log "OK - $qtd arquivos copiados"
 # 3. Copia scripts de instalacao
 Titulo "3" "Copiando scripts de instalacao..."
 $SCRIPTS = @(
+    "deploy\backend\iniciar.cmd",
     "deploy\backend\instalar-tudo.ps1",
     "deploy\backend\instalar-postgres.ps1",
     "deploy\backend\instalar-backend.ps1",
