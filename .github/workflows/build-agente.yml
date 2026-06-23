@@ -1,10 +1,8 @@
 name: Build — Instalador do Agente
 
-# Disparado junto com o deploy: git tag v1.2.3 && git push --tags
+# Ativado manualmente quando o agente estiver desenvolvido
 on:
-  push:
-    tags:
-      - 'v*.*.*'
+  workflow_dispatch:
 
 jobs:
 
