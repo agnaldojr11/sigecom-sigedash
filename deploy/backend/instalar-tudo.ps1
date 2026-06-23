@@ -228,6 +228,10 @@ if (-not (Test-Path $scriptPg)) { Falha "instalar-postgres.ps1 nao encontrado em
 
 try {
     & $scriptPg -SigeDashSenha $SigeDashSenha
+    # exit 1 em script filho nao lanca excecao - checar $LASTEXITCODE explicitamente
+    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+        Falha "instalar-postgres.ps1 falhou com codigo $LASTEXITCODE"
+    }
     Sucesso "PostgreSQL instalado e configurado."
 } catch {
     Falha "Erro no PostgreSQL: $_"
@@ -241,6 +245,9 @@ if (-not (Test-Path $scriptBack)) { Falha "instalar-backend.ps1 nao encontrado e
 
 try {
     & $scriptBack -PostgresSenha $SigeDashSenha -PublishDir $SCRIPT_DIR
+    if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+        Falha "instalar-backend.ps1 falhou com codigo $LASTEXITCODE"
+    }
     # Extrai a AdminKey do log de instalacao
     $adminKeyLine = Get-Content "C:\SigeDash\Backend\install.log" -ErrorAction SilentlyContinue |
                     Where-Object { $_ -match "AdminKey\s*:" } | Select-Object -Last 1

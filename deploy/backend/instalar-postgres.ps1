@@ -1,15 +1,14 @@
-﻿<#
+<#
 .SYNOPSIS
     Instala o PostgreSQL 16 e prepara o banco de dados para o SigeDash.
 .DESCRIPTION
-    - Verifica se o PostgreSQL ja esta instalado
-    - Baixa e instala o PostgreSQL 16 via EDB (modo silencioso)
-    - Cria o banco 'sigedash' e o usuario 'sigedash'
-    - Configura o servico para iniciar automaticamente
+    - Verifica se o PostgreSQL ja esta instalado (TCP porta 5432, servico Windows, psql no PATH)
+    - Quando ja instalado: descobre a senha do postgres e cria usuario/banco sigedash
+    - Quando nao instalado: baixa e instala PostgreSQL 16 via EDB (modo silencioso)
 .PARAMETER SigeDashSenha
     Senha do usuario 'sigedash' no banco (usada pelo backend).
 .PARAMETER SuperSenha
-    Senha do superusuario 'postgres'. Gerada automaticamente se omitida.
+    Senha do superusuario 'postgres'. Gerada automaticamente em nova instalacao.
 .PARAMETER InstallerExe
     Caminho para o installer EDB ja baixado. Se omitido, faz o download.
 .EXAMPLE
@@ -38,11 +37,30 @@ function Log($msg) {
     try { Add-Content $LOG_FILE $line -Encoding UTF8 } catch {}
 }
 
-function Psql($sql, $db = "postgres") {
-    $env:PGPASSWORD = $SuperSenha
-    $out = & "$PG_BIN\psql.exe" -U postgres -d $db -c $sql 2>&1
-    $env:PGPASSWORD = $null
-    return $out
+# Retorna $true se conseguir abrir TCP na porta
+function TestaTCP($porta) {
+    try {
+        $tcp = New-Object System.Net.Sockets.TcpClient("localhost", $porta)
+        $tcp.Close()
+        return $true
+    } catch { return $false }
+}
+
+# Descobre o psql.exe disponivel (v16, qualquer versao ou PATH)
+function DescobriPsql() {
+    # Versao configurada como alvo
+    if (Test-Path "$PG_INSTALLDIR\bin\psql.exe") {
+        return "$PG_INSTALLDIR\bin\psql.exe"
+    }
+    # Qualquer versao instalada
+    foreach ($v in @("17","16","15","14","13")) {
+        $c = "C:\Program Files\PostgreSQL\$v\bin\psql.exe"
+        if (Test-Path $c) { return $c }
+    }
+    # PATH do sistema
+    $cmd = Get-Command psql.exe -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+    return $null
 }
 
 # Verifica privilegio de admin
@@ -54,37 +72,33 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 
 Log "=== SigeDash - Instalacao do PostgreSQL $PG_VERSION ==="
 
-# Gera SuperSenha se nao informada
-if ([string]::IsNullOrWhiteSpace($SuperSenha)) {
-    $bytes      = 1..18 | ForEach-Object { [byte](Get-Random -Max 256) }
-    $SuperSenha = [Convert]::ToBase64String($bytes)
-    Log "SuperSenha do postgres gerada automaticamente."
-}
+# --- Detecta PostgreSQL existente ---
+# Prioridade: TCP porta 5432 (mais confiavel), depois servico Windows, depois exe
+$portaEmUso  = TestaTCP 5432
+$pgSvcAtual  = Get-Service | Where-Object { $_.Name -match "^postgresql" } | Select-Object -First 1
+$psqlExe     = DescobriPsql
 
-# Verifica se ja esta instalado (checa exe v16, servico v16, ou qualquer psql no PATH)
-$psqlExe     = "$PG_BIN\psql.exe"
-$pgSvcExists = Get-Service $PG_SVC -ErrorAction SilentlyContinue
-$psqlNoPATH  = (Get-Command psql.exe -ErrorAction SilentlyContinue) -ne $null
-$jaInstalado = (Test-Path $psqlExe) -or ($null -ne $pgSvcExists) -or $psqlNoPATH
+$jaInstalado = $portaEmUso -or ($null -ne $pgSvcAtual) -or ($null -ne $psqlExe)
 
 if ($jaInstalado) {
-    if ($null -ne $pgSvcExists) {
-        Log "PostgreSQL $PG_VERSION ja instalado (servico $PG_SVC encontrado) - pulando instalacao."
+    if ($portaEmUso) {
+        Log "PostgreSQL ja esta rodando na porta 5432 - pulando instalacao."
+    } elseif ($pgSvcAtual) {
+        Log "Servico PostgreSQL encontrado: $($pgSvcAtual.Name) - pulando instalacao."
     } else {
-        Log "PostgreSQL ja instalado ($psqlExe ou no PATH) - pulando instalacao."
+        Log "psql.exe encontrado em: $psqlExe - pulando instalacao."
     }
 
-    # Descobre o psql.exe real (pode estar em versao diferente ou PATH)
-    if (-not (Test-Path $psqlExe)) {
-        $psqlCmd = Get-Command psql.exe -ErrorAction SilentlyContinue
-        if ($psqlCmd) {
-            $psqlExe = $psqlCmd.Source
-            $PG_BIN  = Split-Path $psqlExe
-            Log "psql.exe encontrado via PATH: $psqlExe"
-        }
+    # Garante psql.exe disponivel
+    if (-not $psqlExe) {
+        Log "ERRO: PostgreSQL detectado (porta 5432 ativa) mas psql.exe nao encontrado."
+        Log "Verifique se o PostgreSQL esta instalado corretamente e psql.exe esta no PATH."
+        exit 1
     }
+    $PG_BIN = Split-Path $psqlExe
 
-    # Descobre a senha do postgres existente: tenta trust (sem senha) antes
+    # Descobre a senha do superusuario postgres existente
+    # Tenta trust auth primeiro (sem senha) - comum em instalacoes locais
     $env:PGPASSWORD = ""
     $testOut = & $psqlExe -U postgres -d postgres -c "SELECT 1" 2>&1
     $env:PGPASSWORD = $null
@@ -93,27 +107,33 @@ if ($jaInstalado) {
         $SuperSenha = ""
         Log "PostgreSQL aceita conexao local sem senha (trust). Continuando."
     } else {
-        # Pede a senha do postgres existente
         Write-Host ""
         Write-Host "PostgreSQL ja esta instalado nesta maquina." -ForegroundColor Yellow
-        Write-Host "Precisamos da senha do usuario 'postgres' para criar o banco do SigeDash." -ForegroundColor Yellow
-        Write-Host "Se nao souber a senha, consulte quem instalou o PostgreSQL nesta maquina." -ForegroundColor Yellow
+        Write-Host "Informe a senha do usuario 'postgres' para criar o banco do SigeDash." -ForegroundColor Yellow
+        Write-Host "(A senha foi definida quando o PostgreSQL foi instalado nesta maquina)" -ForegroundColor DarkYellow
         Write-Host ""
-        $pgSenhaSegura = Read-Host -AsSecureString "Senha do usuario postgres"
+        $pgSenhaSegura = Read-Host -AsSecureString "Senha do postgres"
         $SuperSenha    = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
             [Runtime.InteropServices.Marshal]::SecureStringToBSTR($pgSenhaSegura))
 
-        # Valida a senha informada
         $env:PGPASSWORD = $SuperSenha
         $testOut2 = & $psqlExe -U postgres -d postgres -c "SELECT 1" 2>&1
         $env:PGPASSWORD = $null
+
         if ($testOut2 -notmatch "1 row") {
-            Log "ERRO: senha do postgres invalida ou conexao recusada: $testOut2"
+            Log "ERRO: senha invalida ou acesso recusado: $testOut2"
             exit 1
         }
-        Log "Conexao com postgres OK usando senha fornecida."
+        Log "Conexao com postgres OK usando senha informada."
     }
 } else {
+    # Nova instalacao
+    if ([string]::IsNullOrWhiteSpace($SuperSenha)) {
+        $bytes      = 1..18 | ForEach-Object { [byte](Get-Random -Max 256) }
+        $SuperSenha = [Convert]::ToBase64String($bytes)
+        Log "SuperSenha do postgres gerada automaticamente."
+    }
+
     # Baixa o installer se necessario
     if ([string]::IsNullOrWhiteSpace($InstallerExe) -or -not (Test-Path $InstallerExe)) {
         $downloadUrl  = "https://get.enterprisedb.com/postgresql/postgresql-16.9-1-windows-x64.exe"
@@ -138,8 +158,8 @@ if ($jaInstalado) {
     }
 
     # Executa instalacao silenciosa
+    # Aspas no datadir evitam quebra de argumento em "C:\Program Files\..."
     Log "Instalando PostgreSQL $PG_VERSION (modo silencioso)..."
-    # Aspas no datadir evitam quebra de argumento por espaco em "Program Files"
     $installerArgs = "--mode unattended " +
         "--superpassword `"$SuperSenha`" " +
         "--servicename $PG_SVC " +
@@ -155,33 +175,49 @@ if ($jaInstalado) {
         exit 1
     }
     Log "PostgreSQL instalado com sucesso."
+
+    $psqlExe = "$PG_INSTALLDIR\bin\psql.exe"
+    $PG_BIN  = "$PG_INSTALLDIR\bin"
 }
 
-# Garante que o servico esta rodando
-$svc = Get-Service $PG_SVC -ErrorAction SilentlyContinue
-if (-not $svc) {
-    Log "ERRO: servico $PG_SVC nao encontrado apos instalacao."
-    exit 1
-}
-if ($svc.Status -ne "Running") {
-    Log "Iniciando servico $PG_SVC ..."
-    Start-Service $PG_SVC
-    Start-Sleep -Seconds 3
-}
-Log "Servico $PG_SVC rodando."
+# --- Garante que o servico esta rodando ---
+# Usa o servico real encontrado (nao necessariamente o v16)
+$svcAtual = if ($pgSvcAtual) { $pgSvcAtual } else { Get-Service $PG_SVC -ErrorAction SilentlyContinue }
 
-# Configura startup automatico
-Set-Service $PG_SVC -StartupType Automatic | Out-Null
+if (-not $svcAtual) {
+    # Tenta de novo apos instalacao
+    $svcAtual = Get-Service | Where-Object { $_.Name -match "^postgresql" } | Select-Object -First 1
+}
 
-# Cria usuario e banco sigedash
+if ($svcAtual) {
+    if ($svcAtual.Status -ne "Running") {
+        Log "Iniciando servico $($svcAtual.Name) ..."
+        Start-Service $svcAtual.Name
+        Start-Sleep -Seconds 3
+    }
+    Log "Servico $($svcAtual.Name) rodando."
+    Set-Service $svcAtual.Name -StartupType Automatic | Out-Null
+} else {
+    if (-not (TestaTCP 5432)) {
+        Log "AVISO: servico PostgreSQL nao encontrado. Verifique a instalacao manualmente."
+    } else {
+        Log "PostgreSQL respondendo na porta 5432 (servico nao identificado via Windows SCM)."
+    }
+}
+
+# --- Cria usuario e banco sigedash ---
+function Psql($sql, $db = "postgres") {
+    $env:PGPASSWORD = $SuperSenha
+    $out = & $psqlExe -U postgres -d $db -c $sql 2>&1
+    $env:PGPASSWORD = $null
+    return $out
+}
+
 Log "Criando usuario 'sigedash' no PostgreSQL..."
-
-# Cria usuario (ignora erro se ja existir), depois atualiza a senha
 Psql "CREATE USER sigedash WITH PASSWORD '$SigeDashSenha'" | Out-Null
 $out = Psql "ALTER USER sigedash WITH PASSWORD '$SigeDashSenha'"
 Log "Usuario: $out"
 
-# Cria banco se nao existir
 $dbExiste = Psql "SELECT 1 FROM pg_database WHERE datname='sigedash'"
 if ($dbExiste -notmatch "1 row") {
     $out = Psql "CREATE DATABASE sigedash OWNER sigedash ENCODING 'UTF8'"
@@ -190,33 +226,28 @@ if ($dbExiste -notmatch "1 row") {
     Log "Banco 'sigedash' ja existe."
 }
 
-# Garante permissoes
 $out = Psql "GRANT ALL PRIVILEGES ON DATABASE sigedash TO sigedash"
 Log "Permissoes: $out"
 
 # Testa conexao com o usuario sigedash
 Log "Testando conexao com usuario 'sigedash'..."
 $env:PGPASSWORD = $SigeDashSenha
-$teste          = & "$PG_BIN\psql.exe" -U sigedash -d sigedash -c "SELECT version()" 2>&1
+$teste = & $psqlExe -U sigedash -d sigedash -c "SELECT version()" 2>&1
 $env:PGPASSWORD = $null
 
 if ($teste -match "PostgreSQL") {
     Log "Conexao OK - PostgreSQL respondendo para o usuario 'sigedash'."
 } else {
-    Log "AVISO: teste de conexao retornou: $teste"
-    Log "Verifique manualmente: psql -U sigedash -d sigedash -h localhost"
+    Log "ERRO: nao foi possivel conectar como usuario 'sigedash': $teste"
+    Log "O banco pode estar com configuracao pg_hba.conf impedindo conexao local."
+    exit 1
 }
 
-# Resumo
 Log ""
 Log "=== PostgreSQL pronto! ==="
 Log "Banco   : sigedash"
 Log "Usuario : sigedash"
 Log "Senha   : $SigeDashSenha"
 Log "Porta   : 5432"
-Log "Servico : $PG_SVC (automatico)"
-Log ""
-Log "String de conexao para o backend:"
-Log "Host=localhost;Port=5432;Database=sigedash;Username=sigedash;Password=$SigeDashSenha"
 Log ""
 Log "Proximo passo: execute instalar-backend.ps1 -PostgresSenha '$SigeDashSenha'"

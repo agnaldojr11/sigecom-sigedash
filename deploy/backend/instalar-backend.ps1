@@ -100,6 +100,29 @@ $configPath = Join-Path $InstallDir "appsettings.Production.json"
 $config | ConvertTo-Json -Depth 5 | Set-Content $configPath -Encoding UTF8
 Log "appsettings.Production.json gerado."
 
+# --- Verifica acesso ao banco antes de registrar o servico ---
+$psqlCmd = Get-Command psql.exe -ErrorAction SilentlyContinue
+if (-not $psqlCmd) {
+    foreach ($v in @("17","16","15","14","13")) {
+        $c = "C:\Program Files\PostgreSQL\$v\bin\psql.exe"
+        if (Test-Path $c) { $psqlCmd = @{ Source = $c }; break }
+    }
+}
+if ($psqlCmd) {
+    $env:PGPASSWORD = $PostgresSenha
+    $dbTest = & $psqlCmd.Source -U sigedash -d sigedash -h localhost -c "SELECT 1" 2>&1
+    $env:PGPASSWORD = $null
+    if ($dbTest -match "1 row") {
+        Log "Conexao com banco 'sigedash' verificada com sucesso."
+    } else {
+        Log "ERRO: nao foi possivel conectar ao banco 'sigedash'. Verifique se o PostgreSQL esta rodando e o banco existe."
+        Log "Detalhe: $dbTest"
+        exit 1
+    }
+} else {
+    Log "AVISO: psql.exe nao encontrado - pulando verificacao do banco."
+}
+
 # --- Registra o Windows Service ---
 Log "Registrando servico $SVC_NAME ..."
 $binPath = "`"$SVC_EXE`""
@@ -115,7 +138,22 @@ Log "Servico registrado."
 
 # --- Inicia o servico ---
 Log "Iniciando $SVC_NAME ..."
-Start-Service $SVC_NAME
+try {
+    Start-Service $SVC_NAME
+} catch {
+    # Captura o erro real do Event Log para diagnose mais clara
+    $evtErro = Get-EventLog -LogName Application -Source ".NET Runtime","Application Error" `
+        -Newest 3 -ErrorAction SilentlyContinue |
+        Where-Object { $_.Message -match "SigeDash" } |
+        Select-Object -First 1
+    if ($evtErro) {
+        Log "ERRO: servico nao iniciou. Detalhe do Event Log: $($evtErro.Message)"
+    } else {
+        Log "ERRO ao iniciar servico: $_"
+    }
+    Log "Verifique: Event Viewer -> Logs de Aplicativos e Servicos"
+    exit 1
+}
 Start-Sleep -Seconds 4
 
 $svc = Get-Service $SVC_NAME
