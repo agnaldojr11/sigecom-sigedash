@@ -73,6 +73,89 @@ function Falha($msg) {
     exit 1
 }
 
+function CriarTunnelCloudflare($nomeCliente, $scriptDir) {
+    $cfConfig = Join-Path $scriptDir "cf.json"
+    if (-not (Test-Path $cfConfig)) {
+        Log "cf.json nao encontrado - tunnel sera configurado manualmente."
+        return $null
+    }
+    $cf      = Get-Content $cfConfig | ConvertFrom-Json
+    $headers = @{ "Authorization" = "Bearer $($cf.apiToken)"; "Content-Type" = "application/json" }
+
+    # Slug: "5 Estrelas Comercial" -> "5estrelas"
+    $slug = ($nomeCliente -replace '[^a-zA-Z0-9]', '').ToLower()
+    if ($slug.Length -gt 20) { $slug = $slug.Substring(0, 20) }
+    $tunnelName = "sigedash-$slug"
+    $hostname   = "$slug.$($cf.dominio)"
+
+    Log "Criando tunnel Cloudflare: $tunnelName ..."
+
+    # Cria o tunnel
+    $secretBytes = 1..32 | ForEach-Object { [byte](Get-Random -Max 256) }
+    $body = @{
+        name          = $tunnelName
+        tunnel_secret = [Convert]::ToBase64String($secretBytes)
+    } | ConvertTo-Json
+
+    try {
+        $resp     = Invoke-RestMethod `
+            "https://api.cloudflare.com/client/v4/accounts/$($cf.accountId)/cfd_tunnel" `
+            -Method POST -Headers $headers -Body $body
+        $tunnelId = $resp.result.id
+        Log "Tunnel criado: $tunnelId"
+    } catch {
+        Log "AVISO: erro ao criar tunnel Cloudflare: $_"
+        return $null
+    }
+
+    # Configura ingress (hostname -> localhost:5000)
+    $ingressBody = @{
+        config = @{
+            ingress = @(
+                @{ hostname = $hostname; service = "http://localhost:5000" },
+                @{ service  = "http_status:404" }
+            )
+        }
+    } | ConvertTo-Json -Depth 6
+    try {
+        Invoke-RestMethod `
+            "https://api.cloudflare.com/client/v4/accounts/$($cf.accountId)/cfd_tunnel/$tunnelId/configurations" `
+            -Method PUT -Headers $headers -Body $ingressBody | Out-Null
+        Log "Ingress configurado: $hostname -> localhost:5000"
+    } catch {
+        Log "AVISO: erro ao configurar ingress: $_"
+    }
+
+    # Cria DNS CNAME
+    $dnsBody = @{
+        type    = "CNAME"
+        name    = $slug
+        content = "$tunnelId.cfargotunnel.com"
+        proxied = $true
+        ttl     = 1
+    } | ConvertTo-Json
+    try {
+        Invoke-RestMethod `
+            "https://api.cloudflare.com/client/v4/zones/$($cf.zoneId)/dns_records" `
+            -Method POST -Headers $headers -Body $dnsBody | Out-Null
+        Log "DNS criado: https://$hostname"
+    } catch {
+        Log "AVISO: erro ao criar DNS (pode ja existir): $_"
+    }
+
+    # Obtem token do tunnel
+    try {
+        $tokenResp = Invoke-RestMethod `
+            "https://api.cloudflare.com/client/v4/accounts/$($cf.accountId)/cfd_tunnel/$tunnelId/token" `
+            -Headers $headers
+        Log "Token do tunnel obtido com sucesso."
+        return @{ Token = $tokenResp.result; Url = "https://$hostname" }
+    } catch {
+        Log "AVISO: erro ao obter token do tunnel: $_"
+        return $null
+    }
+}
+
 function BuscarNomeFantasia($fdbPath) {
     $candidatos = @(
         "C:\Program Files\Firebird\Firebird_2_5\bin\isql.exe",
@@ -217,22 +300,21 @@ if (-not $agenteSetup) {
 # ============================================================
 Titulo "PASSO 4 - Cloudflare Tunnel"
 # ============================================================
+$TunnelUrl = ""
+
 if ([string]::IsNullOrWhiteSpace($TunnelToken)) {
-    Log "Token do tunel nao informado - pulando instalacao do tunnel."
-    Log ""
-    Log "Para instalar depois, execute:"
-    Log "  .\instalar-tunnel.ps1 -TunnelToken <TOKEN>"
-    Log ""
-    Log "Instrucoes para obter o token:"
-    Log "  1. Acesse https://one.dash.cloudflare.com"
-    Log "  2. Zero Trust -> Networks -> Tunnels -> Create a tunnel"
-    Log "  3. Nome: sigedash-$(($NomeCliente -replace '[^a-zA-Z0-9]', '').ToLower())"
-    Log "  4. Service: HTTP | URL: localhost:5000"
-    Log "  5. Copie o token e execute instalar-tunnel.ps1"
-} else {
+    Log "TunnelToken nao informado - tentando criar automaticamente via API Cloudflare..."
+    $cfResult = CriarTunnelCloudflare $NomeCliente $SCRIPT_DIR
+    if ($cfResult) {
+        $TunnelToken = $cfResult.Token
+        $TunnelUrl   = $cfResult.Url
+        Sucesso "Tunnel Cloudflare criado: $TunnelUrl"
+    }
+}
+
+if (-not [string]::IsNullOrWhiteSpace($TunnelToken)) {
     $scriptTunnel = Join-Path $SCRIPT_DIR "instalar-tunnel.ps1"
     if (-not (Test-Path $scriptTunnel)) { Falha "instalar-tunnel.ps1 nao encontrado em $SCRIPT_DIR" }
-
     try {
         & $scriptTunnel -TunnelToken $TunnelToken
         Sucesso "Cloudflare Tunnel instalado."
@@ -240,6 +322,11 @@ if ([string]::IsNullOrWhiteSpace($TunnelToken)) {
         Log "AVISO: erro no tunnel: $_"
         Log "Instale manualmente com: instalar-tunnel.ps1 -TunnelToken <TOKEN>"
     }
+} else {
+    Log "AVISO: tunnel nao configurado. Para instalar manualmente depois:"
+    Log "  1. Execute .\configurar-cf.ps1 na maquina de desenvolvimento"
+    Log "  2. Gere novo pacote com build-deploy.ps1"
+    Log "  OU informe -TunnelToken ao executar instalar-tudo.ps1"
 }
 
 # ============================================================
@@ -252,7 +339,11 @@ Log "  Backend   : http://localhost:5000 (servico SigeDashBackend)"
 Log "  Agente    : servico SigeDashAgente"
 Log "  PostgreSQL: servico postgresql-x64-16"
 if (-not [string]::IsNullOrWhiteSpace($TunnelToken)) {
-    Log "  Tunnel    : servico cloudflared (acesso externo via Cloudflare)"
+    if (-not [string]::IsNullOrWhiteSpace($TunnelUrl)) {
+        Log "  Tunnel    : $TunnelUrl (acesso externo HTTPS)"
+    } else {
+        Log "  Tunnel    : servico cloudflared ativo (verifique URL no painel Cloudflare)"
+    }
 }
 Log ""
 Log "AdminKey para gerenciar clientes: $AdminKey"

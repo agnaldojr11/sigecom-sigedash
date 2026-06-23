@@ -131,7 +131,17 @@ if ($PularAgente) {
     }
 }
 
-# 4b. Grava version.txt no pacote
+# 4b. Inclui cf.json (credenciais Cloudflare) se existir
+$cfJson = Join-Path $ROOT "deploy\cf.json"
+if (Test-Path $cfJson) {
+    Copy-Item $cfJson $PKG_DIR -Force
+    Log "cf.json incluido (tunnel automatico habilitado)."
+} else {
+    Write-Host "  AVISO: deploy\cf.json nao encontrado - tunnel precisara de token manual." -ForegroundColor Yellow
+    Write-Host "  Execute .\configurar-cf.ps1 para habilitar criacao automatica de tunnels." -ForegroundColor Yellow
+}
+
+# 4c. Grava version.txt no pacote
 $versionPath = Join-Path $PKG_DIR "version.txt"
 $Versao | Out-File $versionPath -Encoding UTF8 -NoNewline
 Log "version.txt: $Versao"

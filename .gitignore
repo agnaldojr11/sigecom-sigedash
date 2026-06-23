@@ -12,6 +12,7 @@ agente.config.json
 appsettings.*.local.json
 appsettings.Production.json
 .claude/settings.local.json
+deploy/cf.json
 
 # ── Build .NET ────────────────────────────────────────────────────────────────
 bin/
