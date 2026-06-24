@@ -192,27 +192,25 @@ Levante estas informações com o cliente antes de ir ao servidor:
 
 ### 2.2 Executar o instalador
 
-1. Copie o arquivo **`SigeDashAgente-Setup-vX.X.X.exe`** para o servidor do cliente  
-   *(disponível em `\\servidor-sistemasbr\releases\sigedash\` ou link de download)*
+1. Copie o **pacote `SigeDash-Deploy-vX.X.X.zip`** para o servidor do cliente e descompacte  
+   *(disponível na aba **Releases** do repositório ou link de download)*
 
-2. **Execute como Administrador** (clique com botão direito → "Executar como administrador")
+2. Abra o **PowerShell como Administrador** dentro da pasta descompactada
 
-3. Siga o assistente:
-   - Clique **Avançar** nas telas iniciais
-   - Na tela **"Configuração da Conexão"**, preencha:
+3. O agente é instalado automaticamente pelo `instalar-tudo.ps1` (junto com backend, PostgreSQL
+   e tunnel). Para instalar/reinstalar **somente o agente**, execute:
 
-   | Campo | Valor |
-   |---|---|
-   | Caminho do banco Firebird | `C:\Sigecom\dados\EMPRESA.FDB` *(caminho real)* |
-   | URL do Backend SigeDash | `https://dash.sigedash.com.br` |
-   | Chave do Cliente | Chave fornecida pela SistemasBr |
+   ```powershell
+   .\instalar-agente.ps1 `
+       -AdminKey "SUA_ADMIN_KEY" `
+       -ClienteNome "NOME DO CLIENTE" `
+       -FdbPath "C:\Sigecom\dados\EMPRESA.FDB"
+   ```
 
-4. Clique **Avançar** → **Instalar**
-
-5. O instalador irá automaticamente:
-   - Copiar os arquivos para `C:\Program Files\SistemasBr\SigeDash\`
-   - Gravar o arquivo de configuração
-   - Registrar e iniciar o **Windows Service**
+4. O script (não-interativo) irá automaticamente:
+   - Copiar os binários para `C:\Program Files\SistemasBr\SigeDash\`
+   - Registrar o cliente no backend e gravar o arquivo de configuração
+   - Registrar e iniciar o **Windows Service** `SigeDashAgente`
 
 ### 2.3 Verificar se o serviço está rodando
 
@@ -261,9 +259,9 @@ Se aparecer erro `Connection refused` ou `Unauthorized`:
 
 Para atualizar o agente em um cliente existente:
 
-1. Execute o novo **`SigeDashAgente-Setup-vX.X.X.exe`** como Administrador
-2. O instalador detecta a versão anterior, para o serviço, substitui os arquivos e reinicia
-3. **As configurações do cliente são preservadas** (o instalador não sobrescreve `agente.config.json` existente)
+1. Descompacte o novo **`SigeDash-Deploy-vX.X.X.zip`** e rode `.\instalar-agente.ps1` como Administrador
+2. O script para o serviço, substitui os binários e reinicia automaticamente
+3. **As configurações do cliente são preservadas** (não sobrescreve `agente.config.json` existente)
 
 > Se precisar alterar alguma configuração, edite manualmente:  
 > `C:\Program Files\SistemasBr\SigeDash\Config\agente.config.json`  

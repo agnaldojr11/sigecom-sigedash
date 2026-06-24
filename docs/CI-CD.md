@@ -17,12 +17,13 @@ git push --tags
       │                    → push ghcr.io/sistemasbr/sigecom-sigedash:v1.2.3
       │                    → SSH no VPS → docker compose pull → restart
       │
-      └── build-agente.yml ── compila agente .NET 4.8
-                               → gera SigeDashAgente-Setup-v1.2.3.exe
-                               → cria GitHub Release com o .exe anexado
+      └── release.yml ──── roda build-deploy.ps1 (backend + agente + scripts)
+                               → gera SigeDash-Deploy-v1.2.3.zip
+                               → cria GitHub Release com o .zip anexado
 ```
 
-O técnico de suporte baixa o `.exe` direto da aba **Releases** do repositório e leva ao cliente.
+O técnico de suporte baixa o `.zip` direto da aba **Releases** do repositório, descompacta no
+servidor do cliente e executa `instalar-tudo.ps1` (ou `Instalar-SigeDash.exe`).
 
 ---
 
@@ -143,9 +144,9 @@ git push --tags
 Isso dispara **automaticamente**:
 1. `ci.yml` — valida o build
 2. `deploy.yml` — publica nova imagem + atualiza o VPS
-3. `build-agente.yml` — gera o instalador `.exe` e cria o GitHub Release
+3. `release.yml` — gera o pacote `SigeDash-Deploy-v*.zip` e cria o GitHub Release
 
-O instalador fica disponível em:  
+O pacote fica disponível em:  
 `https://github.com/sistemasbr/sigecom-sigedash/releases/tag/v1.2.3`
 
 ---
@@ -156,7 +157,7 @@ O instalador fica disponível em:
 |---|---|---|
 | `develop` | Desenvolvimento diário | Só CI (build, sem deploy) |
 | `main` | Código estável, pronto para versão | CI |
-| `v*.*.*` (tag) | Lançamento de versão | CI + Deploy + Build agente |
+| `v*.*.*` (tag) | Lançamento de versão | CI + Deploy + Release (pacote .zip) |
 
 Fluxo recomendado:
 ```

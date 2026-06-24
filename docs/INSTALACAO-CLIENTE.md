@@ -210,45 +210,34 @@ O campo `STATE` deve mostrar `RUNNING`.
 
 O Agente é o Windows Service que lê os dados do Firebird (Sigecom) e os envia ao backend local.
 
-### 3.1 — Executar o instalador
+### 3.1 — Instalação automática (sem assistente)
 
-- [ ] Localize o arquivo `SigeDashAgente-Setup-vX.X.exe`
-- [ ] Execute **como Administrador** (botão direito → "Executar como administrador")
-- [ ] Clique **Avançar** nas primeiras telas
+O agente **não tem mais instalador interativo**. Ele é instalado automaticamente pelo
+`instalar-tudo.ps1` (Passo 1), junto com backend, PostgreSQL e tunnel. Esta seção é apenas
+para reinstalar/atualizar **somente o agente**, quando necessário.
 
-[SCREENSHOT: Tela inicial do instalador SigeDash Agente]
+- [ ] No PowerShell **como Administrador**, dentro da pasta do pacote, execute:
 
-### 3.2 — Tela "Conexão com o Servidor SigeDash"
+```powershell
+.\instalar-agente.ps1 `
+    -AdminKey "SUA_ADMIN_KEY" `
+    -ClienteNome "NOME DO CLIENTE" `
+    -FdbPath "C:\Sigecom\dados\EMPRESA.FDB"
+```
 
-- [ ] **URL do servidor SigeDash:** `http://localhost:5000`
-  - (usamos localhost porque o agente está no mesmo servidor que o backend)
-- [ ] **Chave de administração:** informe a **AdminKey** que você gerou no Passo 2.4
-
-[SCREENSHOT: Tela de conexão com o servidor, preenchida com localhost:5000]
-
-### 3.3 — Tela "Dados do Cliente"
-
-- [ ] **Nome da empresa:** informe o nome do cliente (ex.: `Autopeças Silva`)
-  - Este nome aparecerá no painel e identifica o cliente no sistema
-- [ ] **Caminho do banco Firebird (.FDB):** informe o caminho completo do arquivo `.FDB`
-  - Exemplo: `C:\Sigecom\dados\EMPRESA.FDB`
-
-[SCREENSHOT: Tela de dados do cliente com nome da empresa e caminho do FDB preenchidos]
-
-### 3.4 — Concluir a instalação
-
-- [ ] Clique **Avançar** → **Instalar**
-- [ ] O instalador automaticamente:
-  - Registra o cliente no backend
+- [ ] O script automaticamente:
+  - Copia os binários para `C:\Program Files\SistemasBr\SigeDash\`
+  - Registra o cliente no backend (usando a `AdminKey`)
   - Grava o arquivo de configuração `Config\agente.config.json`
   - Instala e inicia o serviço Windows `SigeDashAgente`
 
-- [ ] Se aparecer uma caixa de aviso dizendo que "não foi possível registrar o cliente automaticamente":
+> A `AdminKey` é a chave gerada no Passo 2.4. `BackendUrl` assume `http://localhost:5000`
+> por padrão (agente e backend ficam no mesmo servidor).
+
+- [ ] Se aparecer erro "não foi possível registrar o cliente":
   - Verifique se o backend está rodando: `sc.exe query SigeDashBackend`
   - Verifique o log em: `C:\Program Files\SistemasBr\SigeDash\Config\setup.log`
   - Consulte a seção **Solução de Problemas** no final deste guia
-
-- [ ] Clique **Concluir**
 
 ### 3.5 — Verificar o serviço do agente
 

@@ -358,7 +358,7 @@ Usada pela equipe SistemasBr para cadastrar novos clientes no backend.
 
 ### 6.2 Agente — `sigedash-agente.ini`
 
-O arquivo e gerado pelo instalador (`configurar-cliente.ps1` / `instalar-agente.iss`).
+O arquivo e gerado pelo instalador (`configurar-cliente.ps1`, chamado por `instalar-agente.ps1`).
 
 | Chave | Descricao |
 |---|---|
@@ -398,15 +398,15 @@ O `.csproj` inclui automaticamente `pwa/**/*` como conteudo de `wwwroot/` no pub
 ### 7.2 Agente
 
 ```bash
-# Compilar (requer MSBuild / Visual Studio Build Tools)
-msbuild agente/SigeDash.Agente/SigeDash.Agente.csproj /p:Configuration=Release
-
-# Gerar instalador (requer Inno Setup 6+)
-iscc deploy/agente/instalar-agente.iss
+# Publicar binarios .NET 4.8 (win-x64, framework-dependent)
+dotnet publish agente/SigeDash.Agente/SigeDash.Agente.csproj \
+  -c Release -r win-x64 --self-contained false -o publish/agente
 ```
 
-O instalador (`instalar-agente.iss`) empacota o binario do agente e chama `configurar-cliente.ps1`
-para configurar o `.ini` e registrar o servico Windows.
+No cliente, `instalar-agente.ps1` (nao-interativo) copia esses binarios, chama
+`configurar-cliente.ps1` para gerar o config e registrar o servico Windows `SigeDashAgente`.
+O build do pacote (`build-deploy.ps1`) ja faz o publish do agente para a subpasta `agente/`
+automaticamente — nao ha mais instalador InnoSetup.
 
 ### 7.3 Desenvolvimento local
 
@@ -483,9 +483,14 @@ sigedash-br/
 │   └── manifest.webmanifest          ← metadados PWA
 │
 ├── deploy/
-│   └── agente/
-│       ├── instalar-agente.iss       ← script Inno Setup (instalador .exe)
-│       └── configurar-cliente.ps1    ← configura .ini e registra servico Windows
+│   ├── agente/
+│   │   └── configurar-cliente.ps1    ← gera config e registra servico Windows
+│   └── backend/
+│       ├── instalar-tudo.ps1         ← orquestrador (executado pelo tecnico)
+│       ├── instalar-agente.ps1       ← instala binarios + servico do agente
+│       ├── instalar-backend.ps1      ← registra backend como Windows Service
+│       ├── instalar-postgres.ps1     ← instala PostgreSQL
+│       └── instalar-tunnel.ps1       ← instala Cloudflare Tunnel
 │
 ├── docs/
 │   └── ARQUITETURA.md                ← este documento
