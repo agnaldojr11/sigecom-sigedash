@@ -70,7 +70,11 @@ if ($svc) {
     Log "Servico $SVC_NAME encontrado - removendo versao anterior..."
     Stop-Service $SVC_NAME -Force -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 2
+    # Continue evita que stderr do cloudflared.exe vire excecao com ErrorActionPreference=Stop
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
     & $CLOUDFLARED service uninstall 2>&1 | Out-Null
+    $ErrorActionPreference = $prevEAP
     Log "Servico removido."
 }
 
@@ -92,12 +96,18 @@ if (-not (Test-Path $CLOUDFLARED)) {
 }
 
 # Verifica versao
+$prevEAP = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 $versao = & $CLOUDFLARED --version 2>&1
+$ErrorActionPreference = $prevEAP
 Log "Versao: $versao"
 
 # Instala como Windows Service com o token do tunel
 Log "Instalando servico $SVC_NAME com o token do tunel..."
+$prevEAP = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 $resultado = & $CLOUDFLARED service install $TunnelToken 2>&1
+$ErrorActionPreference = $prevEAP
 Log "Resultado: $resultado"
 
 # Verifica se o servico foi registrado

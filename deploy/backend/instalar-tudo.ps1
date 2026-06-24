@@ -25,9 +25,6 @@
 .PARAMETER SigeDashSenha
     Senha do banco PostgreSQL. Gerada automaticamente se omitida.
 
-.PARAMETER AgenteInstallerDir
-    Pasta onde esta o SigeDashAgente-Setup.exe. Padrao: mesma pasta deste script.
-
 .EXAMPLE
     .\instalar-tudo.ps1 -TunnelToken "eyJhIjoiMT..."
     .\instalar-tudo.ps1 -FdbPath "D:\SIGECOM\SIGECOM.FDB" -TunnelToken "eyJhIjoiMT..."
@@ -38,8 +35,7 @@ param(
     [string]$FdbPath           = "C:\SIGECOM\SIGECOM.FDB",
 
     [string]$TunnelToken       = "",
-    [string]$SigeDashSenha     = "",
-    [string]$AgenteInstallerDir = $PSScriptRoot
+    [string]$SigeDashSenha     = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -268,39 +264,33 @@ try {
 # ============================================================
 Titulo "PASSO 3 - SigeDash Agente"
 # ============================================================
-$agenteSetup = Get-ChildItem $AgenteInstallerDir -Filter "SigeDashAgente-Setup*.exe" |
-               Sort-Object LastWriteTime -Descending | Select-Object -First 1
+# O agente agora e instalado via instalar-agente.ps1 (binarios + servico, nao-interativo).
+# Os binarios ficam na subpasta 'agente' do pacote.
+$scriptAgente = Join-Path $SCRIPT_DIR "instalar-agente.ps1"
+$agenteSrc    = Join-Path $SCRIPT_DIR "agente"
 
-if (-not $agenteSetup) {
-    Log "AVISO: SigeDashAgente-Setup.exe nao encontrado em $AgenteInstallerDir"
-    Log "Instale o agente manualmente e depois execute:"
-    Log "  configurar-cliente.ps1 -BackendUrl http://localhost:5000 -AdminKey '$AdminKey' -ClienteNome '$NomeCliente' -FdbPath '$FdbPath'"
+if (-not (Test-Path $scriptAgente)) {
+    Log "AVISO: instalar-agente.ps1 nao encontrado em $SCRIPT_DIR"
+    Log "Instale o agente manualmente depois."
+} elseif (-not (Test-Path (Join-Path $agenteSrc "SigeDash.Agente.exe"))) {
+    Log "AVISO: binarios do agente nao encontrados em $agenteSrc"
+    Log "O pacote pode ter sido gerado sem o agente. Instale manualmente depois."
 } else {
-    Log "Executando instalador do agente: $($agenteSetup.FullName)"
-    $proc = Start-Process -FilePath $agenteSetup.FullName -ArgumentList "/SILENT" -Wait -PassThru
-    if ($proc.ExitCode -ne 0) {
-        Log "AVISO: instalador do agente retornou codigo $($proc.ExitCode). Verifique manualmente."
-    } else {
-        Sucesso "Agente instalado."
-    }
-
-    # Configura o agente
-    $scriptConf = Join-Path $SCRIPT_DIR "configurar-cliente.ps1"
-    if (-not (Test-Path $scriptConf)) {
-        $scriptConf = "C:\Program Files\SistemasBr\SigeDash\configurar-cliente.ps1"
-    }
-    if (Test-Path $scriptConf) {
-        try {
-            & $scriptConf `
-                -BackendUrl "http://localhost:5000" `
-                -AdminKey $AdminKey `
-                -ClienteNome $NomeCliente `
-                -FdbPath $FdbPath
-            Sucesso "Agente configurado."
-        } catch {
-            Log "AVISO: erro ao configurar agente: $_"
-            Log "Execute manualmente: configurar-cliente.ps1"
+    try {
+        & $scriptAgente `
+            -BackendUrl  "http://localhost:5000" `
+            -AdminKey    $AdminKey `
+            -ClienteNome $NomeCliente `
+            -FdbPath     $FdbPath `
+            -AgenteSrc   $agenteSrc
+        if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+            Log "AVISO: instalar-agente.ps1 retornou codigo $LASTEXITCODE. Verifique manualmente."
+        } else {
+            Sucesso "Agente instalado e configurado."
         }
+    } catch {
+        Log "AVISO: erro ao instalar agente: $_"
+        Log "Execute manualmente: instalar-agente.ps1"
     }
 }
 
