@@ -268,7 +268,12 @@ function _estRenderBusca(el, q) {
   cab.textContent = filtrados.length + (filtrados.length === 1 ? ' produto' : ' produtos') + ' para "' + q + '"';
   el.appendChild(cab);
 
-  filtrados.forEach(function(d) {
+  // Teto de exibicao: o snapshot traz todos os produtos ativos (milhares); uma busca
+  // curta pode casar com muitos itens. Mostramos os primeiros e pedimos para refinar.
+  var MAX_EXIBIR = 100;
+  var exibidos = filtrados.slice(0, MAX_EXIBIR);
+
+  exibidos.forEach(function(d) {
     var nome    = d.label || '';
     var estoque = Number(d.estoque != null ? d.estoque : 0);
     var custo   = Number(d.custo   != null ? d.custo   : 0);
@@ -292,6 +297,14 @@ function _estRenderBusca(el, q) {
       '</div>';
     el.appendChild(item);
   });
+
+  if (filtrados.length > MAX_EXIBIR) {
+    var aviso = document.createElement('div');
+    aviso.className = 'busca-cabecalho';
+    aviso.textContent = 'Mostrando os primeiros ' + MAX_EXIBIR + ' de ' + filtrados.length +
+      ' — digite mais para refinar a busca.';
+    el.appendChild(aviso);
+  }
 }
 
 // ── Financeiro ─────────────────────────────────────────────────────────────

@@ -1,7 +1,9 @@
+using System.IO.Compression;
 using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SigeDash.Api.Data;
@@ -46,6 +48,19 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 builder.Services.AddHttpClient("claude");
 
+// Compressao de resposta (gzip/brotli). O /dash pode trafegar a lista completa de
+// produtos (milhares de linhas); JSON repetitivo comprime para uma fracao do tamanho.
+// EnableForHttps: o backend pode atender direto (sem o tunnel comprimir na borda).
+builder.Services.AddResponseCompression(o =>
+{
+    o.EnableForHttps = true;
+    o.Providers.Add<BrotliCompressionProvider>();
+    o.Providers.Add<GzipCompressionProvider>();
+    o.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[] { "application/json" });
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(o => o.Level = CompressionLevel.Fastest);
+builder.Services.Configure<GzipCompressionProviderOptions>(o => o.Level = CompressionLevel.Fastest);
+
 // CORS configurável via appsettings (apenas necessário em dev; produção usa mesmo origin)
 var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>()
                      ?? ["http://localhost:5000", "http://localhost:8080"];
@@ -81,6 +96,9 @@ using (var scope = app.Services.CreateScope())
     if (app.Environment.IsDevelopment())
         SeedData.Seed(db);
 }
+
+// Compressao deve vir cedo no pipeline (comprime estaticos e respostas de API)
+app.UseResponseCompression();
 
 // Serve o PWA (wwwroot/): index.html, css, js, service worker, ícones
 app.UseDefaultFiles();

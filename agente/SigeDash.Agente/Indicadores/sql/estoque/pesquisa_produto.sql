@@ -1,5 +1,7 @@
-/* Pesquisa de produtos: nome, estoque, custo e preco de venda. @EMPRESA parametrizado. */
-SELECT FIRST 1000
+/* Pesquisa de produtos: nome, estoque, custo e preco de venda. @EMPRESA parametrizado.
+   Sem FIRST: traz TODOS os produtos ativos para que a busca no PWA encontre qualquer item
+   (o filtro por nome e feito no cliente sobre o snapshot completo). */
+SELECT
     PB.NOME                         AS "label",
     MAX(PE.ESTOQUE)                 AS "estoque",
     MAX(PE.PRECOCUSTO)              AS "custo",
