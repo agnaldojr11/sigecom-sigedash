@@ -3,9 +3,10 @@
     Gera o pacote de deploy do SigeDash pronto para instalacao no cliente.
 .DESCRIPTION
     1. Compila o backend (.NET 8, win-x64, self-contained)
-    2. Compila o agente + instalador InnoSetup (se InnoSetup estiver instalado)
+    2. Compila o agente (.NET 4.8) para a subpasta 'agente' do pacote
     3. Monta o pacote com todos os scripts de instalacao
-    4. Gera SigeDash-Deploy-v{versao}.zip em dist\
+    4. (Opcional, -Assinar) Assina os .exe com o certificado EV (DigiCert no token)
+    5. Gera SigeDash-Deploy-v{versao}.zip em dist\
 
     O ZIP entregue ao tecnico contem tudo que e necessario.
     O tecnico descompacta e executa: .\instalar-tudo.ps1
@@ -13,15 +14,28 @@
 .PARAMETER Versao
     Versao do pacote. Padrao: 1.0.0
 .PARAMETER PularAgente
-    Nao compila o agente (util se InnoSetup nao estiver instalado).
+    Nao compila o agente (gera pacote apenas com backend).
+.PARAMETER Assinar
+    Assina Instalar-SigeDash.exe, SigeDash.Api.exe e SigeDash.Agente.exe com o
+    certificado de code signing EV. Exige o token conectado (o middleware pede o PIN).
+.PARAMETER CertThumbprint
+    Thumbprint (SHA1) do certificado. Padrao: cert RSA 4096 EV da SistemasBr.
+.PARAMETER TimestampUrl
+    Servidor de timestamp RFC3161. Padrao: http://timestamp.digicert.com
 .EXAMPLE
     .\build-deploy.ps1
     .\build-deploy.ps1 -Versao "1.1.0"
     .\build-deploy.ps1 -PularAgente
+    .\build-deploy.ps1 -Versao "1.0.12" -Assinar
 #>
 param(
     [string]$Versao      = "1.0.0",
-    [switch]$PularAgente
+    [switch]$PularAgente,
+
+    # Assinatura de codigo (EV / DigiCert no token). Opt-in: exige o token conectado.
+    [switch]$Assinar,
+    [string]$CertThumbprint = "D1377848F144D6441673E05B4C66613C8AAE5F75",
+    [string]$TimestampUrl   = "http://timestamp.digicert.com"
 )
 
 $ErrorActionPreference = "Stop"
@@ -47,6 +61,42 @@ function Checar($exitCode, $etapa) {
     if ($exitCode -ne 0) {
         Write-Host "ERRO em '$etapa' (codigo $exitCode)" -ForegroundColor Red
         exit 1
+    }
+}
+
+# Localiza o signtool.exe: cache do repo -> Windows SDK -> baixa via NuGet.
+function Resolve-SignTool {
+    $cache = Join-Path $ROOT ".tools\signtool\signtool.exe"
+    if (Test-Path $cache) { return $cache }
+
+    $kit = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue |
+           Where-Object { $_.FullName -match '\\x64\\' } | Sort-Object FullName -Descending | Select-Object -First 1
+    if ($kit) { return $kit.FullName }
+
+    Log "signtool nao encontrado - baixando Microsoft.Windows.SDK.BuildTools (NuGet)..."
+    $toolsDir = Join-Path $ROOT ".tools"
+    New-Item -ItemType Directory -Force -Path $toolsDir | Out-Null
+    $nupkg   = Join-Path $toolsDir "sdk-buildtools.zip"
+    $extract = Join-Path $toolsDir "sdk-buildtools"
+    Invoke-WebRequest -Uri "https://www.nuget.org/api/v2/package/Microsoft.Windows.SDK.BuildTools" `
+                      -OutFile $nupkg -UseBasicParsing
+    if (Test-Path $extract) { Remove-Item $extract -Recurse -Force }
+    Expand-Archive -Path $nupkg -DestinationPath $extract -Force
+    $dl = Get-ChildItem $extract -Recurse -Filter signtool.exe |
+          Where-Object { $_.FullName -match '\\x64\\' } | Sort-Object FullName -Descending | Select-Object -First 1
+    if (-not $dl) { throw "signtool.exe nao encontrado no pacote NuGet baixado" }
+    New-Item -ItemType Directory -Force -Path (Split-Path $cache) | Out-Null
+    Copy-Item $dl.FullName $cache -Force
+    return $cache
+}
+
+# Assina e verifica um executavel com o certificado informado (PIN do token e solicitado pelo middleware).
+function Assinar($signtool, $arquivo) {
+    & $signtool sign /fd sha256 /tr $TimestampUrl /td sha256 /sha1 $CertThumbprint $arquivo
+    if ($LASTEXITCODE -ne 0) { throw "Falha ao assinar '$arquivo' (codigo $LASTEXITCODE)" }
+    & $signtool verify /pa /q $arquivo
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  AVISO: verificacao da assinatura falhou em $arquivo" -ForegroundColor Yellow
     }
 }
 
@@ -93,6 +143,7 @@ $SCRIPTS = @(
     "deploy\backend\instalar-tudo.ps1",
     "deploy\backend\instalar-postgres.ps1",
     "deploy\backend\instalar-backend.ps1",
+    "deploy\backend\instalar-agente.ps1",
     "deploy\backend\instalar-tunnel.ps1",
     "deploy\backend\atualizar.ps1",
     "deploy\agente\configurar-cliente.ps1"
@@ -117,27 +168,32 @@ Get-ChildItem $PKG_DIR -Filter "*.ps1" | ForEach-Object {
     Log "  BOM: $($_.Name)"
 }
 
-# 4. Compila agente + instalador InnoSetup
-Titulo "4" "Compilando agente e instalador InnoSetup..."
-$ISCC      = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-$BUILD_BAT = Join-Path $ROOT "deploy\agente\build-instalador.bat"
+# 4. Compila o agente (binarios .NET 4.8) para a subpasta 'agente' do pacote
+# Nao usa mais InnoSetup: o agente e instalado por instalar-agente.ps1 (nao-interativo).
+Titulo "4" "Compilando agente (binarios .NET 4.8 win-x64)..."
+$AGENTE_PROJ = Join-Path $ROOT "agente\SigeDash.Agente\SigeDash.Agente.csproj"
+$AGENTE_OUT  = Join-Path $PKG_DIR "agente"
 
 if ($PularAgente) {
     Log "Pulando compilacao do agente (-PularAgente informado)"
-} elseif (-not (Test-Path $ISCC)) {
-    Write-Host "  InnoSetup nao encontrado - pulando build do agente" -ForegroundColor Yellow
-    Write-Host "  Instale em: https://jrsoftware.org/isinfo.php" -ForegroundColor Yellow
+} elseif (-not (Test-Path $AGENTE_PROJ)) {
+    Write-Host "  AVISO: projeto do agente nao encontrado em $AGENTE_PROJ" -ForegroundColor Yellow
 } else {
-    & cmd /c $BUILD_BAT
-    Checar $LASTEXITCODE "build-instalador.bat"
+    dotnet publish $AGENTE_PROJ `
+        -c Release `
+        -r win-x64 `
+        --self-contained false `
+        -o $AGENTE_OUT `
+        -p:DebugType=None `
+        -p:DebugSymbols=false
 
-    $agenteExe = Get-ChildItem $DIST -Filter "SigeDashAgente-Setup-*.exe" |
-                 Sort-Object LastWriteTime -Descending | Select-Object -First 1
-    if ($agenteExe) {
-        Copy-Item $agenteExe.FullName $PKG_DIR -Force
-        Log "  + $($agenteExe.Name)"
+    Checar $LASTEXITCODE "dotnet publish agente"
+
+    if (Test-Path (Join-Path $AGENTE_OUT "SigeDash.Agente.exe")) {
+        $qtdAg = (Get-ChildItem $AGENTE_OUT -Recurse).Count
+        Log "Agente publicado em: $AGENTE_OUT ($qtdAg arquivos)"
     } else {
-        Write-Host "  AVISO: SigeDashAgente-Setup-*.exe nao encontrado" -ForegroundColor Yellow
+        Write-Host "  AVISO: SigeDash.Agente.exe nao encontrado apos publish" -ForegroundColor Yellow
     }
 }
 
@@ -192,6 +248,35 @@ if ($ps2exeModule) {
     Write-Host "  Execute: Install-Module ps2exe -Force -Scope CurrentUser" -ForegroundColor Yellow
 }
 
+# 4e. Assina os executaveis com o certificado EV (DigiCert no token).
+#     Opt-in (-Assinar): exige o token conectado; o middleware solicita o PIN.
+if ($Assinar) {
+    Titulo "4e" "Assinando executaveis (certificado EV)..."
+    $signtool = Resolve-SignTool
+    Log "signtool    : $signtool"
+    Log "Certificado : $CertThumbprint"
+    Log "Timestamp   : $TimestampUrl"
+
+    $exesParaAssinar = @(
+        (Join-Path $PKG_DIR "Instalar-SigeDash.exe"),
+        (Join-Path $PKG_DIR "SigeDash.Api.exe"),
+        (Join-Path $PKG_DIR "agente\SigeDash.Agente.exe")
+    )
+
+    $assinados = 0
+    foreach ($exe in $exesParaAssinar) {
+        if (Test-Path $exe) {
+            Log "  Assinando $(Split-Path $exe -Leaf)..."
+            Assinar $signtool $exe
+            $assinados++
+        }
+    }
+    Log "Assinatura concluida ($assinados executaveis)."
+} else {
+    Write-Host ""
+    Write-Host "[4e] Assinatura PULADA. Rode com -Assinar (token EV conectado) para assinar os .exe." -ForegroundColor DarkYellow
+}
+
 # 4f. Grava version.txt no pacote
 $versionPath = Join-Path $PKG_DIR "version.txt"
 $Versao | Out-File $versionPath -Encoding UTF8 -NoNewline
@@ -233,10 +318,11 @@ CONTEUDO DESTA PASTA
 - instalar-tudo.ps1         Script principal - execute este
 - instalar-postgres.ps1     Passo 1: instala PostgreSQL 16
 - instalar-backend.ps1      Passo 2: registra backend como Windows Service
+- instalar-agente.ps1       Passo 3: instala o agente (binarios + servico)
+- configurar-cliente.ps1    Registra o cliente no backend e grava o config do agente
 - instalar-tunnel.ps1       Passo 4: instala Cloudflare Tunnel
-- configurar-cliente.ps1    Passo 3: configura agente e cria usuario
 - atualizar.ps1             Atualizacao automatica (agendado toda segunda 03h)
-- SigeDashAgente-Setup.exe  Instalador do agente (se incluido)
+- agente/                   Binarios do agente (.NET 4.8) instalados pelo instalar-agente.ps1
 
 SERVICOS INSTALADOS NO SERVIDOR DO CLIENTE
 ------------------------------------------

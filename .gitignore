@@ -19,6 +19,7 @@ bin/
 obj/
 dist/
 publish/
+.tools/
 *.user
 *.suo
 .vs/
