@@ -14,7 +14,7 @@ git push --tags
       ├── ci.yml ──────── build e valida (backend + agente + docker)
       │
       ├── deploy.yml ───── build imagem Docker
-      │                    → push ghcr.io/sistemasbr/sigecom-sigedash:v1.2.3
+      │                    → push ghcr.io/agnaldojr11/sigecom-sigedash:v1.2.3
       │                    → SSH no VPS → docker compose pull → restart
       │
       └── release.yml ──── roda build-deploy.ps1 (backend + agente + scripts)
@@ -30,12 +30,12 @@ servidor do cliente e executa `instalar-tudo.ps1` (ou `Instalar-SigeDash.exe`).
 ## 1 — Criar repositório no GitHub
 
 1. Acesse [github.com](https://github.com) e crie um repositório privado:  
-   **`sistemasbr/sigecom-sigedash`** (ou o nome que preferir)
+   **`agnaldojr11/sigecom-sigedash`** (ou o nome que preferir)
 2. Faça o primeiro push:
    ```bash
    cd C:\Users\Dell\Desktop\ClaudeSigecom\sigedash-br
    git init
-   git remote add origin https://github.com/sistemasbr/sigecom-sigedash.git
+   git remote add origin https://github.com/agnaldojr11/sigecom-sigedash.git
    git add .
    git commit -m "feat: setup inicial SigeDash"
    git push -u origin main
@@ -147,7 +147,7 @@ Isso dispara **automaticamente**:
 3. `release.yml` — gera o pacote `SigeDash-Deploy-v*.zip` e cria o GitHub Release
 
 O pacote fica disponível em:  
-`https://github.com/sistemasbr/sigecom-sigedash/releases/tag/v1.2.3`
+`https://github.com/agnaldojr11/sigecom-sigedash/releases/tag/v1.2.3`
 
 ---
 

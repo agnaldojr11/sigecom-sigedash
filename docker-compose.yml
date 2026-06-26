@@ -2,7 +2,7 @@ services:
 
   backend:
     # Dev/build local: BACKEND_IMAGE não definido → usa o nome local
-    # Produção (CI/CD): BACKEND_IMAGE=ghcr.io/sistemasbr/sigecom-sigedash:vX.Y.Z
+    # Produção (CI/CD): BACKEND_IMAGE=ghcr.io/agnaldojr11/sigecom-sigedash:vX.Y.Z
     image: ${BACKEND_IMAGE:-sigedash-backend}
     build:
       context: .

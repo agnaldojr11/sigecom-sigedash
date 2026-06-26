@@ -20,7 +20,7 @@
 param(
     [string]$InstallDir = "C:\SigeDash\Backend",
     [string]$AgenteDir  = "C:\Program Files\SistemasBr\SigeDash",
-    [string]$Repo       = "sistemasbr/sigecom-sigedash",
+    [string]$Repo       = "agnaldojr11/sigecom-sigedash",
     [switch]$Forcar
 )
 

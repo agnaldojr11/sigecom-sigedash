@@ -6,15 +6,15 @@
     - O Git usa automaticamente a credencial em todos os pushes futuros
     - Nenhuma senha fica em arquivo de texto no disco
 .PARAMETER Repo
-    URL HTTPS do repositorio. Padrao: https://github.com/sistemasbr/sigecom-sigedash.git
+    URL HTTPS do repositorio. Padrao: https://github.com/agnaldojr11/sigecom-sigedash.git
 .PARAMETER Branch
     Branch a enviar. Padrao: main
 .EXAMPLE
     .\configurar-github.ps1
-    .\configurar-github.ps1 -Repo "https://github.com/sistemasbr/sigecom-sigedash.git"
+    .\configurar-github.ps1 -Repo "https://github.com/agnaldojr11/sigecom-sigedash.git"
 #>
 param(
-    [string]$Repo   = "https://github.com/sistemasbr/sigecom-sigedash.git",
+    [string]$Repo   = "https://github.com/agnaldojr11/sigecom-sigedash.git",
     [string]$Branch = "main"
 )
 

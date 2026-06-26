@@ -59,7 +59,7 @@ O painel web (PWA) roda no servidor da SistemasBr — o cliente só precisa abri
 ### 1.1 Clonar o repositório
 
 ```bash
-git clone https://github.com/sistemasbr/sigecom-sigedash.git /opt/sigedash
+git clone https://github.com/agnaldojr11/sigecom-sigedash.git /opt/sigedash
 cd /opt/sigedash
 ```
 
