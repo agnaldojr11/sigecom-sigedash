@@ -7,6 +7,8 @@
     - Baixa, para o servico, atualiza e reinicia automaticamente
 .PARAMETER InstallDir
     Pasta de instalacao do backend. Padrao: C:\SigeDash\Backend
+.PARAMETER AgenteDir
+    Pasta de instalacao do agente. Padrao: C:\Program Files\SistemasBr\SigeDash
 .PARAMETER Repo
     Repositorio GitHub no formato "dono/repo".
 .PARAMETER Forcar
@@ -17,12 +19,14 @@
 #>
 param(
     [string]$InstallDir = "C:\SigeDash\Backend",
+    [string]$AgenteDir  = "C:\Program Files\SistemasBr\SigeDash",
     [string]$Repo       = "sistemasbr/sigecom-sigedash",
     [switch]$Forcar
 )
 
 $ErrorActionPreference = "Stop"
 $SVC_NAME   = "SigeDashBackend"
+$SVC_AGENTE = "SigeDashAgente"
 $VERSION_TXT = Join-Path $InstallDir "version.txt"
 $LOG_FILE    = Join-Path $InstallDir "atualizar.log"
 $TEMP_DIR    = Join-Path $env:TEMP "sigedash-update"
@@ -47,7 +51,7 @@ if (Test-Path $VERSION_TXT) {
     $versaoAtual = (Get-Content $VERSION_TXT -Raw).Trim()
     Log "Versao instalada : $versaoAtual"
 } else {
-    Log "version.txt nao encontrado — assumindo 0.0.0"
+    Log "version.txt nao encontrado - assumindo 0.0.0"
 }
 
 # Consulta ultima release no GitHub
@@ -101,43 +105,75 @@ try {
     exit 1
 }
 
-# Para o servico
-Log "Parando servico $SVC_NAME ..."
-$svc = Get-Service $SVC_NAME -ErrorAction SilentlyContinue
-if ($svc -and $svc.Status -eq "Running") {
-    Stop-Service $SVC_NAME -Force
-    Start-Sleep -Seconds 3
-}
-
-# Extrai e copia — preserva appsettings.Production.json
+# Extrai o pacote
 Log "Extraindo pacote..."
 Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
 
-# Copia tudo exceto appsettings.Production.json (que contem senhas do cliente)
-$arquivos = Get-ChildItem $extractPath -Recurse -File |
-    Where-Object { $_.Name -ne "appsettings.Production.json" }
+# Para os servicos (backend e agente) antes de sobrescrever binarios
+foreach ($nome in @($SVC_NAME, $SVC_AGENTE)) {
+    $s = Get-Service $nome -ErrorAction SilentlyContinue
+    if ($s -and $s.Status -eq "Running") {
+        Log "Parando servico $nome ..."
+        Stop-Service $nome -Force
+    }
+}
+Start-Sleep -Seconds 3
 
-$qtd = 0
-foreach ($f in $arquivos) {
+# 1) Backend: tudo, exceto a subpasta 'agente\' e o appsettings.Production.json (senhas do cliente)
+$arqBackend = Get-ChildItem $extractPath -Recurse -File | Where-Object {
+    $_.Name -ne "appsettings.Production.json" -and $_.FullName -notmatch '\\agente\\'
+}
+$qtdBack = 0
+foreach ($f in $arqBackend) {
     $relativo = $f.FullName.Substring($extractPath.Length + 1)
     $destino  = Join-Path $InstallDir $relativo
-    $pasta    = Split-Path $destino
-    New-Item -ItemType Directory -Path $pasta -Force | Out-Null
+    New-Item -ItemType Directory -Path (Split-Path $destino) -Force | Out-Null
     Copy-Item $f.FullName $destino -Force
-    $qtd++
+    $qtdBack++
 }
-Log "$qtd arquivos atualizados (appsettings.Production.json preservado)."
+Log "Backend: $qtdBack arquivos atualizados (appsettings.Production.json preservado)."
 
-# Reinicia o servico
-Log "Iniciando servico $SVC_NAME ..."
-Start-Service $SVC_NAME
+# 2) Agente: binarios + SQL + indicadores.json, preservando Config\agente.config.json (config do cliente)
+$agenteSrc = Join-Path $extractPath "agente"
+if ((Test-Path $agenteSrc) -and (Test-Path $AgenteDir)) {
+    $arqAgente = Get-ChildItem $agenteSrc -Recurse -File | Where-Object {
+        $_.FullName -notmatch '\\Config\\agente\.config\.json$'
+    }
+    $qtdAg = 0
+    foreach ($f in $arqAgente) {
+        $relativo = $f.FullName.Substring($agenteSrc.Length + 1)
+        $destino  = Join-Path $AgenteDir $relativo
+        New-Item -ItemType Directory -Path (Split-Path $destino) -Force | Out-Null
+        Copy-Item $f.FullName $destino -Force
+        $qtdAg++
+    }
+    Log "Agente: $qtdAg arquivos atualizados (Config\agente.config.json preservado)."
+} elseif (Test-Path $agenteSrc) {
+    Log "Agente nao instalado em $AgenteDir - pulando atualizacao do agente."
+} else {
+    Log "Pacote sem subpasta 'agente' - atualizando apenas o backend."
+}
+
+# Reinicia os servicos
+foreach ($nome in @($SVC_NAME, $SVC_AGENTE)) {
+    $s = Get-Service $nome -ErrorAction SilentlyContinue
+    if ($s) {
+        Log "Iniciando servico $nome ..."
+        Start-Service $nome -ErrorAction SilentlyContinue
+    }
+}
 Start-Sleep -Seconds 4
 
-$svc = Get-Service $SVC_NAME
-if ($svc.Status -eq "Running") {
-    Log "Servico reiniciado com sucesso."
+$svc = Get-Service $SVC_NAME -ErrorAction SilentlyContinue
+if ($svc -and $svc.Status -eq "Running") {
+    Log "Backend reiniciado com sucesso."
 } else {
-    Log "AVISO: servico nao voltou a Running (status: $($svc.Status)). Verifique o Event Viewer."
+    Log "AVISO: $SVC_NAME nao voltou a Running. Verifique o Event Viewer."
+}
+$svcAg = Get-Service $SVC_AGENTE -ErrorAction SilentlyContinue
+if ($svcAg) {
+    if ($svcAg.Status -eq "Running") { Log "Agente reiniciado com sucesso." }
+    else { Log "AVISO: $SVC_AGENTE nao voltou a Running (status: $($svcAg.Status))." }
 }
 
 # Limpa temporarios

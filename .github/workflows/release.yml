@@ -29,10 +29,10 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
-      - name: Build e publish backend (win-x64 self-contained)
+      - name: Build e publish backend + agente (win-x64)
         shell: pwsh
         run: |
-          .\build-deploy.ps1 -Versao "${{ steps.versao.outputs.VERSAO }}" -PularAgente
+          .\build-deploy.ps1 -Versao "${{ steps.versao.outputs.VERSAO }}"
 
       - name: Upload ZIP como Release Asset
         uses: softprops/action-gh-release@v2
