@@ -551,19 +551,36 @@ input, button { -webkit-appearance: none; appearance: none; }
 
 .perm-admin-nota { margin-top: 10px; font-size: 13px; color: var(--c-success); }
 
-.perm-opts {
-  margin-top: 12px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px 12px;
-}
+.perm-opts { margin-top: 8px; display: flex; flex-direction: column; }
 .perm-opt {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 14px; color: var(--c-text);
-  padding: 6px 4px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 11px 2px;
+  font-size: 15px; color: var(--c-text);
   cursor: pointer;
+  border-top: 1px solid var(--c-border);
 }
-.perm-opt input { width: 18px; height: 18px; accent-color: var(--c-primary); }
+.perm-opt:first-child { border-top: none; }
+.perm-opt.sub { padding-left: 16px; font-size: 14px; color: var(--c-muted); }
+.perm-opt.sub .perm-opt-lbl::before { content: "↳"; margin-right: 6px; opacity: .6; }
+.perm-opt.desabilitado { opacity: .45; }
+.perm-opt-lbl { flex: 1; min-width: 0; }
+
+/* Interruptor On/Off */
+.switch { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch .slider {
+  position: absolute; inset: 0;
+  background: var(--c-surface2); border: 1px solid var(--c-border);
+  border-radius: 999px; transition: background .2s, border-color .2s;
+}
+.switch .slider::before {
+  content: ""; position: absolute;
+  width: 20px; height: 20px; left: 2px; top: 2px;
+  background: var(--c-muted); border-radius: 50%;
+  transition: transform .2s, background .2s;
+}
+.switch input:checked + .slider { background: var(--c-primary); border-color: var(--c-primary); }
+.switch input:checked + .slider::before { transform: translateX(20px); background: #fff; }
 
 /* ─── SAUDAÇÃO ──────────────────────────────────── */
 .saudacao {

@@ -27,10 +27,16 @@ public static class DashboardEndpoints
                 .Select(g => g.OrderByDescending(s => s.GeradoEm).First())
                 .ToListAsync();
 
-            // Trava de seguranca: so devolve os snapshots das secoes que o usuario pode ver.
+            // Trava de seguranca: so devolve os snapshots das secoes permitidas e ajusta o
+            // payload conforme sub-permissoes (ex.: remove "custo" da pesquisa sem estoque_custo).
             var resp = ultimos
                 .Where(s => Permissoes.PodeVerHandle(s.IndicadorHandle, secoes))
-                .Select(s => new { s.IndicadorHandle, s.GeradoEm, payload = s.PayloadJson });
+                .Select(s => new
+                {
+                    s.IndicadorHandle,
+                    s.GeradoEm,
+                    payload = Permissoes.AjustarPayload(s.IndicadorHandle, s.PayloadJson, secoes)
+                });
             return Results.Ok(resp);
         }).RequireAuthorization();
     }

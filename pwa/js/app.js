@@ -20,6 +20,16 @@ const ORDEM_SEC     = ['resumo', 'vendas', 'estoque', 'financeiro'];
 const SECOES_LABEL  = { resumo: 'Resumo', vendas: 'Vendas', estoque: 'Estoque', financeiro: 'Financeiro' };
 const TIPOS_USUARIO = { 1: 'Administrador', 2: 'Secretário(a)', 3: 'Vendedor(a)', 4: 'Técnico(a)' };
 
+// Itens da tela de Permissões: seções (On/Off) e sub-permissões dentro de uma seção
+const PERM_ITENS = [
+  { key: 'resumo',     label: 'Resumo' },
+  { key: 'vendas',     label: 'Vendas' },
+  { key: 'estoque',    label: 'Estoque', subs: [ { key: 'estoque_custo', label: 'Ver preço de custo' } ] },
+  { key: 'financeiro', label: 'Financeiro' }
+];
+// Seções que caracterizam acesso a BI (para exibir o assistente IA)
+const SECOES_BI = ['resumo', 'vendas', 'financeiro'];
+
 function _secaoPermitida(sec) { return API.secoes().indexOf(sec) >= 0; }
 
 // ── Ícones de cabeçalho de grupo (sem deps externas) ──────────────────────
@@ -584,18 +594,31 @@ function _permCard(u) {
     return card;
   }
 
+  var atuais = u.secoes || [];
   var opts = document.createElement('div');
   opts.className = 'perm-opts';
-  ORDEM_SEC.forEach(function(sec) {
-    var checked = (u.secoes || []).indexOf(sec) >= 0 ? 'checked' : '';
-    var lbl = document.createElement('label');
-    lbl.className = 'perm-opt';
-    lbl.innerHTML = '<input type="checkbox" value="' + sec + '" ' + checked + '><span>' + SECOES_LABEL[sec] + '</span>';
-    opts.appendChild(lbl);
+  PERM_ITENS.forEach(function(it) {
+    opts.appendChild(_permLinha(it.key, it.label, atuais.indexOf(it.key) >= 0, null));
+    if (it.subs) it.subs.forEach(function(sub) {
+      opts.appendChild(_permLinha(sub.key, sub.label, atuais.indexOf(sub.key) >= 0, it.key));
+    });
   });
   card.appendChild(opts);
 
+  // Sub-permissão só vale com a seção pai ligada: habilita/desabilita conforme o pai
+  function sincronizarSubs() {
+    opts.querySelectorAll('input[data-parent]').forEach(function(sub) {
+      var pai = opts.querySelector('input[value="' + sub.getAttribute('data-parent') + '"]');
+      var ligado = pai && pai.checked;
+      sub.disabled = !ligado;
+      if (!ligado) sub.checked = false;
+      sub.closest('.perm-opt').classList.toggle('desabilitado', !ligado);
+    });
+  }
+  sincronizarSubs();
+
   opts.addEventListener('change', function() {
+    sincronizarSubs();
     var marcadas = Array.prototype.slice.call(opts.querySelectorAll('input:checked'))
       .map(function(i) { return i.value; });
     var status = head.querySelector('.perm-status');
@@ -612,6 +635,18 @@ function _permCard(u) {
   });
 
   return card;
+}
+
+// Uma linha da tela de permissões: rótulo + toggle On/Off. parentKey != null => sub-permissão.
+function _permLinha(key, label, marcado, parentKey) {
+  var row = document.createElement('label');
+  row.className = 'perm-opt' + (parentKey ? ' sub' : '');
+  var attrs = 'type="checkbox" value="' + key + '"' + (marcado ? ' checked' : '') +
+              (parentKey ? ' data-parent="' + parentKey + '"' : '');
+  row.innerHTML =
+    '<span class="perm-opt-lbl">' + label + '</span>' +
+    '<span class="switch"><input ' + attrs + '><span class="slider"></span></span>';
+  return row;
 }
 
 // ── Login ──────────────────────────────────────────────────────────────────
@@ -725,8 +760,8 @@ function _aplicarPermissoes() {
     b.style.display = secoes.indexOf(b.dataset.sec) >= 0 ? '' : 'none';
   });
   document.getElementById('btn-permissoes').style.display = API.ehAdmin() ? '' : 'none';
-  // IA é assistente de BI: só para quem tem alguma seção além de estoque
-  var temBI = secoes.some(function(s) { return s !== 'estoque'; });
+  // IA é assistente de BI: só para quem tem alguma seção de BI (não só estoque)
+  var temBI = SECOES_BI.some(function(s) { return secoes.indexOf(s) >= 0; });
   document.getElementById('btn-ia').style.display = temBI ? '' : 'none';
 }
 
