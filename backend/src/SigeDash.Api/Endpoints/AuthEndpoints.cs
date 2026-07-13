@@ -36,8 +36,10 @@ public static class AuthEndpoints
 
             if (user.SenhaApp != Sha1Hex(r.Senha)) return Results.Unauthorized();
 
-            var token = GerarJwt(cfg, cliente.Id, user.Login);
-            return Results.Ok(new { token, cliente = cliente.Nome });
+            var admin  = Permissoes.EhAdmin(user);
+            var secoes = Permissoes.SecoesEfetivas(user).ToArray();
+            var token  = GerarJwt(cfg, cliente.Id, user.Id, user.Login, admin);
+            return Results.Ok(new { token, cliente = cliente.Nome, admin, secoes });
         }).RequireRateLimiting("login");
     }
 
@@ -47,13 +49,15 @@ public static class AuthEndpoints
         return Convert.ToHexString(hash).ToLower();
     }
 
-    private static string GerarJwt(IConfiguration cfg, int clienteId, string login)
+    private static string GerarJwt(IConfiguration cfg, int clienteId, int usuarioId, string login, bool admin)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(cfg["Jwt:SecretKey"]!));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
         var claims = new[]
         {
             new Claim("cliente_id", clienteId.ToString()),
+            new Claim("usuario_id", usuarioId.ToString()),
+            new Claim("admin", admin ? "1" : "0"),
             new Claim(ClaimTypes.Name, login)
         };
         var jwt = new JwtSecurityToken(

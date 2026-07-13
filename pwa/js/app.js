@@ -15,6 +15,13 @@ const TITULOS_SEC = {
   financeiro: 'Financeiro'
 };
 
+// Ordem das seções (para escolher a aba inicial) e rótulos p/ a tela de permissões
+const ORDEM_SEC     = ['resumo', 'vendas', 'estoque', 'financeiro'];
+const SECOES_LABEL  = { resumo: 'Resumo', vendas: 'Vendas', estoque: 'Estoque', financeiro: 'Financeiro' };
+const TIPOS_USUARIO = { 1: 'Administrador', 2: 'Secretário(a)', 3: 'Vendedor(a)', 4: 'Técnico(a)' };
+
+function _secaoPermitida(sec) { return API.secoes().indexOf(sec) >= 0; }
+
 // ── Ícones de cabeçalho de grupo (sem deps externas) ──────────────────────
 function _sgIco(d, cor) {
   var bg = {
@@ -54,6 +61,7 @@ function secGrupo(texto) {
 
 // ── Navegação ──────────────────────────────────────────────────────────────
 function navegar(sec) {
+  if (!_secaoPermitida(sec)) return;   // trava de navegação (UI); o /dash trava os dados
   if (_secAtiva === sec) return;
   _secAtiva = sec;
   document.querySelectorAll('.sec').forEach(function(s) { s.classList.remove('ativa'); });
@@ -245,6 +253,29 @@ function _estRenderCards(el) {
   }
 }
 
+// Agrupa as linhas do snapshot (uma por produto x tabela de preço) em produtos
+// com uma lista de preços. Memoizado pelo timestamp do snapshot (evita reagrupar a cada tecla).
+var _estCache = null;
+function _estProdutos(snap) {
+  if (_estCache && _estCache.key === snap.geradoEm) return _estCache.lista;
+  var dados = Render.parseSnap(snap).dados || [];
+  var mapa = {}, ordem = [];
+  dados.forEach(function(d) {
+    var nome = d.label || '';
+    var g = mapa[nome];
+    if (!g) { g = mapa[nome] = { label: nome, estoque: 0, custo: 0, precos: [] }; ordem.push(g); }
+    var est = Number(d.estoque != null ? d.estoque : 0);
+    var cus = Number(d.custo   != null ? d.custo   : 0);
+    if (est > g.estoque) g.estoque = est;
+    if (cus > g.custo)   g.custo   = cus;
+    var venda = Number(d.venda != null ? d.venda : 0);
+    if (venda > 0) g.precos.push({ cod: Number(d.codTabela || 0), tabela: d.tabela || '', venda: venda });
+  });
+  ordem.forEach(function(g) { g.precos.sort(function(a, b) { return a.cod - b.cod; }); });
+  _estCache = { key: snap.geradoEm, lista: ordem };
+  return ordem;
+}
+
 function _estRenderBusca(el, q) {
   var snap = _snaps['estoque_pesquisa_produto'];
   if (!snap) {
@@ -252,10 +283,9 @@ function _estRenderBusca(el, q) {
     return;
   }
 
-  var dados = Render.parseSnap(snap).dados;
   var ql = q.toLowerCase();
-  var filtrados = dados.filter(function(d) {
-    return (d.label || '').toLowerCase().indexOf(ql) >= 0;
+  var filtrados = _estProdutos(snap).filter(function(p) {
+    return (p.label || '').toLowerCase().indexOf(ql) >= 0;
   });
 
   if (!filtrados.length) {
@@ -273,27 +303,31 @@ function _estRenderBusca(el, q) {
   var MAX_EXIBIR = 100;
   var exibidos = filtrados.slice(0, MAX_EXIBIR);
 
-  exibidos.forEach(function(d) {
-    var nome    = d.label || '';
-    var estoque = Number(d.estoque != null ? d.estoque : 0);
-    var custo   = Number(d.custo   != null ? d.custo   : 0);
-    var venda   = Number(d.venda   != null ? d.venda   : 0);
+  exibidos.forEach(function(p) {
+    var estoque = p.estoque, custo = p.custo, precos = p.precos;
     var semEst  = estoque <= 0;
+    var estStr  = estoque.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + ' un';
 
-    var estStr = estoque.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + ' un';
-    var detExtra = '';
-    if (custo > 0) detExtra += ' &middot; Custo ' + Render.moeda(custo);
-    if (venda > 0) detExtra += ' &middot; Venda ' + Render.moeda(venda);
+    var det = '<span class="' + (semEst ? 'tag-vencido' : 'tag-ok') + '">' + estStr + '</span>';
+    if (custo > 0) det += ' &middot; Custo ' + Render.moeda(custo);
+    // Preço único fica inline; múltiplas tabelas viram uma lista de chips abaixo
+    if (precos.length === 1) det += ' &middot; Venda ' + Render.moeda(precos[0].venda);
+
+    var precosHtml = '';
+    if (precos.length > 1) {
+      precosHtml = '<div class="busca-precos">' + precos.map(function(pr) {
+        return '<span class="preco-chip"><span class="preco-tab">' + _escHtml(pr.tabela || 'Tabela') +
+               '</span>' + Render.moeda(pr.venda) + '</span>';
+      }).join('') + '</div>';
+    }
 
     var item = document.createElement('div');
     item.className = 'busca-item';
     item.innerHTML =
       '<div class="busca-item-info">' +
-        '<div class="busca-item-nome">' + _escHtml(nome) + '</div>' +
-        '<div class="busca-item-det">' +
-          '<span class="' + (semEst ? 'tag-vencido' : 'tag-ok') + '">' + estStr + '</span>' +
-          detExtra +
-        '</div>' +
+        '<div class="busca-item-nome">' + _escHtml(p.label) + '</div>' +
+        '<div class="busca-item-det">' + det + '</div>' +
+        precosHtml +
       '</div>';
     el.appendChild(item);
   });
@@ -506,6 +540,80 @@ function _escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ── Permissões (admin) ───────────────────────────────────────────────────────
+var overlayPerm = document.getElementById('overlay-perm');
+document.getElementById('btn-permissoes').addEventListener('click', abrirPermissoes);
+document.getElementById('btn-fechar-perm').addEventListener('click', function() { overlayPerm.hidden = true; });
+
+function abrirPermissoes() {
+  var body = document.getElementById('perm-body');
+  body.innerHTML = '<p class="perm-aviso">Carregando usuários…</p>';
+  overlayPerm.hidden = false;
+  API.listarUsuarios().then(function(usuarios) {
+    body.innerHTML = '';
+    if (!usuarios || !usuarios.length) {
+      body.appendChild(Render.emptyState('Nenhum usuário', 'Os usuários são sincronizados do SIGECOM pelo agente.'));
+      return;
+    }
+    usuarios.forEach(function(u) { body.appendChild(_permCard(u)); });
+  }).catch(function(e) {
+    body.innerHTML = '<p class="perm-aviso erro">' + _escHtml(e.message) + '</p>';
+  });
+}
+
+function _permCard(u) {
+  var card = document.createElement('div');
+  card.className = 'perm-card';
+  var tipo = TIPOS_USUARIO[u.codigoTipo] || 'Usuário';
+
+  var head = document.createElement('div');
+  head.className = 'perm-card-head';
+  head.innerHTML =
+    '<div class="perm-user">' +
+      '<span class="perm-user-nome">' + _escHtml(u.login) + '</span>' +
+      '<span class="perm-user-tipo">' + _escHtml(tipo) + '</span>' +
+    '</div>' +
+    '<span class="perm-status" aria-live="polite"></span>';
+  card.appendChild(head);
+
+  if (u.admin) {
+    var nota = document.createElement('div');
+    nota.className = 'perm-admin-nota';
+    nota.textContent = 'Administrador — vê todas as seções.';
+    card.appendChild(nota);
+    return card;
+  }
+
+  var opts = document.createElement('div');
+  opts.className = 'perm-opts';
+  ORDEM_SEC.forEach(function(sec) {
+    var checked = (u.secoes || []).indexOf(sec) >= 0 ? 'checked' : '';
+    var lbl = document.createElement('label');
+    lbl.className = 'perm-opt';
+    lbl.innerHTML = '<input type="checkbox" value="' + sec + '" ' + checked + '><span>' + SECOES_LABEL[sec] + '</span>';
+    opts.appendChild(lbl);
+  });
+  card.appendChild(opts);
+
+  opts.addEventListener('change', function() {
+    var marcadas = Array.prototype.slice.call(opts.querySelectorAll('input:checked'))
+      .map(function(i) { return i.value; });
+    var status = head.querySelector('.perm-status');
+    status.textContent = 'salvando…';
+    status.className = 'perm-status salvando';
+    API.salvarPermissoes(u.id, marcadas).then(function() {
+      status.textContent = 'salvo';
+      status.className = 'perm-status ok';
+      setTimeout(function() { status.textContent = ''; status.className = 'perm-status'; }, 1800);
+    }).catch(function() {
+      status.textContent = 'erro ao salvar';
+      status.className = 'perm-status erro';
+    });
+  });
+
+  return card;
+}
+
 // ── Login ──────────────────────────────────────────────────────────────────
 document.getElementById('btn-entrar').addEventListener('click', async function() {
   var erro = document.getElementById('login-erro');
@@ -561,6 +669,7 @@ document.getElementById('btn-sair').addEventListener('click', function() {
   _snaps = {};
   _secAtiva = '';
   overlayIA.hidden = true;
+  overlayPerm.hidden = true;
   document.getElementById('app').hidden = true;
   document.getElementById('tela-login').style.display = '';
   document.getElementById('in-senha').value = '';
@@ -609,12 +718,49 @@ document.querySelectorAll('.nav-btn').forEach(function(btn) {
 }());
 
 // ── Inicializar ────────────────────────────────────────────────────────────
+// Ajusta a UI às permissões: abas visíveis, engrenagem de admin e FAB da IA
+function _aplicarPermissoes() {
+  var secoes = API.secoes();
+  document.querySelectorAll('.nav-btn').forEach(function(b) {
+    b.style.display = secoes.indexOf(b.dataset.sec) >= 0 ? '' : 'none';
+  });
+  document.getElementById('btn-permissoes').style.display = API.ehAdmin() ? '' : 'none';
+  // IA é assistente de BI: só para quem tem alguma seção além de estoque
+  var temBI = secoes.some(function(s) { return s !== 'estoque'; });
+  document.getElementById('btn-ia').style.display = temBI ? '' : 'none';
+}
+
+function _secaoInicial() {
+  var secoes = API.secoes();
+  for (var i = 0; i < ORDEM_SEC.length; i++)
+    if (secoes.indexOf(ORDEM_SEC[i]) >= 0) return ORDEM_SEC[i];
+  return null;
+}
+
+function _mostrarSemAcesso() {
+  document.getElementById('nav-bottom').style.display = 'none';
+  document.getElementById('btn-ia').style.display = 'none';
+  document.querySelectorAll('.sec').forEach(function(s) { s.classList.remove('ativa'); });
+  var el = document.getElementById('sec-resumo');
+  el.classList.add('ativa');
+  el.innerHTML = '';
+  el.appendChild(Render.emptyState('Sem acesso liberado',
+    'Seu usuário ainda não tem seções liberadas. Fale com o administrador.'));
+  document.getElementById('topo-titulo').textContent = 'SigeDash';
+}
+
 function mostrarApp() {
   document.getElementById('tela-login').style.display = 'none';
   document.getElementById('app').hidden = false;
   document.getElementById('topo-cliente').textContent = sessionStorage.getItem('sd_cliente') || '';
+  _aplicarPermissoes();
   _secAtiva = '';
-  navegar('resumo');
+
+  var inicial = _secaoInicial();
+  if (!inicial) { _mostrarSemAcesso(); return; }
+
+  document.getElementById('nav-bottom').style.display = '';
+  navegar(inicial);
   carregarDados();
   clearInterval(_timerRefresh);
   _timerRefresh = setInterval(carregarDados, AUTO_REFRESH_MS);

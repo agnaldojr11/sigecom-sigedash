@@ -6,7 +6,7 @@ using SigeDash.Api.Modelos;
 
 namespace SigeDash.Api.Endpoints;
 
-public record UsuarioSyncDto(string Login, string SenhaApp);
+public record UsuarioSyncDto(string Login, string SenhaApp, int CodigoTipo = 0);
 
 /// <summary>Recebe os snapshots e usuarios sincronizados do agente. Autentica pela chave do cliente (header).</summary>
 public static class IngestEndpoints
@@ -26,9 +26,18 @@ public static class IngestEndpoints
                 var existing = await db.UsuariosApp
                     .FirstOrDefaultAsync(x => x.ClienteId == cliente.Id && x.Login == u.Login);
                 if (existing is null)
-                    db.UsuariosApp.Add(new UsuarioApp { ClienteId = cliente.Id, Login = u.Login, SenhaApp = u.SenhaApp });
+                    // Novo usuario: SecoesPermitidas fica null (nada liberado ate o admin configurar).
+                    db.UsuariosApp.Add(new UsuarioApp
+                    {
+                        ClienteId = cliente.Id, Login = u.Login,
+                        SenhaApp = u.SenhaApp, CodigoTipo = u.CodigoTipo
+                    });
                 else
-                    existing.SenhaApp = u.SenhaApp;
+                {
+                    // Atualiza senha e tipo; NUNCA sobrescreve as permissoes ja configuradas pelo admin.
+                    existing.SenhaApp   = u.SenhaApp;
+                    existing.CodigoTipo = u.CodigoTipo;
+                }
             }
             await db.SaveChangesAsync();
             return Results.Ok(new { sincronizados = usuarios.Count });

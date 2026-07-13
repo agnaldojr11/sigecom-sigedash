@@ -26,6 +26,13 @@ public class UsuarioApp
     public int ClienteId { get; set; }
     public string Login { get; set; } = "";
     public string SenhaApp { get; set; } = ""; // SHA-1 hex do campo SENHA_APP do Sigecom
+
+    /// <summary>USUARIO.CODIGOTIPO do Sigecom. 1 = Administrador (acesso total + gestao de permissoes).</summary>
+    public int CodigoTipo { get; set; }
+
+    /// <summary>Secoes liberadas para nao-admins, separadas por virgula (ex.: "estoque,vendas").
+    /// null = nada liberado (usuario aguarda configuracao do admin). Ignorado para admins (veem tudo).</summary>
+    public string? SecoesPermitidas { get; set; }
 }
 
 /// <summary>Snapshot de um indicador recebido do agente. payload_json e o resultado pronto.</summary>

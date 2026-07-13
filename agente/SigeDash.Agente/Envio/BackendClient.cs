@@ -13,8 +13,9 @@ namespace SigeDash.Agente.Envio
 {
     public sealed class UsuarioSync
     {
-        public string Login    { get; set; }
-        public string SenhaApp { get; set; }
+        public string Login      { get; set; }
+        public string SenhaApp   { get; set; }
+        public int    CodigoTipo { get; set; }   // USUARIO.CODIGOTIPO (1 = Administrador)
     }
 
     /// <summary>

@@ -110,7 +110,7 @@ namespace SigeDash.Agente
         private async Task SincronizarUsuarios()
         {
             var linhas = _reader.Consultar(
-                "SELECT DISTINCT LOGIN, SENHA FROM USUARIO WHERE DESATIVADO = 'N'",
+                "SELECT DISTINCT LOGIN, SENHA, CODIGOTIPO FROM USUARIO WHERE DESATIVADO = 'N'",
                 null, CancellationToken.None);
 
             var usuarios = linhas
@@ -120,7 +120,10 @@ namespace SigeDash.Agente
                     var senhaEnc = r.ContainsKey("SENHA") ? (r["SENHA"]?.ToString()?.Trim() ?? "") : "";
                     var senhaPlain = DecodeSenhaSigecom(senhaEnc);
                     var senhaHash = senhaPlain.Length > 0 ? Sha1Hex(senhaPlain) : "";
-                    return new UsuarioSync { Login = login, SenhaApp = senhaHash };
+                    int tipo = 0;
+                    if (r.ContainsKey("CODIGOTIPO"))
+                        int.TryParse(r["CODIGOTIPO"]?.ToString(), out tipo);
+                    return new UsuarioSync { Login = login, SenhaApp = senhaHash, CodigoTipo = tipo };
                 })
                 .Where(u => !string.IsNullOrEmpty(u.Login) && !string.IsNullOrEmpty(u.SenhaApp))
                 .GroupBy(u => u.Login).Select(g => g.First())

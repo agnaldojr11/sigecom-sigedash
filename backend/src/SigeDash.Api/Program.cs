@@ -114,6 +114,7 @@ app.MapAuth(app.Configuration);
 app.MapDashboards();
 app.MapIa();
 app.MapAdmin(app.Configuration);
+app.MapPermissoes();
 
 // Fallback para SPA — todas as rotas não-API servem index.html
 app.MapFallbackToFile("index.html");
