@@ -261,7 +261,7 @@ input, button { -webkit-appearance: none; appearance: none; }
   z-index: 1;
 }
 
-#btn-atualizar, #btn-sair {
+#btn-atualizar, #btn-sair, #btn-permissoes {
   display: flex; align-items: center; justify-content: center;
   background: none; border: none;
   color: var(--c-dim);
@@ -272,6 +272,7 @@ input, button { -webkit-appearance: none; appearance: none; }
 
 #btn-atualizar:active { background: var(--c-surface2); color: var(--c-primary); }
 #btn-sair:active { background: var(--c-surface2); color: var(--c-danger); }
+#btn-permissoes:active { background: var(--c-surface2); color: var(--c-primary); }
 
 #btn-atualizar:disabled { opacity: .4; }
 
