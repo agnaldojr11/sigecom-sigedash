@@ -582,6 +582,24 @@ input, button { -webkit-appearance: none; appearance: none; }
 .switch input:checked + .slider { background: var(--c-primary); border-color: var(--c-primary); }
 .switch input:checked + .slider::before { transform: translateX(20px); background: #fff; }
 
+/* ─── OVERLAY DE ENCERRAMENTO DE SESSÃO ───────────── */
+#overlay-sessao {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(15, 23, 42, .92);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+}
+#overlay-sessao[hidden] { display: none; }
+.sessao-box {
+  background: var(--c-surface); border: 1px solid var(--c-border);
+  border-radius: var(--r); padding: 28px 24px; max-width: 340px; text-align: center;
+}
+.sessao-ico { color: var(--c-warning); margin-bottom: 12px; }
+.sessao-titulo { font-size: 17px; font-weight: 800; color: var(--c-text); margin-bottom: 8px; }
+.sessao-msg { font-size: 14px; color: var(--c-muted); line-height: 1.5; }
+#sessao-contador { font-weight: 800; color: var(--c-text); }
+
 /* ─── SAUDAÇÃO ──────────────────────────────────── */
 .saudacao {
   padding: 20px 16px 6px;

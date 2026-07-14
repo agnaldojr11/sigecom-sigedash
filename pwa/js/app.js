@@ -6,7 +6,10 @@ Chart.defaults.font.size = 12;
 let _snaps = {};
 let _secAtiva = '';
 let _timerRefresh = null;
+let _timerHeartbeat = null;
+let _encerrando = false;
 const AUTO_REFRESH_MS = 5 * 60 * 1000; // 5 minutos
+const HEARTBEAT_MS = 10 * 1000;        // checagem de sessão (queda rápida ao logar em outro lugar)
 
 const TITULOS_SEC = {
   resumo: 'SigeDash',
@@ -469,7 +472,7 @@ async function carregarDados() {
     lista.forEach(function(s) { _snaps[s.indicadorHandle] = s; });
     renderSecao(_secAtiva);
   } catch (e) {
-    if (e && e.sessaoEncerrada) { voltarParaLogin(e.message); return; }
+    if (e && e.sessaoEncerrada) { tratarQuedaSessao(e); return; }
     var el = document.getElementById('sec-' + _secAtiva);
     if (el) { el.innerHTML = ''; el.appendChild(Render.emptyState('Erro ao carregar', e.message)); }
   }
@@ -538,7 +541,7 @@ async function enviarPerguntaIA(pergunta) {
     loadingMsg.textContent = result.resposta;
     loadingMsg.classList.remove('loading');
   } catch (e) {
-    if (e && e.sessaoEncerrada) { overlayIA.hidden = true; voltarParaLogin(e.message); return; }
+    if (e && e.sessaoEncerrada) { overlayIA.hidden = true; tratarQuedaSessao(e); return; }
     loadingMsg.textContent = 'Erro: ' + e.message;
     loadingMsg.classList.remove('loading');
   } finally {
@@ -569,7 +572,7 @@ function abrirPermissoes() {
     }
     usuarios.forEach(function(u) { body.appendChild(_permCard(u)); });
   }).catch(function(e) {
-    if (e && e.sessaoEncerrada) { overlayPerm.hidden = true; voltarParaLogin(e.message); return; }
+    if (e && e.sessaoEncerrada) { overlayPerm.hidden = true; tratarQuedaSessao(e); return; }
     body.innerHTML = '<p class="perm-aviso erro">' + _escHtml(e.message) + '</p>';
   });
 }
@@ -632,7 +635,7 @@ function _permCard(u) {
       status.className = 'perm-status ok';
       setTimeout(function() { status.textContent = ''; status.className = 'perm-status'; }, 1800);
     }).catch(function(e) {
-      if (e && e.sessaoEncerrada) { overlayPerm.hidden = true; voltarParaLogin(e.message); return; }
+      if (e && e.sessaoEncerrada) { overlayPerm.hidden = true; tratarQuedaSessao(e); return; }
       status.textContent = 'erro ao salvar';
       status.className = 'perm-status erro';
     });
@@ -705,10 +708,14 @@ document.getElementById('btn-atualizar').addEventListener('click', function() {
 function voltarParaLogin(msg) {
   clearInterval(_timerRefresh);
   _timerRefresh = null;
+  clearInterval(_timerHeartbeat);
+  _timerHeartbeat = null;
+  _encerrando = false;
   _snaps = {};
   _secAtiva = '';
   overlayIA.hidden = true;
   overlayPerm.hidden = true;
+  document.getElementById('overlay-sessao').hidden = true;
   document.getElementById('app').hidden = true;
   document.getElementById('tela-login').style.display = '';
   document.getElementById('in-senha').value = '';
@@ -722,6 +729,40 @@ document.getElementById('btn-sair').addEventListener('click', function() {
   API.sair();
   voltarParaLogin('');
 });
+
+// ── Sessão única: heartbeat + encerramento com contagem ──────────────────────
+function baterHeartbeat() {
+  API.ping().catch(function(e) {
+    if (e && e.sessaoEncerrada) tratarQuedaSessao(e);
+  });
+}
+
+// Trata a queda de sessão: se foi substituída por outro dispositivo, mostra a contagem;
+// se apenas expirou, volta direto ao login.
+function tratarQuedaSessao(e) {
+  if (_encerrando) return;
+  _encerrando = true;
+  clearInterval(_timerHeartbeat); _timerHeartbeat = null;
+  clearInterval(_timerRefresh);   _timerRefresh = null;
+  if (e && e.superada) {
+    contarEEncerrar(e.message);
+  } else {
+    voltarParaLogin(e ? e.message : '');
+  }
+}
+
+function contarEEncerrar(msg) {
+  var ov   = document.getElementById('overlay-sessao');
+  var cont = document.getElementById('sessao-contador');
+  var n = 5;
+  cont.textContent = n;
+  ov.hidden = false;
+  var t = setInterval(function() {
+    n--;
+    if (n <= 0) { clearInterval(t); voltarParaLogin(msg); }
+    else { cont.textContent = n; }
+  }, 1000);
+}
 
 // ── Navegação (bottom nav) ─────────────────────────────────────────────────
 document.querySelectorAll('.nav-btn').forEach(function(btn) {
@@ -794,6 +835,7 @@ function _mostrarSemAcesso() {
 }
 
 function mostrarApp() {
+  _encerrando = false;
   document.getElementById('tela-login').style.display = 'none';
   document.getElementById('app').hidden = false;
   document.getElementById('topo-cliente').textContent = sessionStorage.getItem('sd_cliente') || '';
@@ -808,6 +850,8 @@ function mostrarApp() {
   carregarDados();
   clearInterval(_timerRefresh);
   _timerRefresh = setInterval(carregarDados, AUTO_REFRESH_MS);
+  clearInterval(_timerHeartbeat);
+  _timerHeartbeat = setInterval(baterHeartbeat, HEARTBEAT_MS);
 }
 
 if (API.logado()) mostrarApp();

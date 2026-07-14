@@ -85,9 +85,17 @@ const API = (() => {
       ? "Sua sessão foi encerrada porque este usuário entrou em outro dispositivo."
       : "Sua sessão expirou. Entre novamente.");
     e.sessaoEncerrada = true;
+    e.superada = superada;
     return e;
   }
 
-  return { login, dashboards, queryIA, empresas, sair, logado,
+  // Heartbeat: confirma se esta ainda é a sessão ativa (401 => foi substituída)
+  async function ping() {
+    const r = await fetch(`${BASE}/auth/sessao`, { headers: { "Authorization": `Bearer ${token}` } });
+    if (r.status === 401) throw _erro401(r);
+    return true;
+  }
+
+  return { login, dashboards, queryIA, empresas, sair, logado, ping,
            ehAdmin, secoes, listarUsuarios, salvarPermissoes };
 })();

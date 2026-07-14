@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="css/app.css?v=7">
+  <link rel="stylesheet" href="css/app.css?v=8">
   <title>SigeDash</title>
 </head>
 <body>
@@ -162,6 +162,19 @@
     <div id="perm-body" class="perm-body" aria-live="polite"></div>
   </div>
 
+  <!-- Overlay de encerramento de sessão (login em outro dispositivo) -->
+  <div id="overlay-sessao" hidden role="alertdialog" aria-live="assertive" aria-label="Sessão encerrando">
+    <div class="sessao-box">
+      <div class="sessao-ico" aria-hidden="true">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+      </div>
+      <div class="sessao-titulo">Conectado em outro dispositivo</div>
+      <div class="sessao-msg">Este usuário entrou em outro dispositivo. Encerrando esta sessão em <span id="sessao-contador">5</span>…</div>
+    </div>
+  </div>
+
   <!-- Bottom Nav -->
   <nav id="nav-bottom" aria-label="Navegação principal">
     <button class="nav-btn ativo" data-sec="resumo" aria-current="page">
@@ -195,9 +208,9 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="js/api.js?v=7"></script>
-<script src="js/render.js?v=7"></script>
-<script src="js/app.js?v=7"></script>
+<script src="js/api.js?v=8"></script>
+<script src="js/render.js?v=8"></script>
+<script src="js/app.js?v=8"></script>
 <script>
   if ('serviceWorker' in navigator)
     navigator.serviceWorker.register('service-worker.js');

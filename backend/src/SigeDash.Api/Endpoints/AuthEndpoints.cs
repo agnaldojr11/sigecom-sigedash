@@ -46,6 +46,10 @@ public static class AuthEndpoints
             var token  = GerarJwt(cfg, cliente.Id, user.Id, user.Login, admin, sid);
             return Results.Ok(new { token, cliente = cliente.Nome, admin, secoes });
         }).RequireRateLimiting("login");
+
+        // Heartbeat leve de sessao: 200 se o token ainda e a sessao ativa; 401 (via OnTokenValidated)
+        // se foi substituida por um login em outro dispositivo. Usado pelo PWA para derrubar rapido.
+        app.MapGet("/auth/sessao", () => Results.Ok(new { ok = true })).RequireAuthorization();
     }
 
     private static string Sha1Hex(string s)
