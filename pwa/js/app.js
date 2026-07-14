@@ -1,7 +1,10 @@
 // SigeDash — Orquestrador v2: navegação, seções, dados, login/logout, assistente IA.
-Chart.defaults.color = '#94a3b8';
-Chart.defaults.font.family = 'system-ui, -apple-system, sans-serif';
-Chart.defaults.font.size = 12;
+// Chart.js vem de CDN externo — se não carregar, o app NÃO deve quebrar (login/estoque seguem)
+if (typeof Chart !== 'undefined') {
+  Chart.defaults.color = '#94a3b8';
+  Chart.defaults.font.family = 'system-ui, -apple-system, sans-serif';
+  Chart.defaults.font.size = 12;
+}
 
 let _snaps = {};
 let _secAtiva = '';

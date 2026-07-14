@@ -211,6 +211,12 @@ const Render = (() => {
     const body = document.createElement('div');
     body.className = 'card-body';
 
+    if (typeof Chart === 'undefined') {
+      body.innerHTML = '<p class="ranking-vazio">Gráfico indisponível (biblioteca não carregada).</p>';
+      card.appendChild(body);
+      return card;
+    }
+
     if (!dados.length) {
       body.innerHTML = '<p class="ranking-vazio">Nenhum registro encontrado!</p>';
       card.appendChild(body);
