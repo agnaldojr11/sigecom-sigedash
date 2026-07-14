@@ -17,7 +17,7 @@ public static class PermissoesEndpoints
         // Lista os usuarios do cliente com tipo e secoes liberadas (para a tela de Permissoes)
         app.MapGet("/admin/usuarios", async (ClaimsPrincipal user, AppDbContext db) =>
         {
-            if (!EhAdmin(user)) return Results.Forbid();
+            if (!await EhAdminAtual(user, db)) return Results.Forbid();
             var clienteId = int.Parse(user.FindFirstValue("cliente_id")!);
 
             var usuarios = await db.UsuariosApp
@@ -40,7 +40,7 @@ public static class PermissoesEndpoints
         app.MapPut("/admin/usuarios/{id:int}/permissoes", async (
             int id, SetPermissoesDto dto, ClaimsPrincipal user, AppDbContext db) =>
         {
-            if (!EhAdmin(user)) return Results.Forbid();
+            if (!await EhAdminAtual(user, db)) return Results.Forbid();
             var clienteId = int.Parse(user.FindFirstValue("cliente_id")!);
 
             var alvo = await db.UsuariosApp.FirstOrDefaultAsync(u => u.Id == id && u.ClienteId == clienteId);
@@ -55,5 +55,11 @@ public static class PermissoesEndpoints
         }).RequireAuthorization();
     }
 
-    private static bool EhAdmin(ClaimsPrincipal user) => user.FindFirstValue("admin") == "1";
+    // Relê o tipo do usuário no banco (não confia no claim 'admin', que pode estar obsoleto por até 8h)
+    private static async Task<bool> EhAdminAtual(ClaimsPrincipal user, AppDbContext db)
+    {
+        if (!int.TryParse(user.FindFirstValue("usuario_id"), out var uid)) return false;
+        var tipo = await db.UsuariosApp.Where(u => u.Id == uid).Select(u => u.CodigoTipo).FirstOrDefaultAsync();
+        return tipo == Permissoes.TipoAdministrador;
+    }
 }

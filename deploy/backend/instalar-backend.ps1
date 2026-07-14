@@ -65,15 +65,17 @@ New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 Copy-Item "$PublishDir\*" $InstallDir -Recurse -Force
 Log "Arquivos copiados."
 
-# --- Gera chaves se nao fornecidas ---
+# --- Gera chaves se nao fornecidas (CSPRNG; NUNCA Get-Random para segredos) ---
+$rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
 if ([string]::IsNullOrWhiteSpace($AdminKey)) {
-    $AdminKey = [Convert]::ToBase64String((1..32 | ForEach-Object { [byte](Get-Random -Max 256) }))
+    $b = New-Object byte[] 32; $rng.GetBytes($b)
+    $AdminKey = [Convert]::ToBase64String($b)
     Log "AdminKey gerada automaticamente."
 }
 
-# JWT key: 48 chars aleatorios base64
-$jwtBytes = 1..36 | ForEach-Object { [byte](Get-Random -Max 256) }
-$JwtKey   = [Convert]::ToBase64String($jwtBytes)
+# JWT key: 48 bytes (384 bits) de CSPRNG
+$jb = New-Object byte[] 48; $rng.GetBytes($jb)
+$JwtKey = [Convert]::ToBase64String($jb)
 
 # --- Grava appsettings.Production.json ---
 $config = @{
@@ -213,8 +215,9 @@ Log ""
 Log "=== Instalacao concluida! ==="
 Log "Servico  : $SVC_NAME"
 Log "Diretorio: $InstallDir"
-Log "AdminKey : $AdminKey"
+# AdminKey vai SO para o console (nao para o arquivo de log) - segredo
+Write-Host "AdminKey : $AdminKey" -ForegroundColor Yellow
 Log "URL local: http://localhost:5000"
 Log ""
-Log "IMPORTANTE: guarde a AdminKey acima - ela e necessaria para criar usuarios."
+Log "IMPORTANTE: anote a AdminKey exibida acima (nao fica salva em log) - ela e necessaria para criar usuarios."
 Log "Proximo passo: executar configurar-cliente.ps1 com esta AdminKey."

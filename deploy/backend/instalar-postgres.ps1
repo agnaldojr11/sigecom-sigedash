@@ -127,7 +127,8 @@ if ($jaInstalado) {
 } else {
     # Nova instalacao
     if ([string]::IsNullOrWhiteSpace($SuperSenha)) {
-        $bytes      = 1..18 | ForEach-Object { [byte](Get-Random -Max 256) }
+        $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+        $bytes = New-Object byte[] 24; $rng.GetBytes($bytes)   # CSPRNG (nao Get-Random)
         $SuperSenha = [Convert]::ToBase64String($bytes)
         Log "SuperSenha do postgres gerada automaticamente."
     }
@@ -254,7 +255,7 @@ Log ""
 Log "=== PostgreSQL pronto! ==="
 Log "Banco   : sigedash"
 Log "Usuario : sigedash"
-Log "Senha   : $SigeDashSenha"
+Write-Host "Senha   : $SigeDashSenha" -ForegroundColor Yellow   # console apenas (segredo, fora do log)
 Log "Porta   : 5432"
 Log ""
-Log "Proximo passo: execute instalar-backend.ps1 -PostgresSenha '$SigeDashSenha'"
+Log "Proximo passo: execute instalar-backend.ps1 -PostgresSenha '<a senha exibida acima>'"

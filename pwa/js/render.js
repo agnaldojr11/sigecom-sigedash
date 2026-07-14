@@ -5,6 +5,11 @@ const Render = (() => {
   const moeda = v => Number(v || 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
   const num   = v => Number(v || 0).toLocaleString('pt-BR', {maximumFractionDigits: 2});
 
+  // Escapa texto antes de injetar via innerHTML (nomes vêm do ERP e são não-confiáveis → anti-XSS)
+  const esc = s => String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
   // ── Cor do cabeçalho por handle (padrão do app legado) ────────────────────
   const CARD_CORES = {
     vendas_total_mes:               '#00897B',
@@ -57,7 +62,7 @@ const Render = (() => {
     h.style.background = corCard(handle);
     var ts = fmtDataHora(geradoEm);
     h.innerHTML =
-      '<div class="card-header-titulo">' + titulo + '</div>' +
+      '<div class="card-header-titulo">' + esc(titulo) + '</div>' +
       (ts ? '<div class="card-header-sync">' + ICO_CLOCK + ' Dados sincronizados em ' + ts + '</div>' : '');
     return h;
   }
@@ -93,9 +98,9 @@ const Render = (() => {
     d.className = 'kpi-card ' + (variante || 'azul');
     d.innerHTML =
       (icone ? '<div class="kpi-icon">' + icone + '</div>' : '') +
-      '<span class="kpi-titulo">' + titulo + '</span>' +
-      '<span class="kpi-valor">'  + valor  + '</span>' +
-      (sub ? '<span class="kpi-sub">' + sub + '</span>' : '');
+      '<span class="kpi-titulo">' + esc(titulo) + '</span>' +
+      '<span class="kpi-valor">'  + esc(valor) + '</span>' +
+      (sub ? '<span class="kpi-sub">' + esc(sub) + '</span>' : '');
     return d;
   }
 
@@ -114,12 +119,12 @@ const Render = (() => {
     card.style.background = cor;
     card.innerHTML =
       '<div class="card-header">' +
-        '<div class="card-header-titulo">' + titulo + '</div>' +
+        '<div class="card-header-titulo">' + esc(titulo) + '</div>' +
         (ts ? '<div class="card-header-sync">' + ICO_CLOCK + ' Dados sincronizados em ' + ts + '</div>' : '') +
       '</div>' +
       '<div class="card-body card-body-info">' +
         '<div class="info-valor">' + fmt + '</div>' +
-        (sub ? '<div class="info-sub">' + sub + '</div>' : '') +
+        (sub ? '<div class="info-sub">' + esc(sub) + '</div>' : '') +
       '</div>';
     return card;
   }
@@ -155,7 +160,7 @@ const Render = (() => {
       item.className = 'ranking-item';
       item.innerHTML =
         '<span class="ranking-pos' + (medalha ? ' ' + medalha : '') + '">' + pos + '</span>' +
-        '<span class="ranking-nome">' + nome + (sub ? '<small>' + sub + '</small>' : '') + '</span>' +
+        '<span class="ranking-nome">' + esc(nome) + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span>' +
         '<span class="ranking-valor">' + valorFmt + '</span>';
       body.appendChild(item);
     });
@@ -185,7 +190,7 @@ const Render = (() => {
     lista.className = 'lista';
     lista.innerHTML = dados.map(function(d) {
       return '<div class="lista-item">' +
-        '<span class="lista-label">' + (d.label || d.nome || '').trim() + '</span>' +
+        '<span class="lista-label">' + esc((d.label || d.nome || '').trim()) + '</span>' +
         '<b class="lista-valor">' + moeda(d.value != null ? d.value : (d.valor != null ? d.valor : 0)) + '</b>' +
       '</div>';
     }).join('');

@@ -86,8 +86,9 @@ function CriarTunnelCloudflare($nomeCliente, $scriptDir) {
 
     Log "Criando tunnel Cloudflare: $tunnelName ..."
 
-    # Cria o tunnel
-    $secretBytes = 1..32 | ForEach-Object { [byte](Get-Random -Max 256) }
+    # Cria o tunnel (segredo via CSPRNG, nao Get-Random)
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    $secretBytes = New-Object byte[] 32; $rng.GetBytes($secretBytes)
     $body = @{
         name          = $tunnelName
         tunnel_secret = [Convert]::ToBase64String($secretBytes)
@@ -204,16 +205,17 @@ if ([string]::IsNullOrWhiteSpace($NomeCliente)) {
 
 # Gera senha do banco se nao informada
 if ([string]::IsNullOrWhiteSpace($SigeDashSenha)) {
-    $bytes        = 1..12 | ForEach-Object { [byte](Get-Random -Max 256) }
-    $SigeDashSenha = [Convert]::ToBase64String($bytes) -replace '[^a-zA-Z0-9]', '' | Select-Object -First 1
-    $SigeDashSenha = ($SigeDashSenha + "Sd1!")[0..15] -join ''
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    $bytes = New-Object byte[] 24; $rng.GetBytes($bytes)   # CSPRNG (nao Get-Random)
+    $SigeDashSenha = [Convert]::ToBase64String($bytes) -replace '[^a-zA-Z0-9]', ''
+    $SigeDashSenha = ($SigeDashSenha + "Sd1!").Substring(0, 16)
     Log "Senha do banco gerada automaticamente."
 }
 
 Log ""
 Log "=== Instalacao SigeDash - Cliente: $NomeCliente ==="
 Log "FDB     : $FdbPath"
-Log "Senha PG: $SigeDashSenha"
+Write-Host "Senha PG: $SigeDashSenha" -ForegroundColor Yellow   # console apenas (segredo, fora do log)
 Log ""
 
 # ============================================================
@@ -256,7 +258,8 @@ try {
         $AdminKey    = $appsettings.AdminKey
         Log "AdminKey lida do appsettings.Production.json."
     }
-    Sucesso "Backend instalado. AdminKey: $AdminKey"
+    Sucesso "Backend instalado."
+    Write-Host "AdminKey: $AdminKey" -ForegroundColor Yellow   # console apenas (segredo, fora do log)
 } catch {
     Falha "Erro no backend: $_"
 }
@@ -343,7 +346,7 @@ if (-not [string]::IsNullOrWhiteSpace($TunnelToken)) {
     }
 }
 Log ""
-Log "AdminKey para gerenciar clientes: $AdminKey"
+Write-Host "AdminKey para gerenciar clientes: $AdminKey" -ForegroundColor Yellow   # console apenas (segredo)
 Log ""
 Log "Log completo salvo em: $LOG_GERAL"
 Log ""

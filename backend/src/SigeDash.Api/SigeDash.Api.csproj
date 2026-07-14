@@ -18,6 +18,9 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <!-- Fix de CVEs (transitivas): fixa versoes patched. GHSA-8g4q-xg66-9fp4 / GHSA-qj66-m88j-hmgj (DoS) -->
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="8.0.1" />
   </ItemGroup>
 
   <!-- PWA: inclui a pasta pwa/ como wwwroot no publish (produção sem Docker) -->

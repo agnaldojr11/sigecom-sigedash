@@ -8,7 +8,7 @@ public static class IaEndpoints
 {
     public static void MapIa(this WebApplication app)
     {
-        app.MapPost("/ia/query", QueryIA).RequireAuthorization();
+        app.MapPost("/ia/query", QueryIA).RequireAuthorization().RequireRateLimiting("ia");
     }
 
     private static async Task<IResult> QueryIA(

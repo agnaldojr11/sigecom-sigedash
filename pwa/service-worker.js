@@ -1,6 +1,6 @@
 // Cache do app shell (offline do ultimo carregamento). Dados vem sempre da rede.
-const CACHE = "sigedash-v14";
-const SHELL = ["./index.html","./css/app.css","./js/api.js","./js/render.js","./js/app.js","./manifest.webmanifest","./logo-sigedash.png","./bg-login.png"];
+const CACHE = "sigedash-v15";
+const SHELL = ["./index.html","./css/app.css","./js/api.js","./js/render.js","./js/app.js","./js/sw-register.js","./manifest.webmanifest","./logo-sigedash.png","./bg-login.png"];
 
 self.addEventListener("install", e =>
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))));

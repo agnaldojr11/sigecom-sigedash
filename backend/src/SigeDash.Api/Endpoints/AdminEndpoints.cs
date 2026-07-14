@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using SigeDash.Api.Data;
 using SigeDash.Api.Modelos;
@@ -24,7 +25,7 @@ public static class AdminEndpoints
             if (await db.Clientes.AnyAsync(c => c.Nome == r.Nome))
                 return Results.Conflict(new { erro = $"Cliente '{r.Nome}' já existe." });
 
-            var chave = GerarChave(r.Nome);
+            var chave = GerarChave();
             var cliente = new Cliente { Nome = r.Nome, ChaveApi = chave, Ativo = true };
             db.Clientes.Add(cliente);
             await db.SaveChangesAsync();
@@ -53,12 +54,12 @@ public static class AdminEndpoints
                 .ToListAsync());
     }
 
-    private static string GerarChave(string nomeCliente)
+    private static string GerarChave()
     {
-        var prefixo = new string(nomeCliente.ToUpper()
-            .Where(char.IsLetterOrDigit).Take(12).ToArray());
-        var sufixo = Guid.NewGuid().ToString("N")[..8].ToUpper();
-        return $"{prefixo}-{DateTime.UtcNow.Year}-{sufixo}";
+        // 256 bits de CSPRNG, url-safe. Sem prefixo derivado de dado publico (evita brute force dirigido).
+        var bytes = RandomNumberGenerator.GetBytes(32);
+        var rnd = Convert.ToBase64String(bytes).Replace("+", "-").Replace("/", "_").TrimEnd('=');
+        return $"SGD-{rnd}";
     }
 
     private static Func<EndpointFilterInvocationContext, EndpointFilterDelegate, ValueTask<object?>> AdminKeyFilter(IConfiguration cfg)

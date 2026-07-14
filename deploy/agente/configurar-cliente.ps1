@@ -39,7 +39,8 @@ try {
         -Body    $bodyCliente
 
     $chaveApi = $respCliente.chaveApi
-    Log "Cliente registrado. ChaveApi: $chaveApi"
+    Log "Cliente registrado."
+    Write-Host "ChaveApi: $chaveApi" -ForegroundColor Yellow   # console apenas (segredo, fora do log)
 }
 catch {
     # Se cliente já existe, busca a chave existente
@@ -51,7 +52,8 @@ catch {
                 -Method  GET `
                 -Headers @{ "X-Admin-Key" = $AdminKey }
             $chaveApi = ($todos | Where-Object { $_.nome -eq $ClienteNome }).chaveApi
-            Log "ChaveApi recuperada: $chaveApi"
+            Log "ChaveApi recuperada."
+            Write-Host "ChaveApi: $chaveApi" -ForegroundColor Yellow   # console apenas (segredo, fora do log)
         }
         catch {
             Log "ERRO ao recuperar cliente existente: $_"

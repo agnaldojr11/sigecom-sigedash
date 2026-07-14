@@ -32,6 +32,11 @@ builder.Configuration.AddJsonFile(
 builder.Services.AddDbContext<AppDbContext>(o =>
     o.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
 
+// Falha cedo se a chave de assinatura do JWT estiver ausente ou fraca (< 32 bytes = < 256 bits para HS256)
+var jwtSecret = builder.Configuration["Jwt:SecretKey"];
+if (string.IsNullOrWhiteSpace(jwtSecret) || Encoding.UTF8.GetByteCount(jwtSecret) < 32)
+    throw new InvalidOperationException("Jwt:SecretKey ausente ou fraca (minimo 32 bytes). Gere uma chave forte (CSPRNG).");
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(opt =>
     {
@@ -42,7 +47,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true, ValidAudience = cfg["Jwt:Audience"],
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(cfg["Jwt:SecretKey"]!)),
-            ValidateLifetime = true
+            ValidateLifetime = true,
+            ValidAlgorithms = new[] { SecurityAlgorithms.HmacSha256 },  // fixa HMAC (defesa contra alg confusion/none)
+            ClockSkew = TimeSpan.FromSeconds(30)
         };
         // Sessao unica: o sid do token precisa bater com o sid atual do usuario no banco.
         // Se nao bater (login em outro lugar), rejeita com header X-Sessao=encerrada.
@@ -99,6 +106,24 @@ builder.Services.AddRateLimiter(opt =>
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 QueueLimit           = 0
             }));
+    // /ingest — por IP: permite o agente (dezenas de POST por ciclo) e limita brute force da ChaveApi
+    opt.AddPolicy("ingest", ctx =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: ctx.Connection.RemoteIpAddress?.ToString() ?? "anon",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 120, Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst, QueueLimit = 0
+            }));
+    // /ia — por IP: uso humano de chat; corta abuso/custo
+    opt.AddPolicy("ia", ctx =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: ctx.Connection.RemoteIpAddress?.ToString() ?? "anon",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20, Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst, QueueLimit = 0
+            }));
     opt.RejectionStatusCode = 429;
 });
 
@@ -118,6 +143,26 @@ using (var scope = app.Services.CreateScope())
 
 // Compressao deve vir cedo no pipeline (comprime estaticos e respostas de API)
 app.UseResponseCompression();
+
+// Headers de seguranca em todas as respostas. A CSP sem 'unsafe-inline' em script-src bloqueia
+// handlers inline (ex.: onerror=) — defesa em profundidade contra XSS. Chart.js vem do cdnjs.
+app.Use(async (ctx, next) =>
+{
+    var h = ctx.Response.Headers;
+    h["X-Content-Type-Options"] = "nosniff";
+    h["X-Frame-Options"]        = "DENY";
+    h["Referrer-Policy"]        = "no-referrer";
+    h["Permissions-Policy"]     = "geolocation=(), microphone=(), camera=(), payment=()";
+    h["Content-Security-Policy"] =
+        "default-src 'self'; " +
+        "script-src 'self' https://cdnjs.cloudflare.com; " +
+        "style-src 'self' 'unsafe-inline'; " +
+        "img-src 'self' data:; font-src 'self'; connect-src 'self'; " +
+        "object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'";
+    if (ctx.Request.IsHttps || ctx.Request.Headers["X-Forwarded-Proto"] == "https")
+        h["Strict-Transport-Security"] = "max-age=31536000";
+    await next();
+});
 
 // Serve o PWA (wwwroot/): index.html, css, js, service worker, ícones
 app.UseDefaultFiles();

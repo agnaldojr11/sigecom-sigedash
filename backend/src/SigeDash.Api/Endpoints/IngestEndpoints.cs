@@ -41,7 +41,7 @@ public static class IngestEndpoints
             }
             await db.SaveChangesAsync();
             return Results.Ok(new { sincronizados = usuarios.Count });
-        });
+        }).RequireRateLimiting("ingest");
 
         app.MapPost("/ingest/{codigoEmpresa:int}/{handle}", async (
             int codigoEmpresa, string handle, HttpRequest req, AppDbContext db) =>
@@ -71,6 +71,6 @@ public static class IngestEndpoints
             });
             await db.SaveChangesAsync();
             return Results.Ok(new { ok = true });
-        });
+        }).RequireRateLimiting("ingest");
     }
 }
