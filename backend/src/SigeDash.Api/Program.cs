@@ -163,6 +163,15 @@ app.Use(async (ctx, next) =>
         "object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'";
     if (ctx.Request.IsHttps || ctx.Request.Headers["X-Forwarded-Proto"] == "https")
         h["Strict-Transport-Security"] = "max-age=31536000";
+
+    // Evita que a Cloudflare (borda) cacheie o service worker e o HTML — senao atualizacoes
+    // do SW/CSP nunca chegam ao navegador (o SW nao tem ?v na URL).
+    var reqPath = ctx.Request.Path.Value ?? "";
+    if (reqPath.EndsWith("service-worker.js", StringComparison.OrdinalIgnoreCase))
+        h["Cache-Control"] = "no-store, must-revalidate";
+    else if (reqPath == "/" || reqPath.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
+        h["Cache-Control"] = "no-cache";
+
     await next();
 });
 
