@@ -38,6 +38,9 @@ backend/src/SigeDash.Api/wwwroot/
 # ── Relatórios de segurança (não versionar o mapa de ataque) ──────────────────
 security-reports/
 
+# ── Assinatura de código (binários/cert locais; ficam em C:\CodeSign no servidor de build) ────
+assinatura/
+
 # ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db

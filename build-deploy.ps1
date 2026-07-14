@@ -16,26 +16,34 @@
 .PARAMETER PularAgente
     Nao compila o agente (gera pacote apenas com backend).
 .PARAMETER Assinar
-    Assina Instalar-SigeDash.exe, SigeDash.Api.exe e SigeDash.Agente.exe com o
-    certificado de code signing EV. Exige o token conectado (o middleware pede o PIN).
-.PARAMETER CertThumbprint
-    Thumbprint (SHA1) do certificado. Padrao: cert RSA 4096 EV da SistemasBr.
+    Assina Instalar-SigeDash.exe, SigeDash.Api.exe e SigeDash.Agente.exe no eToken SafeNet.
+    Exige o token conectado e a variavel de ambiente SIGEDASH_SIGN_PIN (o PIN do token).
+.PARAMETER CertFile
+    Caminho do .cer publico. Padrao: C:\CodeSign\SBR-CodeSign-Pub.cer (servidor de build).
+.PARAMETER Csp / TokenReader / KeyContainer
+    Parametros do token SafeNet (CSP, nome do leitor e container p11). Padroes = cert da SistemasBr.
 .PARAMETER TimestampUrl
     Servidor de timestamp RFC3161. Padrao: http://timestamp.digicert.com
 .EXAMPLE
     .\build-deploy.ps1
-    .\build-deploy.ps1 -Versao "1.1.0"
-    .\build-deploy.ps1 -PularAgente
-    .\build-deploy.ps1 -Versao "1.0.12" -Assinar
+    .\build-deploy.ps1 -Versao "1.1.0" -PularAgente
+    # Assinado (no servidor de build, com o token): defina o PIN e rode com -Assinar
+    $env:SIGEDASH_SIGN_PIN = "<pin-do-token>"; .\build-deploy.ps1 -Versao "1.0.22" -Assinar
 #>
 param(
     [string]$Versao      = "1.0.0",
     [switch]$PularAgente,
 
-    # Assinatura de codigo (EV / DigiCert no token). Opt-in: exige o token conectado.
+    # Assinatura de codigo (eToken SafeNet, via CSP + key container). Opt-in: exige o token conectado.
+    # O PIN NUNCA fica no codigo - vem da variavel de ambiente SIGEDASH_SIGN_PIN (secret do pipeline).
+    # Os defaults espelham o servidor de build do SIGECOM (C:\CodeSign).
     [switch]$Assinar,
-    [string]$CertThumbprint = "D1377848F144D6441673E05B4C66613C8AAE5F75",
-    [string]$TimestampUrl   = "http://timestamp.digicert.com"
+    [string]$SignTool     = "",                                 # vazio = auto (Resolve-SignTool)
+    [string]$CertFile     = "C:\CodeSign\SBR-CodeSign-Pub.cer",
+    [string]$Csp          = "eToken Base Cryptographic Provider",
+    [string]$TokenReader  = "SafeNet Token JC 0",
+    [string]$KeyContainer = "396d712fbe2553ed",
+    [string]$TimestampUrl = "http://timestamp.digicert.com"
 )
 
 $ErrorActionPreference = "Stop"
@@ -64,10 +72,14 @@ function Checar($exitCode, $etapa) {
     }
 }
 
-# Localiza o signtool.exe: cache do repo -> Windows SDK -> baixa via NuGet.
+# Localiza o signtool.exe: -SignTool -> C:\CodeSign -> assinatura\ do repo -> cache -> Windows SDK -> NuGet.
 function Resolve-SignTool {
-    $cache = Join-Path $ROOT ".tools\signtool\signtool.exe"
-    if (Test-Path $cache) { return $cache }
+    if ($SignTool -and (Test-Path $SignTool)) { return $SignTool }
+    foreach ($cand in @(
+        "C:\CodeSign\signtool.exe",
+        (Join-Path $ROOT "assinatura\signtool.exe"),
+        (Join-Path $ROOT ".tools\signtool\signtool.exe")
+    )) { if (Test-Path $cand) { return $cand } }
 
     $kit = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue |
            Where-Object { $_.FullName -match '\\x64\\' } | Sort-Object FullName -Descending | Select-Object -First 1
@@ -90,9 +102,16 @@ function Resolve-SignTool {
     return $cache
 }
 
-# Assina e verifica um executavel com o certificado informado (PIN do token e solicitado pelo middleware).
+# Assina e verifica um executavel no eToken SafeNet (CSP + key container), com timestamp.
+# Espelha o SIGECOM: signtool sign /f <cer> /csp "<CSP>" /k "[<reader>{{PIN}}]=p11#<container>" <exe>
+# O PIN vem de $env:SIGEDASH_SIGN_PIN (secret) - nunca do codigo. Timestamp adicionado (nao ha no SIGECOM).
 function Assinar($signtool, $arquivo) {
-    & $signtool sign /fd sha256 /tr $TimestampUrl /td sha256 /sha1 $CertThumbprint $arquivo
+    $pin = $env:SIGEDASH_SIGN_PIN
+    if ([string]::IsNullOrEmpty($pin)) {
+        throw "PIN do token ausente. Defina a variavel de ambiente SIGEDASH_SIGN_PIN (secret do pipeline) antes de assinar."
+    }
+    $key = "[$TokenReader{{$pin}}]=p11#$KeyContainer"
+    & $signtool sign /f $CertFile /csp $Csp /k $key /fd sha256 /tr $TimestampUrl /td sha256 $arquivo
     if ($LASTEXITCODE -ne 0) { throw "Falha ao assinar '$arquivo' (codigo $LASTEXITCODE)" }
     & $signtool verify /pa /q $arquivo
     if ($LASTEXITCODE -ne 0) {
@@ -146,6 +165,7 @@ $SCRIPTS = @(
     "deploy\backend\instalar-agente.ps1",
     "deploy\backend\instalar-tunnel.ps1",
     "deploy\backend\atualizar.ps1",
+    "deploy\backend\rotacionar-segredos.ps1",
     "deploy\agente\configurar-cliente.ps1"
 )
 
@@ -254,7 +274,8 @@ if ($Assinar) {
     Titulo "4e" "Assinando executaveis (certificado EV)..."
     $signtool = Resolve-SignTool
     Log "signtool    : $signtool"
-    Log "Certificado : $CertThumbprint"
+    Log "Certificado : $CertFile"
+    Log "Token/CSP   : $Csp | container p11#$KeyContainer"
     Log "Timestamp   : $TimestampUrl"
 
     $exesParaAssinar = @(
