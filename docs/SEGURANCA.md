@@ -31,21 +31,14 @@ Roda em push na `main`, PRs, **cada tag `v*.*.*`**, semanalmente (seg 06:00 UTC)
 Os relatórios ficam como artifacts do run. O Trivy começa em modo relatório (`exit-code: 0`); depois
 de zerarmos os achados, trocar para `1` para também bloquear.
 
-## 3. Gate de release (opcional, recomendado)
+## 3. Gate de release (ATIVO)
 
-Para impedir que uma tag de versão publique com problema, o job de release passa a depender da
-segurança. Em `.github/workflows/release.yml`, no job `release`, adicionar:
+`.github/workflows/release.yml` tem um job `seguranca` (gitleaks + `dotnet list --vulnerable`) e o job
+`release` usa `needs: [seguranca]` — **nenhuma tag publica se houver segredo vazado ou dependência
+vulnerável**. Se o gate falhar, a release é bloqueada; corrija o achado e re-tague.
 
-```yaml
-jobs:
-  release:
-    needs: [seguranca-gate]   # não publica se a segurança falhar
-    ...
-```
-
-Como `security.yml` e `release.yml` são workflows separados, a forma simples é **replicar os jobs
-`segredos` e `dependencias` dentro do `release.yml`** como um job `seguranca-gate` e usar `needs`.
-(Só habilitar depois que os achados atuais estiverem corrigidos — senão nenhuma versão sai.)
+O `security.yml` continua rodando em push/PR/semanal para detecção contínua (com o Trivy em modo
+relatório). Para endurecer ainda mais, trocar o Trivy do `security.yml` para `exit-code: 1`.
 
 ## 4. Achados atuais (a corrigir antes de habilitar o gate)
 

@@ -6,7 +6,36 @@ on:
       - "v*.*.*"
 
 jobs:
+  # Gate de seguranca: a publicacao so ocorre se este job passar (sem segredo vazado nem dependencia vulneravel)
+  seguranca:
+    name: Gate de seguranca
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Segredos (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Dependencias vulneraveis (bloqueia a release)
+        shell: bash
+        run: |
+          dotnet restore backend/src/SigeDash.Api/SigeDash.Api.csproj
+          dotnet list backend/src/SigeDash.Api/SigeDash.Api.csproj package --vulnerable --include-transitive | tee vuln.txt
+          if grep -q "has the following vulnerable" vuln.txt; then
+            echo "::error::Dependencias vulneraveis encontradas - release BLOQUEADA. Atualize os pacotes."
+            exit 1
+          fi
+          echo "Sem dependencias vulneraveis."
+
   release:
+    needs: [seguranca]   # nao publica se o gate de seguranca falhar
     runs-on: windows-latest
     permissions:
       contents: write
