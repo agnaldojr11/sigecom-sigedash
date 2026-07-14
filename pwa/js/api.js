@@ -30,7 +30,7 @@ const API = (() => {
     const r = await fetch(`${BASE}/admin/usuarios`, {
       headers: { "Authorization": `Bearer ${token}` }
     });
-    if (r.status === 401) { sair(); throw new Error("Sessão expirada"); }
+    if (r.status === 401) throw _erro401(r);
     if (!r.ok) throw new Error("Erro ao carregar usuários");
     return r.json();
   }
@@ -41,7 +41,7 @@ const API = (() => {
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
       body: JSON.stringify({ secoes: listaSecoes })
     });
-    if (r.status === 401) { sair(); throw new Error("Sessão expirada"); }
+    if (r.status === 401) throw _erro401(r);
     if (!r.ok) throw new Error("Erro ao salvar permissões");
     return r.json();
   }
@@ -50,7 +50,7 @@ const API = (() => {
     const r = await fetch(`${BASE}/dash/${codigoEmpresa}`, {
       headers: { "Authorization": `Bearer ${token}` }
     });
-    if (r.status === 401) { sair(); throw new Error("Sessão expirada"); }
+    if (r.status === 401) throw _erro401(r);
     return r.json();
   }
 
@@ -60,7 +60,7 @@ const API = (() => {
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
       body: JSON.stringify({ pergunta, contexto })
     });
-    if (r.status === 401) { sair(); throw new Error("Sessão expirada"); }
+    if (r.status === 401) throw _erro401(r);
     if (!r.ok) {
       const d = await r.json().catch(() => ({}));
       throw new Error(d.detail || d.title || "Erro ao consultar IA");
@@ -76,6 +76,17 @@ const API = (() => {
 
   function sair() { token = null; sessionStorage.clear(); }
   function logado() { return !!token; }
+
+  // 401: encerra a sessão local e devolve um erro marcado (com mensagem conforme o motivo)
+  function _erro401(r) {
+    var superada = r.headers.get("X-Sessao") === "encerrada";
+    sair();
+    var e = new Error(superada
+      ? "Sua sessão foi encerrada porque este usuário entrou em outro dispositivo."
+      : "Sua sessão expirou. Entre novamente.");
+    e.sessaoEncerrada = true;
+    return e;
+  }
 
   return { login, dashboards, queryIA, empresas, sair, logado,
            ehAdmin, secoes, listarUsuarios, salvarPermissoes };

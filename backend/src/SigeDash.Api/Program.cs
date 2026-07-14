@@ -44,6 +44,25 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(cfg["Jwt:SecretKey"]!)),
             ValidateLifetime = true
         };
+        // Sessao unica: o sid do token precisa bater com o sid atual do usuario no banco.
+        // Se nao bater (login em outro lugar), rejeita com header X-Sessao=encerrada.
+        opt.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async ctx =>
+            {
+                var db  = ctx.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+                var uid = ctx.Principal?.FindFirst("usuario_id")?.Value;
+                var sid = ctx.Principal?.FindFirst("sid")?.Value;
+                if (!int.TryParse(uid, out var usuarioId)) { ctx.Fail("token invalido"); return; }
+                var atual = await db.UsuariosApp
+                    .Where(u => u.Id == usuarioId).Select(u => u.SessaoToken).FirstOrDefaultAsync();
+                if (string.IsNullOrEmpty(sid) || sid != atual)
+                {
+                    ctx.Response.Headers["X-Sessao"] = "encerrada";
+                    ctx.Fail("sessao encerrada");
+                }
+            }
+        };
     });
 builder.Services.AddAuthorization();
 builder.Services.AddHttpClient("claude");
@@ -65,7 +84,7 @@ builder.Services.Configure<GzipCompressionProviderOptions>(o => o.Level = Compre
 var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>()
                      ?? ["http://localhost:5000", "http://localhost:8080"];
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
-    p.AllowAnyHeader().AllowAnyMethod().WithOrigins(allowedOrigins)));
+    p.AllowAnyHeader().AllowAnyMethod().WithOrigins(allowedOrigins).WithExposedHeaders("X-Sessao")));
 
 // Rate limiting: /auth/login — máx 5 tentativas por IP por minuto
 builder.Services.AddRateLimiter(opt =>

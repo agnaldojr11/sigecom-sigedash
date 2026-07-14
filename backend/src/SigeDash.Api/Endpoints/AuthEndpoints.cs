@@ -36,9 +36,14 @@ public static class AuthEndpoints
 
             if (user.SenhaApp != Sha1Hex(r.Senha)) return Results.Unauthorized();
 
+            // Sessao unica: gera um novo sid a cada login; invalida a sessao anterior deste usuario
+            var sid = Guid.NewGuid().ToString("N");
+            user.SessaoToken = sid;
+            await db.SaveChangesAsync();
+
             var admin  = Permissoes.EhAdmin(user);
             var secoes = Permissoes.SecoesEfetivas(user).ToArray();
-            var token  = GerarJwt(cfg, cliente.Id, user.Id, user.Login, admin);
+            var token  = GerarJwt(cfg, cliente.Id, user.Id, user.Login, admin, sid);
             return Results.Ok(new { token, cliente = cliente.Nome, admin, secoes });
         }).RequireRateLimiting("login");
     }
@@ -49,7 +54,7 @@ public static class AuthEndpoints
         return Convert.ToHexString(hash).ToLower();
     }
 
-    private static string GerarJwt(IConfiguration cfg, int clienteId, int usuarioId, string login, bool admin)
+    private static string GerarJwt(IConfiguration cfg, int clienteId, int usuarioId, string login, bool admin, string sid)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(cfg["Jwt:SecretKey"]!));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -58,6 +63,7 @@ public static class AuthEndpoints
             new Claim("cliente_id", clienteId.ToString()),
             new Claim("usuario_id", usuarioId.ToString()),
             new Claim("admin", admin ? "1" : "0"),
+            new Claim("sid", sid),
             new Claim(ClaimTypes.Name, login)
         };
         var jwt = new JwtSecurityToken(

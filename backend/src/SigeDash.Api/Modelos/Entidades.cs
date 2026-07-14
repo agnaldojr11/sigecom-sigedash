@@ -33,6 +33,10 @@ public class UsuarioApp
     /// <summary>Secoes liberadas para nao-admins, separadas por virgula (ex.: "estoque,vendas").
     /// null = nada liberado (usuario aguarda configuracao do admin). Ignorado para admins (veem tudo).</summary>
     public string? SecoesPermitidas { get; set; }
+
+    /// <summary>Identificador da sessao ativa (sessao unica). Cada login gera um novo valor;
+    /// o token carrega o mesmo em uma claim. Se nao bater, a sessao foi substituida (login em outro lugar).</summary>
+    public string? SessaoToken { get; set; }
 }
 
 /// <summary>Snapshot de um indicador recebido do agente. payload_json e o resultado pronto.</summary>

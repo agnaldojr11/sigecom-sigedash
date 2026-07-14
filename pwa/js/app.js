@@ -469,6 +469,7 @@ async function carregarDados() {
     lista.forEach(function(s) { _snaps[s.indicadorHandle] = s; });
     renderSecao(_secAtiva);
   } catch (e) {
+    if (e && e.sessaoEncerrada) { voltarParaLogin(e.message); return; }
     var el = document.getElementById('sec-' + _secAtiva);
     if (el) { el.innerHTML = ''; el.appendChild(Render.emptyState('Erro ao carregar', e.message)); }
   }
@@ -537,6 +538,7 @@ async function enviarPerguntaIA(pergunta) {
     loadingMsg.textContent = result.resposta;
     loadingMsg.classList.remove('loading');
   } catch (e) {
+    if (e && e.sessaoEncerrada) { overlayIA.hidden = true; voltarParaLogin(e.message); return; }
     loadingMsg.textContent = 'Erro: ' + e.message;
     loadingMsg.classList.remove('loading');
   } finally {
@@ -567,6 +569,7 @@ function abrirPermissoes() {
     }
     usuarios.forEach(function(u) { body.appendChild(_permCard(u)); });
   }).catch(function(e) {
+    if (e && e.sessaoEncerrada) { overlayPerm.hidden = true; voltarParaLogin(e.message); return; }
     body.innerHTML = '<p class="perm-aviso erro">' + _escHtml(e.message) + '</p>';
   });
 }
@@ -628,7 +631,8 @@ function _permCard(u) {
       status.textContent = 'salvo';
       status.className = 'perm-status ok';
       setTimeout(function() { status.textContent = ''; status.className = 'perm-status'; }, 1800);
-    }).catch(function() {
+    }).catch(function(e) {
+      if (e && e.sessaoEncerrada) { overlayPerm.hidden = true; voltarParaLogin(e.message); return; }
       status.textContent = 'erro ao salvar';
       status.className = 'perm-status erro';
     });
@@ -697,8 +701,8 @@ document.getElementById('btn-atualizar').addEventListener('click', function() {
 });
 
 // ── Logout ─────────────────────────────────────────────────────────────────
-document.getElementById('btn-sair').addEventListener('click', function() {
-  API.sair();
+// Volta para a tela de login. msg (opcional) explica um logout involuntário (sessão encerrada/expirada).
+function voltarParaLogin(msg) {
   clearInterval(_timerRefresh);
   _timerRefresh = null;
   _snaps = {};
@@ -711,7 +715,12 @@ document.getElementById('btn-sair').addEventListener('click', function() {
   var btn = document.getElementById('btn-entrar');
   btn.disabled = false;
   btn.textContent = 'Entrar';
-  document.getElementById('login-erro').textContent = '';
+  document.getElementById('login-erro').textContent = msg || '';
+}
+
+document.getElementById('btn-sair').addEventListener('click', function() {
+  API.sair();
+  voltarParaLogin('');
 });
 
 // ── Navegação (bottom nav) ─────────────────────────────────────────────────
