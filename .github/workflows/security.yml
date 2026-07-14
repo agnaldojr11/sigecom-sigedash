@@ -1,0 +1,74 @@
+name: Seguranca
+
+# Auditoria automatizada de seguranca. Roda em push/PR, semanalmente e em cada TAG de versao
+# (v*.*.*), para que nenhuma versao va para a rua com dependencia vulneravel ou segredo vazado.
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"   # toda segunda, 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # 1) Segredos vazados no repositorio (chaves, senhas, tokens) — bloqueia se encontrar
+  segredos:
+    name: Segredos (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # 2) Dependencias .NET vulneraveis (CVEs) — bloqueia se houver vulneravel
+  dependencias:
+    name: Dependencias .NET
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Restore backend
+        run: dotnet restore backend/src/SigeDash.Api/SigeDash.Api.csproj
+      - name: Pacotes vulneraveis (backend)
+        shell: bash
+        run: |
+          dotnet list backend/src/SigeDash.Api/SigeDash.Api.csproj package --vulnerable --include-transitive | tee vuln.txt
+          if grep -q "has the following vulnerable" vuln.txt; then
+            echo "::error::Dependencias vulneraveis encontradas no backend. Atualize os pacotes."
+            exit 1
+          fi
+          echo "Sem dependencias vulneraveis."
+      - name: Relatorio (artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependencias-report
+          path: vuln.txt
+
+  # 3) Trivy: vulnerabilidades + segredos + misconfig no filesystem.
+  #    Comeca como RELATORIO (exit-code 0). Depois de limpar os achados, troque para "1" para bloquear.
+  trivy:
+    name: Trivy (fs)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy filesystem
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "0"
+          format: table

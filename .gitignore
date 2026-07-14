@@ -35,6 +35,9 @@ nginx/certs/
 # ── wwwroot gerado ────────────────────────────────────────────────────────────
 backend/src/SigeDash.Api/wwwroot/
 
+# ── Relatórios de segurança (não versionar o mapa de ataque) ──────────────────
+security-reports/
+
 # ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
