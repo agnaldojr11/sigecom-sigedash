@@ -175,6 +175,26 @@ app.Use(async (ctx, next) =>
     await next();
 });
 
+// Endpoints "somente locais": /ingest (agente) e /admin/clientes (instalacao) so devem ser
+// acessados na propria maquina (localhost). Requisicoes que chegam pela BORDA da Cloudflare
+// (tunnel) carregam o header Cf-Ray; o agente/instalador locais nao. Bloqueia o acesso externo
+// a esses endpoints sensiveis. O PWA (/, /auth, /dash, /ia, /admin/usuarios) segue liberado.
+app.Use(async (ctx, next) =>
+{
+    var p = ctx.Request.Path.Value ?? "";
+    var sensivelLocal = p.StartsWith("/ingest", StringComparison.OrdinalIgnoreCase)
+                     || p.Equals("/admin/clientes", StringComparison.OrdinalIgnoreCase);
+    var viaTunnel = ctx.Request.Headers.ContainsKey("Cf-Ray")
+                 || ctx.Request.Headers.ContainsKey("CF-Connecting-IP");
+    if (sensivelLocal && viaTunnel)
+    {
+        ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+        await ctx.Response.WriteAsync("Endpoint acessivel apenas localmente.");
+        return;
+    }
+    await next();
+});
+
 // Serve o PWA (wwwroot/): index.html, css, js, service worker, ícones
 app.UseDefaultFiles();
 app.UseStaticFiles();
