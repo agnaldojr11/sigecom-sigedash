@@ -210,6 +210,16 @@ if (Test-Path $atualizarSrc) {
     Log "AVISO: atualizar.ps1 nao encontrado - agendamento ignorado."
 }
 
+# --- Endurece a ACL do diretorio ---
+# So Administrators (S-1-5-32-544) e SYSTEM (S-1-5-18). Evita que usuario nao-admin sobrescreva
+# binarios/atualizar.ps1 (que rodam como SYSTEM) - fecha escalonamento local de privilegio.
+$prevEAP2 = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+& icacls "$InstallDir" /inheritance:r /grant:r "*S-1-5-32-544:(OI)(CI)F" "*S-1-5-18:(OI)(CI)F" > $null 2>&1
+if ($LASTEXITCODE -eq 0) { Log "ACL endurecida (Administrators + SYSTEM)." }
+else { Log "AVISO: nao foi possivel endurecer a ACL de $InstallDir (icacls codigo $LASTEXITCODE)." }
+$ErrorActionPreference = $prevEAP2
+
 # --- Resumo ---
 Log ""
 Log "=== Instalacao concluida! ==="

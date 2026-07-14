@@ -103,7 +103,13 @@ if ($jaInstalado) {
 
     if (($testOut | Out-String).Trim() -match "^1") {
         $SuperSenha = ""
-        Log "PostgreSQL aceita conexao local sem senha (trust). Continuando."
+        Write-Host ""
+        Write-Host "AVISO DE SEGURANCA: o PostgreSQL local aceita conexao SEM SENHA (modo 'trust')." -ForegroundColor Red
+        Write-Host "Qualquer processo local pode conectar como superusuario. Recomendado apos a instalacao:" -ForegroundColor Yellow
+        Write-Host "  - editar pg_hba.conf para 'scram-sha-256' nas conexoes locais e reiniciar o PostgreSQL;" -ForegroundColor Yellow
+        Write-Host "  - garantir que o PostgreSQL escute apenas em 127.0.0.1." -ForegroundColor Yellow
+        Write-Host ""
+        Log "AVISO: PostgreSQL em modo trust (sem senha). Prosseguindo - ajuste o pg_hba.conf."
     } else {
         Write-Host ""
         Write-Host "PostgreSQL ja esta instalado nesta maquina." -ForegroundColor Yellow
@@ -145,6 +151,16 @@ if ($jaInstalado) {
             $wc = New-Object System.Net.WebClient
             $wc.DownloadFile($downloadUrl, $InstallerExe)
             Log "Download concluido: $InstallerExe"
+            # Verifica a assinatura Authenticode do instalador (integridade)
+            $sigPg = Get-AuthenticodeSignature $InstallerExe
+            if ($sigPg.Status -eq 'Valid') {
+                Log "Assinatura do instalador verificada: $($sigPg.SignerCertificate.Subject)"
+            } elseif ($sigPg.Status -eq 'NotSigned' -or $sigPg.Status -eq 'HashMismatch') {
+                Log "ERRO: assinatura invalida no instalador do PostgreSQL ($($sigPg.Status)) - abortando."
+                exit 1
+            } else {
+                Log "AVISO: nao foi possivel validar totalmente a assinatura do instalador PG ($($sigPg.Status)) - prosseguindo."
+            }
         } catch {
             Log "ERRO ao baixar: $_"
             Log "Baixe manualmente em: https://www.enterprisedb.com/downloads/postgres-postgresql-downloads"

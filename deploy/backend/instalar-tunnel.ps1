@@ -95,6 +95,17 @@ if (-not (Test-Path $CLOUDFLARED)) {
     Log "cloudflared.exe ja existe em $CLOUDFLARED"
 }
 
+# Verifica a assinatura Authenticode do binario baixado (integridade)
+$sig = Get-AuthenticodeSignature $CLOUDFLARED
+if ($sig.Status -eq 'Valid') {
+    Log "Assinatura verificada: $($sig.SignerCertificate.Subject)"
+} elseif ($sig.Status -eq 'NotSigned' -or $sig.Status -eq 'HashMismatch') {
+    Log "ERRO: assinatura invalida em cloudflared.exe ($($sig.Status)) - abortando por seguranca."
+    exit 1
+} else {
+    Log "AVISO: nao foi possivel validar totalmente a assinatura do cloudflared ($($sig.Status)) - prosseguindo."
+}
+
 # Verifica versao
 $prevEAP = $ErrorActionPreference
 $ErrorActionPreference = "Continue"
