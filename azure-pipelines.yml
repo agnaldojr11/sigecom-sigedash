@@ -1,0 +1,96 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# SigeDash — Pipeline de RELEASE ASSINADO (Azure DevOps)
+#
+# Roda no SERVIDOR DE BUILD (agente self-hosted) que tem o eToken SafeNet + C:\CodeSign
+# (o mesmo servidor usado para assinar o SIGECOM). Builda backend+agente, ASSINA os .exe
+# e publica o release no GitHub Releases — de onde os clientes fazem auto-update (atualizar.ps1).
+#
+# PRE-REQUISITOS no Azure DevOps:
+#   1. Pool self-hosted apontando para o servidor do token  → ajuste 'pool.name' abaixo.
+#   2. Conexao de servico com o GitHub (para checkout do repo agnaldojr11/sigecom-sigedash).
+#   3. Variaveis SECRETAS do pipeline (Pipelines → Edit → Variables, marcar "keep secret"):
+#        SIGN_PIN  = PIN do eToken SafeNet
+#        GH_TOKEN  = Personal Access Token do GitHub (scope: repo / contents:write) p/ publicar o release
+#   4. O agente precisa ter: .NET 8 SDK (ou deixa o UseDotNet instalar), Git, PowerShell 5+,
+#      e (opcional) o modulo ps2exe para gerar o Instalar-SigeDash.exe.
+#
+# A assinatura em si esta em build-deploy.ps1 (funcao Assinar, /csp+/k). O PIN nunca fica no codigo.
+# ─────────────────────────────────────────────────────────────────────────────
+
+trigger:
+  tags:
+    include:
+      - "v*.*.*"
+
+pool:
+  name: "SEU-POOL-SELFHOSTED"   # <-- ajuste para o pool do servidor de build (o mesmo do SIGECOM)
+
+variables:
+  repo: "agnaldojr11/sigecom-sigedash"
+
+steps:
+  - checkout: self
+    fetchDepth: 0
+    displayName: "Checkout"
+
+  - powershell: |
+      $tag = "$(Build.SourceBranchName)"        # ex.: v1.0.22
+      $versao = $tag.TrimStart('v')
+      Write-Host "##vso[task.setvariable variable=VERSAO]$versao"
+      Write-Host "Versao: $versao"
+    displayName: "Capturando versao (da tag)"
+
+  - task: UseDotNet@2
+    inputs:
+      packageType: sdk
+      version: "8.0.x"
+    displayName: "Setup .NET 8"
+
+  # Gate de seguranca: nao assina/publica se houver dependencia vulneravel
+  - powershell: |
+      dotnet restore backend/src/SigeDash.Api/SigeDash.Api.csproj
+      dotnet list backend/src/SigeDash.Api/SigeDash.Api.csproj package --vulnerable --include-transitive | Tee-Object -FilePath vuln.txt
+      if (Select-String -Path vuln.txt -Pattern "has the following vulnerable" -Quiet) {
+          Write-Error "Dependencias vulneraveis encontradas - release BLOQUEADA."
+      }
+      Write-Host "Sem dependencias vulneraveis."
+    displayName: "Gate: dependencias vulneraveis"
+
+  # Build backend + agente, ASSINA os 3 .exe e gera o ZIP (tudo em build-deploy.ps1 -Assinar)
+  - powershell: |
+      $env:SIGEDASH_SIGN_PIN = "$(SIGN_PIN)"     # secret do pipeline (mascarado nos logs)
+      .\build-deploy.ps1 -Versao "$(VERSAO)" -Assinar
+      if ($LASTEXITCODE -ne 0) { Write-Error "build-deploy falhou." }
+    displayName: "Build + Assina binarios"
+
+  # Publica o release assinado no GitHub Releases (get-or-create + upload do ZIP)
+  - powershell: |
+      $ErrorActionPreference = "Stop"
+      $tag = "v$(VERSAO)"
+      $name = "SigeDash-Deploy-v$(VERSAO).zip"
+      $zip = "dist/$name"
+      if (-not (Test-Path $zip)) { throw "ZIP nao encontrado: $zip" }
+
+      $api = "https://api.github.com/repos/$(repo)"
+      $headers = @{
+          Authorization = "Bearer $(GH_TOKEN)"
+          "User-Agent"  = "sigedash-azure"
+          Accept        = "application/vnd.github+json"
+      }
+      # get-or-create release para a tag
+      try {
+          $rel = Invoke-RestMethod "$api/releases/tags/$tag" -Headers $headers
+          Write-Host "Release existente reutilizado: $tag"
+      } catch {
+          $body = @{ tag_name = $tag; name = "SigeDash $tag"; draft = $false; prerelease = $false } | ConvertTo-Json
+          $rel = Invoke-RestMethod "$api/releases" -Method Post -Headers $headers -Body $body -ContentType "application/json"
+          Write-Host "Release criado: $tag"
+      }
+      # remove asset homonimo (se re-execucao) e faz upload
+      $existing = $rel.assets | Where-Object { $_.name -eq $name }
+      if ($existing) { Invoke-RestMethod $existing.url -Method Delete -Headers $headers }
+      $uploadUrl = ($rel.upload_url -replace '\{.*\}', '') + "?name=$name"
+      $uh = @{ Authorization = "Bearer $(GH_TOKEN)"; "User-Agent" = "sigedash-azure"; "Content-Type" = "application/zip" }
+      Invoke-RestMethod $uploadUrl -Method Post -Headers $uh -InFile $zip | Out-Null
+      Write-Host "Asset assinado publicado no release $tag."
+    displayName: "Publicar no GitHub Releases"
