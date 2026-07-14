@@ -155,9 +155,11 @@ app.Use(async (ctx, next) =>
     h["Permissions-Policy"]     = "geolocation=(), microphone=(), camera=(), payment=()";
     h["Content-Security-Policy"] =
         "default-src 'self'; " +
-        "script-src 'self' https://cdnjs.cloudflare.com; " +
+        // cdnjs = Chart.js; static.cloudflareinsights.com = beacon de Web Analytics injetado pela Cloudflare
+        "script-src 'self' https://cdnjs.cloudflare.com https://static.cloudflareinsights.com; " +
         "style-src 'self' 'unsafe-inline'; " +
-        "img-src 'self' data:; font-src 'self'; connect-src 'self'; " +
+        "img-src 'self' data:; font-src 'self'; " +
+        "connect-src 'self' https://cloudflareinsights.com; " +   // POST do beacon (RUM)
         "object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'";
     if (ctx.Request.IsHttps || ctx.Request.Headers["X-Forwarded-Proto"] == "https")
         h["Strict-Transport-Security"] = "max-age=31536000";
