@@ -78,6 +78,7 @@ $pgSvcAtual  = Get-Service | Where-Object { $_.Name -match "^postgresql" } | Sel
 $psqlExe     = DescobriPsql
 
 $jaInstalado = $portaEmUso -or ($null -ne $pgSvcAtual) -or ($null -ne $psqlExe)
+$freshInstall = -not $jaInstalado   # so aplicamos hardening no PG que NOS instalamos
 
 if ($jaInstalado) {
     if ($portaEmUso) {
@@ -265,6 +266,48 @@ if ($teste -match "PostgreSQL") {
     Log "ERRO: nao foi possivel conectar como usuario 'sigedash': $teste"
     Log "O banco pode estar com configuracao pg_hba.conf impedindo conexao local."
     exit 1
+}
+
+# --- Hardening do PostgreSQL (apenas em instalacao NOVA feita pelo instalador do SigeDash) ---
+# Nao mexe em PostgreSQL pre-existente (pode ser compartilhado). Ajustes:
+#  - listen_addresses = 'localhost'  (o instalador EDB deixa '*', expondo na rede)
+#  - password_encryption = scram-sha-256  (padrao no PG16; garantimos)
+#  - pg_hba.conf: qualquer 'trust'/'md5' local -> scram-sha-256 (no PG16 ja e scram; defesa)
+$semBom = New-Object System.Text.UTF8Encoding $false
+if ($freshInstall) {
+    Log "Aplicando hardening do PostgreSQL (localhost-only + scram)..."
+    $confFile = (Psql "SHOW config_file" | Out-String).Trim()
+    $hbaFile  = (Psql "SHOW hba_file"    | Out-String).Trim()
+
+    if ($confFile -and (Test-Path $confFile)) {
+        $c = Get-Content $confFile -Raw
+        $c = $c -replace "(?m)^\s*#?\s*listen_addresses\s*=.*$", "listen_addresses = 'localhost'"
+        if ($c -match "(?m)^\s*#?\s*password_encryption\s*=") {
+            $c = $c -replace "(?m)^\s*#?\s*password_encryption\s*=.*$", "password_encryption = scram-sha-256"
+        } else { $c = $c.TrimEnd() + "`r`npassword_encryption = scram-sha-256`r`n" }
+        [System.IO.File]::WriteAllText($confFile, $c, $semBom)
+        Log "postgresql.conf: listen_addresses=localhost + password_encryption=scram-sha-256."
+    } else { Log "AVISO: config_file nao localizado - postgresql.conf nao ajustado." }
+
+    if ($hbaFile -and (Test-Path $hbaFile)) {
+        $linhas = Get-Content $hbaFile | ForEach-Object {
+            if ($_ -match "^\s*(local|host)\s") { $_ -replace "\b(trust|md5)\b(\s*)$", "scram-sha-256" } else { $_ }
+        }
+        [System.IO.File]::WriteAllText($hbaFile, (($linhas -join "`r`n") + "`r`n"), $semBom)
+        Log "pg_hba.conf: metodos locais trust/md5 -> scram-sha-256."
+    } else { Log "AVISO: hba_file nao localizado - pg_hba.conf nao ajustado." }
+
+    if ($svcAtual) {
+        Restart-Service $svcAtual.Name -Force
+        Start-Sleep -Seconds 4
+        Log "PostgreSQL reiniciado com o hardening."
+    }
+    # Revalida a conexao do sigedash apos o hardening
+    $env:PGPASSWORD = $SigeDashSenha
+    $rev = & $psqlExe -U sigedash -h localhost -d sigedash -t -A -c "SELECT 1" 2>&1
+    $env:PGPASSWORD = $null
+    if (($rev | Out-String).Trim() -match "^1") { Log "Hardening OK - sigedash conecta via scram em localhost." }
+    else { Log "AVISO: conexao do sigedash falhou apos hardening: $rev - revise pg_hba/postgresql.conf." }
 }
 
 Log ""
