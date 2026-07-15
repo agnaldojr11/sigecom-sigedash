@@ -58,12 +58,39 @@ $key = "[$TokenReader{{$Pin}}]=p11#$KeyContainer"
 $assinados = 0
 foreach ($exe in $exes) {
     if (-not (Test-Path $exe)) { Write-Host "  (pulado - nao existe) $(Split-Path $exe -Leaf)" -ForegroundColor DarkYellow; continue }
-    Write-Host "Assinando $(Split-Path $exe -Leaf) ..." -ForegroundColor Cyan
-    & $SignTool sign /f $CertFile /csp $Csp /k $key /fd sha256 /tr $TimestampUrl /td sha256 $exe
-    if ($LASTEXITCODE -ne 0) { Write-Error "Falha ao assinar '$exe' (codigo $LASTEXITCODE)"; exit 1 }
-    & $SignTool verify /pa /q $exe
-    if ($LASTEXITCODE -ne 0) { Write-Host "  AVISO: verificacao falhou em $(Split-Path $exe -Leaf)" -ForegroundColor Yellow }
-    else { Write-Host "  OK (assinado e verificado)" -ForegroundColor Green }
+    $nome = Split-Path $exe -Leaf
+    Write-Host "Assinando $nome ..." -ForegroundColor Cyan
+
+    # Evita que stderr do signtool vire excecao (EAP=Stop) antes de checarmos o codigo
+    $prevEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+
+    # 1a tentativa: com timestamp (SHA256)
+    $out = & $SignTool sign /f $CertFile /csp $Csp /k $key /fd sha256 /tr $TimestampUrl /td sha256 $exe 2>&1
+    $rc = $LASTEXITCODE
+    if ($rc -ne 0) {
+        Write-Host "  signtool (com timestamp) falhou (codigo $rc). Saida:" -ForegroundColor Yellow
+        $out | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+        # 2a tentativa: SEM timestamp (exatamente como o SIGECOM)
+        Write-Host "  Tentando sem timestamp (como no SIGECOM)..." -ForegroundColor Yellow
+        $out2 = & $SignTool sign /f $CertFile /csp $Csp /k $key $exe 2>&1
+        $rc = $LASTEXITCODE
+        if ($rc -ne 0) {
+            Write-Host "  signtool (sem timestamp) tambem falhou (codigo $rc). Saida:" -ForegroundColor Red
+            $out2 | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+            $ErrorActionPreference = $prevEAP
+            throw "Falha ao assinar '$nome'. Veja a saida do signtool acima."
+        }
+        Write-Host "  Assinado SEM timestamp (ajustar conectividade ao timestamp.digicert.com depois)." -ForegroundColor Yellow
+    }
+
+    $vout = & $SignTool verify /pa $exe 2>&1
+    $ErrorActionPreference = $prevEAP
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  AVISO: verify falhou em $nome. Saida:" -ForegroundColor Yellow
+        $vout | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+    } else {
+        Write-Host "  OK (assinado e verificado)" -ForegroundColor Green
+    }
     $assinados++
 }
 
