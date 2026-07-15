@@ -132,6 +132,16 @@ $binPath = "`"$SVC_EXE`""
 sc.exe create $SVC_NAME binPath= $binPath start= auto obj= LocalSystem | Out-Null
 sc.exe description $SVC_NAME "SigeDash Backend API + PWA (SistemasBr)" | Out-Null
 
+# Dependencia do PostgreSQL (ordem no boot) + auto-restart em falha.
+# Junto com o retry de startup no backend, evita 502 pos-reboot quando o PG demora a subir.
+$pgSvc = (Get-Service -Name "postgresql-x64-*" -ErrorAction SilentlyContinue | Select-Object -First 1).Name
+if ($pgSvc) {
+    sc.exe config $SVC_NAME depend= $pgSvc | Out-Null
+    Log "Dependencia de servico configurada: $pgSvc"
+}
+sc.exe failure $SVC_NAME reset= 86400 actions= restart/5000/restart/15000/restart/60000 | Out-Null
+Log "Auto-restart em falha configurado."
+
 # Configura variavel de ambiente ASPNETCORE_ENVIRONMENT=Production para o servico
 $regPath = "HKLM:\SYSTEM\CurrentControlSet\Services\$SVC_NAME"
 New-ItemProperty -Path $regPath -Name "Environment" -PropertyType MultiString `

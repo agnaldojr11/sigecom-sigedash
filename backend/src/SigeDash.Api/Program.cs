@@ -136,7 +136,18 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
+    // No boot, o PostgreSQL pode ainda nao aceitar conexoes (o servico do backend sobe antes).
+    // Espera/re-tenta em vez de derrubar o processo — evita 502 pos-reboot ate o PG ficar pronto.
+    var tentativas = 0;
+    while (true)
+    {
+        try { db.Database.Migrate(); break; }
+        catch (Exception ex) when (++tentativas < 30)
+        {
+            Console.Error.WriteLine($"[startup] PostgreSQL indisponivel (tentativa {tentativas}/30): {ex.Message}. Retentando em 5s...");
+            Thread.Sleep(5000);
+        }
+    }
     if (app.Environment.IsDevelopment())
         SeedData.Seed(db);
 }
