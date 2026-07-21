@@ -234,10 +234,19 @@ if ($ps2exeModule) {
     $launcherSrc = Join-Path $env:TEMP "sigedash-launcher.ps1"
     $exePath     = Join-Path $PKG_DIR "Instalar-SigeDash.exe"
 
-    # Script minimo que o exe vai executar
+    # Script minimo que o exe vai executar.
+    # IMPORTANTE: em exe do ps2exe, $PSScriptRoot/$PSCommandPath vem VAZIO. Por isso usamos
+    # o caminho real do processo (o proprio exe) via MainModule.FileName para achar os .ps1.
     $launcherLines = @(
-        'Get-ChildItem "$PSScriptRoot\*.ps1" -ErrorAction SilentlyContinue | Unblock-File',
-        '& "$PSScriptRoot\instalar-tudo.ps1"',
+        '$exeDir = Split-Path ([System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName)',
+        'Get-ChildItem "$exeDir\*.ps1" -ErrorAction SilentlyContinue | Unblock-File',
+        '$instalador = Join-Path $exeDir "instalar-tudo.ps1"',
+        'if (-not (Test-Path $instalador)) {',
+        '    Write-Host "ERRO: instalar-tudo.ps1 nao encontrado em $exeDir" -ForegroundColor Red',
+        '    Read-Host "Pressione Enter para fechar"; exit 1',
+        '}',
+        '# Roda em processo filho: isola o "exit" do script e garante a pausa final para ler o erro.',
+        '& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $instalador',
         'Write-Host ""',
         'Read-Host "Pressione Enter para fechar"'
     )

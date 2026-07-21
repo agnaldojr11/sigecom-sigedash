@@ -1,41 +1,70 @@
 <#
 .SYNOPSIS
-    Assina manualmente os .exe de um pacote SigeDash no servidor do CodeSign (eToken SafeNet).
-    Use enquanto o pipeline Azure DevOps nao estiver disponivel.
+    Assina manualmente os .exe de um pacote SigeDash no servidor do CodeSign (eToken SafeNet / CNG KSP).
 .DESCRIPTION
-    Recebe a PASTA do pacote (ex.: dist\SigeDash-Deploy-v1.0.23) OU o .zip. Assina os 3 executaveis
-    (Instalar-SigeDash.exe, SigeDash.Api.exe, agente\SigeDash.Agente.exe) com signtool /csp+/k,
-    verifica cada um e, se a entrada foi um .zip, regenera o .zip ASSINADO no mesmo caminho.
-    O PIN nunca fica no codigo: passe -Pin ou defina $env:SIGEDASH_SIGN_PIN.
+    A chave privada do eToken vive no CNG KSP "SafeNet Smart Card Key Storage Provider".
+    Por isso a assinatura usa SELECAO PELO STORE (signtool /sha1 do thumbprint), e NAO o /csp+/k legado
+    (que falha com "No private key is available" porque nao enxerga chaves do KSP/CNG).
+
+    Regras de seguranca deste script (evitam bloquear o PIN do token):
+      - 1 TENTATIVA por arquivo. Sem retry automatico. Se falhar, PARA e mostra a saida.
+      - SEM PIN embutido no comando. O SafeNet pede o PIN; habilite "single logon" no
+        SafeNet Authentication Client para assinar varios sem redigitar.
+
+    Recebe a PASTA do pacote OU o .zip. Assina os 3 executaveis (Instalar-SigeDash.exe,
+    SigeDash.Api.exe, agente\SigeDash.Agente.exe), verifica cada um e, se a entrada foi um
+    .zip, regenera o .zip ASSINADO no mesmo caminho.
 .PARAMETER Pacote
     Caminho da pasta do pacote OU do arquivo .zip a assinar.
-.PARAMETER Pin
-    PIN do eToken. Se omitido, usa a variavel de ambiente SIGEDASH_SIGN_PIN.
+.PARAMETER Thumbprint
+    Thumbprint (SHA1) do certificado de code signing no store CurrentUser\My.
+    Se omitido, usa $env:SIGEDASH_SIGN_THUMBPRINT; se ainda vazio, autodetecta o unico
+    certificado de code signing valido (nao expirado) do store.
 .EXAMPLE
-    $env:SIGEDASH_SIGN_PIN = "<pin>"
     .\assinar-pacote.ps1 -Pacote "C:\Release\SigeDash-Deploy-v1.0.23.zip"
 .EXAMPLE
-    .\assinar-pacote.ps1 -Pacote "C:\...\dist\SigeDash-Deploy-v1.0.23" -Pin "<pin>"
+    .\assinar-pacote.ps1 -Pacote "C:\...\SigeDash-Deploy-v1.0.23" -Thumbprint "AABBCCDD..."
+.NOTES
+    Pre-requisito: token conectado e DESTRAVADO, com o certificado importado no store do
+    usuario atual. Descubra o thumbprint com:
+      Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert | Format-List Subject,Thumbprint,NotAfter
 #>
 param(
     [Parameter(Mandatory)][string]$Pacote,
-    [string]$Pin          = $env:SIGEDASH_SIGN_PIN,
+    [string]$Thumbprint   = $env:SIGEDASH_SIGN_THUMBPRINT,
     [string]$SignTool     = "C:\CodeSign\signtool.exe",
-    [string]$CertFile     = "C:\CodeSign\SBR-CodeSign-Pub.cer",
-    [string]$Csp          = "eToken Base Cryptographic Provider",
-    [string]$TokenReader  = "SafeNet Token JC 0",
-    [string]$KeyContainer = "396d712fbe2553ed",
     [string]$TimestampUrl = "http://timestamp.digicert.com"
 )
 
 $ErrorActionPreference = "Stop"
 
-if ([string]::IsNullOrEmpty($Pin))            { Write-Error "Informe -Pin ou defina SIGEDASH_SIGN_PIN."; exit 1 }
-if (-not (Test-Path $SignTool))               { Write-Error "signtool nao encontrado em: $SignTool"; exit 1 }
-if (-not (Test-Path $CertFile))               { Write-Error "certificado nao encontrado em: $CertFile"; exit 1 }
-if (-not (Test-Path $Pacote))                 { Write-Error "pacote nao encontrado: $Pacote"; exit 1 }
+if (-not (Test-Path $SignTool)) { Write-Error "signtool nao encontrado em: $SignTool"; exit 1 }
+if (-not (Test-Path $Pacote))   { Write-Error "pacote nao encontrado: $Pacote"; exit 1 }
 
-# Se veio .zip, extrai para uma pasta temporaria; ao final regenera o zip assinado
+# Resolve o certificado no store CurrentUser (a chave privada vem do CNG KSP do token).
+function Resolve-Thumbprint {
+    param([string]$Thumb)
+    if (-not [string]::IsNullOrWhiteSpace($Thumb)) {
+        return ($Thumb -replace '[^0-9A-Fa-f]', '').ToUpper()
+    }
+    $certs = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert |
+             Where-Object { $_.NotAfter -gt (Get-Date) -and $_.NotBefore -le (Get-Date) }
+    if (-not $certs) {
+        throw "Nenhum certificado de code signing valido em Cert:\CurrentUser\My. O token esta conectado e destravado?"
+    }
+    if (@($certs).Count -gt 1) {
+        Write-Host "Mais de um certificado de code signing valido encontrado:" -ForegroundColor Yellow
+        $certs | ForEach-Object { Write-Host "  $($_.Thumbprint)  $($_.Subject)  (exp $($_.NotAfter.ToString('dd/MM/yyyy')))" }
+        throw "Informe -Thumbprint para escolher (ou defina SIGEDASH_SIGN_THUMBPRINT)."
+    }
+    Write-Host "Certificado: $($certs.Subject) (exp $($certs.NotAfter.ToString('dd/MM/yyyy')))" -ForegroundColor DarkCyan
+    return $certs.Thumbprint.ToUpper()
+}
+
+$Thumbprint = Resolve-Thumbprint -Thumb $Thumbprint
+Write-Host "Thumbprint: $Thumbprint" -ForegroundColor DarkCyan
+
+# Se veio .zip, extrai para uma pasta temporaria; ao final regenera o zip assinado.
 $eraZip = $false
 $pasta  = $Pacote
 $zipOut = $null
@@ -54,34 +83,25 @@ $exes = @(
     (Join-Path $pasta "agente\SigeDash.Agente.exe")
 )
 
-$key = "[$TokenReader{{$Pin}}]=p11#$KeyContainer"
 $assinados = 0
 foreach ($exe in $exes) {
     if (-not (Test-Path $exe)) { Write-Host "  (pulado - nao existe) $(Split-Path $exe -Leaf)" -ForegroundColor DarkYellow; continue }
     $nome = Split-Path $exe -Leaf
     Write-Host "Assinando $nome ..." -ForegroundColor Cyan
 
-    # Evita que stderr do signtool vire excecao (EAP=Stop) antes de checarmos o codigo
+    # Evita que stderr do signtool vire excecao (EAP=Stop) antes de checarmos o codigo.
     $prevEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
 
-    # 1a tentativa: com timestamp (SHA256)
-    $out = & $SignTool sign /f $CertFile /csp $Csp /k $key /fd sha256 /tr $TimestampUrl /td sha256 $exe 2>&1
+    # 1 TENTATIVA (sem retry): seleciona o cert pelo store; o CNG KSP do token fornece a chave.
+    $out = & $SignTool sign /sha1 $Thumbprint /fd sha256 /tr $TimestampUrl /td sha256 $exe 2>&1
     $rc = $LASTEXITCODE
     if ($rc -ne 0) {
-        Write-Host "  signtool (com timestamp) falhou (codigo $rc). Saida:" -ForegroundColor Yellow
+        Write-Host "  signtool falhou (codigo $rc). Saida:" -ForegroundColor Red
         $out | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
-        # 2a tentativa: SEM timestamp (exatamente como o SIGECOM)
-        Write-Host "  Tentando sem timestamp (como no SIGECOM)..." -ForegroundColor Yellow
-        $out2 = & $SignTool sign /f $CertFile /csp $Csp /k $key $exe 2>&1
-        $rc = $LASTEXITCODE
-        if ($rc -ne 0) {
-            Write-Host "  signtool (sem timestamp) tambem falhou (codigo $rc). Saida:" -ForegroundColor Red
-            $out2 | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
-            $ErrorActionPreference = $prevEAP
-            throw "Falha ao assinar '$nome'. Veja a saida do signtool acima."
-        }
-        Write-Host "  Assinado SEM timestamp (ajustar conectividade ao timestamp.digicert.com depois)." -ForegroundColor Yellow
+        $ErrorActionPreference = $prevEAP
+        throw "Falha ao assinar '$nome'. NAO ha retry (protege o PIN do token). Confira token/PIN/thumbprint e rode de novo."
     }
+    $out | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
 
     $vout = & $SignTool verify /pa $exe 2>&1
     $ErrorActionPreference = $prevEAP
