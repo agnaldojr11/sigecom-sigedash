@@ -109,21 +109,24 @@ namespace SigeDash.Agente
 
         private async Task SincronizarUsuarios()
         {
+            // USUARIO.SENHA_APP ja e o SHA1 (hex) da senha do app, definido no SIGECOM.
+            // Lemos ele DIRETO (sem decodificar/re-hashear a coluna SENHA): o backend compara
+            // com Sha1Hex(senha digitada). Usuarios sem SENHA_APP nao sao sincronizados
+            // (precisam ter a senha do app definida no SIGECOM para acessar).
             var linhas = _reader.Consultar(
-                "SELECT DISTINCT LOGIN, SENHA, CODIGOTIPO FROM USUARIO WHERE DESATIVADO = 'N'",
+                "SELECT DISTINCT LOGIN, SENHA_APP, CODIGOTIPO FROM USUARIO WHERE DESATIVADO = 'N'",
                 null, CancellationToken.None);
 
             var usuarios = linhas
                 .Select(r =>
                 {
                     var login = r.ContainsKey("LOGIN") ? (r["LOGIN"]?.ToString()?.Trim() ?? "") : "";
-                    var senhaEnc = r.ContainsKey("SENHA") ? (r["SENHA"]?.ToString()?.Trim() ?? "") : "";
-                    var senhaPlain = DecodeSenhaSigecom(senhaEnc);
-                    var senhaHash = senhaPlain.Length > 0 ? Sha1Hex(senhaPlain) : "";
+                    // SHA1 em hex; normaliza para minusculo (o backend compara em minusculo).
+                    var senhaApp = r.ContainsKey("SENHA_APP") ? (r["SENHA_APP"]?.ToString()?.Trim()?.ToLowerInvariant() ?? "") : "";
                     int tipo = 0;
                     if (r.ContainsKey("CODIGOTIPO"))
                         int.TryParse(r["CODIGOTIPO"]?.ToString(), out tipo);
-                    return new UsuarioSync { Login = login, SenhaApp = senhaHash, CodigoTipo = tipo };
+                    return new UsuarioSync { Login = login, SenhaApp = senhaApp, CodigoTipo = tipo };
                 })
                 .Where(u => !string.IsNullOrEmpty(u.Login) && !string.IsNullOrEmpty(u.SenhaApp))
                 .GroupBy(u => u.Login).Select(g => g.First())
@@ -131,32 +134,6 @@ namespace SigeDash.Agente
 
             await _backend.SincronizarUsuariosAsync(usuarios, _cts.Token).ConfigureAwait(false);
             Log.Info("Usuarios sincronizados: " + usuarios.Count);
-        }
-
-        // Algoritmo de codificação do Sigecom: cada byte B na posição p gera 4 chars,
-        // sendo o primeiro c0 = B + 10 + p. Portanto B = c0 - 10 - p.
-        private static string DecodeSenhaSigecom(string enc)
-        {
-            if (string.IsNullOrEmpty(enc) || enc.Length % 4 != 0) return "";
-            var sb = new StringBuilder(enc.Length / 4);
-            for (int p = 0; p < enc.Length / 4; p++)
-            {
-                int b = (int)enc[p * 4] - 10 - p;
-                if (b < 32 || b > 126) return ""; // corrompido
-                sb.Append((char)b);
-            }
-            return sb.ToString();
-        }
-
-        private static string Sha1Hex(string s)
-        {
-            using (var sha = SHA1.Create())
-            {
-                var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(s));
-                var sb = new StringBuilder(40);
-                foreach (var b in bytes) sb.Append(b.ToString("x2"));
-                return sb.ToString();
-            }
         }
     }
 }
