@@ -1,0 +1,19 @@
+# Configuracao do gitleaks para o SigeDash.
+# Usa TODAS as regras padrao do gitleaks (para continuar pegando segredos reais)
+# e adiciona um allowlist apenas para PLACEHOLDERS de documentacao, que nao sao
+# segredos de verdade (ex.: exemplos de curl com "X-Admin-Key: CHAVE_ADMIN").
+title = "SigeDash gitleaks config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Placeholders de documentacao (nao sao segredos reais)"
+# Casa contra a LINHA inteira do achado; so libera linhas que contem exatamente
+# um destes placeholders. Uma chave real nunca teria esses textos, entao nao
+# ha risco de esconder um vazamento verdadeiro.
+regexTarget = "line"
+regexes = [
+  '''CHAVE_ADMIN''',
+  '''SUA-ADMIN-KEY-AQUI''',
+]
