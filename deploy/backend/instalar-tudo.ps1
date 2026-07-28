@@ -35,7 +35,10 @@ param(
     [string]$FdbPath           = "C:\SIGECOM\SIGECOM.FDB",
 
     [string]$TunnelToken       = "",
-    [string]$SigeDashSenha     = ""
+    [string]$SigeDashSenha     = "",
+
+    # Prossegue mesmo se o cliente ja existir no Cloudflare (por padrao, aborta para evitar duplicidade).
+    [switch]$Force
 )
 
 $ErrorActionPreference = "Stop"
@@ -67,6 +70,38 @@ function Falha($msg) {
     Write-Host "[ERRO] $msg" -ForegroundColor Red
     Log "[ERRO] $msg"
     exit 1
+}
+
+# Verifica no Cloudflare se o cliente ja existe (tunnel com o mesmo nome OU DNS com o mesmo hostname).
+# Retorna hashtable com o que encontrou, ou $null se nao der para verificar (sem cf.json).
+# Usado para AVISAR e ABORTAR antes de instalar qualquer coisa, evitando cliente/tunnel duplicado.
+function VerificarClienteCloudflare($nomeCliente, $scriptDir) {
+    $cfConfig = Join-Path $scriptDir "cf.json"
+    if (-not (Test-Path $cfConfig)) {
+        Log "cf.json ausente - pulando verificacao de duplicidade no Cloudflare."
+        return $null
+    }
+    $cf      = Get-Content $cfConfig | ConvertFrom-Json
+    $headers = @{ "Authorization" = "Bearer $($cf.apiToken)"; "Content-Type" = "application/json" }
+
+    # Mesmo slug/hostname/nome usados em CriarTunnelCloudflare (tem que casar exatamente).
+    $slug = ($nomeCliente -replace '[^a-zA-Z0-9]', '').ToLower()
+    if ($slug.Length -gt 20) { $slug = $slug.Substring(0, 20) }
+    $tunnelName = "sigedash-$slug"
+    $hostname   = "$slug.$($cf.dominio)"
+
+    $r = @{ TunnelExiste = $false; TunnelId = $null; DnsExiste = $false; TunnelName = $tunnelName; Hostname = $hostname }
+    try {
+        $rt = Invoke-RestMethod "https://api.cloudflare.com/client/v4/accounts/$($cf.accountId)/cfd_tunnel?name=$tunnelName&is_deleted=false" `
+            -Headers $headers -Method GET
+        if ($rt.result -and @($rt.result).Count -gt 0) { $r.TunnelExiste = $true; $r.TunnelId = $rt.result[0].id }
+    } catch { Log "AVISO: nao foi possivel consultar tuneis no Cloudflare: $_" }
+    try {
+        $rd = Invoke-RestMethod "https://api.cloudflare.com/client/v4/zones/$($cf.zoneId)/dns_records?name=$hostname" `
+            -Headers $headers -Method GET
+        if ($rd.result -and @($rd.result).Count -gt 0) { $r.DnsExiste = $true }
+    } catch { Log "AVISO: nao foi possivel consultar DNS no Cloudflare: $_" }
+    return $r
 }
 
 function CriarTunnelCloudflare($nomeCliente, $scriptDir) {
@@ -201,6 +236,26 @@ if ([string]::IsNullOrWhiteSpace($NomeCliente)) {
         Falha "Nao foi possivel detectar o nome do cliente. Informe -NomeCliente manualmente."
     }
     Log "Nome detectado automaticamente: $NomeCliente"
+}
+
+# ============================================================
+# Pre-check: cliente ja existe no Cloudflare? (so quando vamos AUTO-CRIAR o tunnel)
+# ============================================================
+if ([string]::IsNullOrWhiteSpace($TunnelToken)) {
+    $cfCheck = VerificarClienteCloudflare $NomeCliente $SCRIPT_DIR
+    if ($cfCheck -and ($cfCheck.TunnelExiste -or $cfCheck.DnsExiste)) {
+        Write-Host ""
+        Write-Host ("!" * 62) -ForegroundColor Red
+        Write-Host "  ATENCAO: o cliente '$NomeCliente' JA EXISTE no Cloudflare!" -ForegroundColor Red
+        if ($cfCheck.TunnelExiste) { Write-Host "    - Tunnel: $($cfCheck.TunnelName)  (id $($cfCheck.TunnelId))" -ForegroundColor Yellow }
+        if ($cfCheck.DnsExiste)    { Write-Host "    - DNS   : $($cfCheck.Hostname)" -ForegroundColor Yellow }
+        Write-Host ("!" * 62) -ForegroundColor Red
+        Log "Cliente '$NomeCliente' ja existe no Cloudflare (tunnel=$($cfCheck.TunnelExiste) dns=$($cfCheck.DnsExiste))."
+        if (-not $Force) {
+            Falha "Instalacao ABORTADA para evitar duplicidade. Se for uma REINSTALACAO deste mesmo servidor e voce quer prosseguir, rode de novo com -Force (pode gerar tunnel duplicado - avalie remover o antigo no painel Cloudflare)."
+        }
+        Log "AVISO: -Force informado - prosseguindo mesmo com o cliente ja existente no Cloudflare."
+    }
 }
 
 # Gera senha do banco se nao informada
