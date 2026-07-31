@@ -22,7 +22,6 @@ namespace SigeDash.Agente
         private Timer _timer;
         private CancellationTokenSource _cts;
         private readonly Dictionary<string, DateTime> _proximaExecucao = new Dictionary<string, DateTime>();
-        private DateTime _proximaSincUsers = DateTime.MinValue; // executa imediatamente no primeiro tick
         private int _emExecucao;
 
         public AgenteService()
@@ -65,20 +64,8 @@ namespace SigeDash.Agente
             {
                 var agora = DateTime.Now;
 
-                // Sincroniza usuarios do Firebird a cada 1 hora (e imediatamente no startup)
-                if (_proximaSincUsers <= agora)
-                {
-                    try
-                    {
-                        await SincronizarUsuarios().ConfigureAwait(false);
-                        _proximaSincUsers = agora.AddHours(1);
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Erro("Falha na sincronizacao de usuarios: " + ex.Message);
-                        _proximaSincUsers = agora.AddMinutes(5); // retry em 5 min se falhar
-                    }
-                }
+                // OBS.: a sincronizacao de USUARIOS do SIGECOM foi removida — os usuarios do SigeDash
+                // sao nativos (criados pelo ADM da empresa, senha BCrypt). O agente so envia indicadores.
 
                 foreach (var ind in _config.Indicadores)
                 {
@@ -107,33 +94,5 @@ namespace SigeDash.Agente
             }
         }
 
-        private async Task SincronizarUsuarios()
-        {
-            // USUARIO.SENHA_APP ja e o SHA1 (hex) da senha do app, definido no SIGECOM.
-            // Lemos ele DIRETO (sem decodificar/re-hashear a coluna SENHA): o backend compara
-            // com Sha1Hex(senha digitada). Usuarios sem SENHA_APP nao sao sincronizados
-            // (precisam ter a senha do app definida no SIGECOM para acessar).
-            var linhas = _reader.Consultar(
-                "SELECT DISTINCT LOGIN, SENHA_APP, CODIGOTIPO FROM USUARIO WHERE DESATIVADO = 'N'",
-                null, CancellationToken.None);
-
-            var usuarios = linhas
-                .Select(r =>
-                {
-                    var login = r.ContainsKey("LOGIN") ? (r["LOGIN"]?.ToString()?.Trim() ?? "") : "";
-                    // SHA1 em hex; normaliza para minusculo (o backend compara em minusculo).
-                    var senhaApp = r.ContainsKey("SENHA_APP") ? (r["SENHA_APP"]?.ToString()?.Trim()?.ToLowerInvariant() ?? "") : "";
-                    int tipo = 0;
-                    if (r.ContainsKey("CODIGOTIPO"))
-                        int.TryParse(r["CODIGOTIPO"]?.ToString(), out tipo);
-                    return new UsuarioSync { Login = login, SenhaApp = senhaApp, CodigoTipo = tipo };
-                })
-                .Where(u => !string.IsNullOrEmpty(u.Login) && !string.IsNullOrEmpty(u.SenhaApp))
-                .GroupBy(u => u.Login).Select(g => g.First())
-                .ToList();
-
-            await _backend.SincronizarUsuariosAsync(usuarios, _cts.Token).ConfigureAwait(false);
-            Log.Info("Usuarios sincronizados: " + usuarios.Count);
-        }
     }
 }

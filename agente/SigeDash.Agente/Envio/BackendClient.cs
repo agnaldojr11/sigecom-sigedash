@@ -11,16 +11,9 @@ using SigeDash.Agente.Modelos;
 
 namespace SigeDash.Agente.Envio
 {
-    public sealed class UsuarioSync
-    {
-        public string Login      { get; set; }
-        public string SenhaApp   { get; set; }
-        public int    CodigoTipo { get; set; }   // USUARIO.CODIGOTIPO (1 = Administrador)
-    }
-
     /// <summary>
-    /// Envia snapshots e sincroniza usuarios ao backend.
-    /// Um HttpClient reutilizado para toda a vida do servico.
+    /// Envia snapshots (indicadores) ao backend. Um HttpClient reutilizado para toda a vida do servico.
+    /// (A sincronizacao de usuarios foi removida — usuarios do SigeDash sao nativos.)
     /// </summary>
     public sealed class BackendClient : IDisposable
     {
@@ -42,19 +35,6 @@ namespace SigeDash.Agente.Envio
 
             var url = $"/ingest/{_config.CodigoEmpresa}/{handle}";
             using (var resp = await _http.PostAsync(url, conteudo, ct).ConfigureAwait(false))
-            {
-                resp.EnsureSuccessStatusCode();
-            }
-        }
-
-        public async Task SincronizarUsuariosAsync(List<UsuarioSync> usuarios, CancellationToken ct)
-        {
-            var json = JsonSerializer.Serialize(usuarios, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            });
-            var conteudo = new StringContent(json, Encoding.UTF8, "application/json");
-            using (var resp = await _http.PostAsync("/ingest/usuarios", conteudo, ct).ConfigureAwait(false))
             {
                 resp.EnsureSuccessStatusCode();
             }

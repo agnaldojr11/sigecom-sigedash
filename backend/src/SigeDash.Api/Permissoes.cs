@@ -4,14 +4,13 @@ using SigeDash.Api.Modelos;
 namespace SigeDash.Api;
 
 /// <summary>
-/// Regras de permissao por secao (e sub-permissoes). O "Administrador" do Sigecom
-/// (USUARIO.CODIGOTIPO == 1) ve tudo; os demais so veem o que o admin liberar
-/// (UsuarioApp.SecoesPermitidas). A trava real e aplicada no /dash: filtra os snapshots
-/// por secao e remove campos sensiveis (ex.: custo) quando a sub-permissao nao esta ligada.
+/// Regras de permissao por secao (e sub-permissoes). O ADMIN da empresa (UsuarioApp.EhAdmin)
+/// ve tudo; os demais so veem o que o admin liberar (UsuarioApp.SecoesPermitidas). A trava real
+/// e aplicada no /dash: filtra os snapshots por secao e remove campos sensiveis (ex.: custo)
+/// quando a sub-permissao nao esta ligada.
 /// </summary>
 public static class Permissoes
 {
-    public const int TipoAdministrador = 1;
 
     // Secoes da navegacao. "resumo" nao tem handle proprio (compoe KPIs das outras).
     public const string Resumo     = "resumo";
@@ -28,7 +27,7 @@ public static class Permissoes
 
     public const string HandlePesquisaProduto = "estoque_pesquisa_produto";
 
-    public static bool EhAdmin(UsuarioApp u) => u.CodigoTipo == TipoAdministrador;
+    public static bool EhAdmin(UsuarioApp u) => u.EhAdmin;
 
     /// <summary>Tokens efetivos do usuario: admin = tudo; senao = os liberados (ou vazio).</summary>
     public static HashSet<string> SecoesEfetivas(UsuarioApp u)

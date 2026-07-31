@@ -6,43 +6,13 @@ using SigeDash.Api.Modelos;
 
 namespace SigeDash.Api.Endpoints;
 
-public record UsuarioSyncDto(string Login, string SenhaApp, int CodigoTipo = 0);
-
-/// <summary>Recebe os snapshots e usuarios sincronizados do agente. Autentica pela chave do cliente (header).</summary>
+/// <summary>Recebe os snapshots dos indicadores enviados pelo agente. Autentica pela chave do cliente (header).
+/// OBS.: a sincronizacao de USUARIOS a partir do SIGECOM foi REMOVIDA — os usuarios do SigeDash sao
+/// nativos (criados pelo ADM da empresa, com senha em BCrypt). Ver AuthEndpoints/PermissoesEndpoints.</summary>
 public static class IngestEndpoints
 {
     public static void MapIngest(this IEndpointRouteBuilder app)
     {
-        // Sincroniza a lista de usuarios do Firebird (USUARIO.SENHA_APP) para o backend
-        app.MapPost("/ingest/usuarios", async (
-            List<UsuarioSyncDto> usuarios, HttpRequest req, AppDbContext db) =>
-        {
-            var chave = req.Headers["X-SigeDash-Key"].ToString();
-            var cliente = await db.Clientes.FirstOrDefaultAsync(c => c.ChaveApi == chave && c.Ativo);
-            if (cliente is null) return Results.Unauthorized();
-
-            foreach (var u in usuarios)
-            {
-                var existing = await db.UsuariosApp
-                    .FirstOrDefaultAsync(x => x.ClienteId == cliente.Id && x.Login == u.Login);
-                if (existing is null)
-                    // Novo usuario: SecoesPermitidas fica null (nada liberado ate o admin configurar).
-                    db.UsuariosApp.Add(new UsuarioApp
-                    {
-                        ClienteId = cliente.Id, Login = u.Login,
-                        SenhaApp = u.SenhaApp, CodigoTipo = u.CodigoTipo
-                    });
-                else
-                {
-                    // Atualiza senha e tipo; NUNCA sobrescreve as permissoes ja configuradas pelo admin.
-                    existing.SenhaApp   = u.SenhaApp;
-                    existing.CodigoTipo = u.CodigoTipo;
-                }
-            }
-            await db.SaveChangesAsync();
-            return Results.Ok(new { sincronizados = usuarios.Count });
-        }).RequireRateLimiting("ingest");
-
         app.MapPost("/ingest/{codigoEmpresa:int}/{handle}", async (
             int codigoEmpresa, string handle, HttpRequest req, AppDbContext db) =>
         {

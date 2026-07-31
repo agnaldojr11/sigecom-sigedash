@@ -2,10 +2,11 @@ using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using SigeDash.Api.Data;
 using SigeDash.Api.Modelos;
+using SigeDash.Api.Seguranca;
 
 namespace SigeDash.Api.Endpoints;
 
-public record CriarClienteRequest(string Nome, int CodigoEmpresa, string NomeLoja);
+public record CriarClienteRequest(string Nome, int CodigoEmpresa, string NomeLoja, string? AdminLogin = null);
 
 /// <summary>
 /// Endpoints de administração — protegidos por X-Admin-Key (config AdminKey).
@@ -36,6 +37,22 @@ public static class AdminEndpoints
                 CodigoEmpresa = r.CodigoEmpresa,
                 Nome = r.NomeLoja
             });
+
+            // Cria o ADMIN inicial da empresa (primeiro acesso). Senha temporaria forte,
+            // com troca obrigatoria no 1o login. Devolvida UMA vez para o instalador imprimir.
+            var adminLogin = string.IsNullOrWhiteSpace(r.AdminLogin) ? "admin" : r.AdminLogin!.Trim();
+            var senhaTemp  = Senhas.GerarTemporaria();
+            db.UsuariosApp.Add(new UsuarioApp
+            {
+                ClienteId          = cliente.Id,
+                Login              = adminLogin,
+                NomeExibicao       = "Administrador",
+                SenhaHash          = Senhas.Hash(senhaTemp),
+                EhAdmin            = true,
+                Ativo              = true,
+                PrecisaTrocarSenha = true,
+                CriadoEm           = DateTime.UtcNow
+            });
             await db.SaveChangesAsync();
 
             return Results.Ok(new
@@ -43,7 +60,9 @@ public static class AdminEndpoints
                 clienteId = cliente.Id,
                 nome      = cliente.Nome,
                 chaveApi  = cliente.ChaveApi,
-                mensagem  = "Configure o agente com a ChaveApi acima. Usuários serão sincronizados automaticamente."
+                adminLogin,
+                adminSenhaTemporaria = senhaTemp,
+                mensagem  = "Configure o agente com a ChaveApi. Entregue o login/senha do ADM ao dono (troca obrigatoria no 1o acesso)."
             });
         });
 

@@ -41,6 +41,23 @@ try {
     $chaveApi = $respCliente.chaveApi
     Log "Cliente registrado."
     Write-Host "ChaveApi: $chaveApi" -ForegroundColor Yellow   # console apenas (segredo, fora do log)
+
+    # Credenciais do ADMIN inicial (primeiro acesso) - exibidas UMA vez; entregar ao dono da empresa.
+    if ($respCliente.adminSenhaTemporaria) {
+        $barra      = "=" * 60
+        $admLogin   = $respCliente.adminLogin
+        $admSenha   = $respCliente.adminSenhaTemporaria
+        Write-Host ""
+        Write-Host $barra -ForegroundColor Green
+        Write-Host "  PRIMEIRO ACESSO (ADMINISTRADOR) - entregue ao dono da empresa:" -ForegroundColor Green
+        Write-Host "    Empresa : $ClienteNome" -ForegroundColor White
+        Write-Host "    Login   : $admLogin"    -ForegroundColor White
+        Write-Host "    Senha   : $admSenha"    -ForegroundColor Yellow
+        Write-Host "  (a troca de senha e OBRIGATORIA no 1o acesso)" -ForegroundColor DarkYellow
+        Write-Host $barra -ForegroundColor Green
+        Write-Host ""
+        Log "ADM inicial criado (login $admLogin) - senha temporaria exibida no console (fora do log)."
+    }
 }
 catch {
     # Se cliente já existe, busca a chave existente
@@ -54,6 +71,7 @@ catch {
             $chaveApi = ($todos | Where-Object { $_.nome -eq $ClienteNome }).chaveApi
             Log "ChaveApi recuperada."
             Write-Host "ChaveApi: $chaveApi" -ForegroundColor Yellow   # console apenas (segredo, fora do log)
+            Log "OBS.: o ADM inicial ja foi criado no primeiro cadastro. Se a senha se perdeu, resete pela tela de usuarios (por outro admin)."
         }
         catch {
             Log "ERRO ao recuperar cliente existente: $_"
@@ -94,4 +112,4 @@ if ($svc) {
 
 Log "=== Configuração concluída! ==="
 Log "Backend: $BackendUrl | Empresa: $ClienteNome"
-Log "Usuarios do Sigecom serao sincronizados automaticamente quando o agente iniciar."
+Log "Usuarios do SigeDash sao NATIVOS: use o login/senha do ADM acima; o ADM cadastra os demais pelo app (troca obrigatoria no 1o acesso)."

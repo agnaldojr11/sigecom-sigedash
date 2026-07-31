@@ -1,12 +1,12 @@
 using SigeDash.Api.Modelos;
+using SigeDash.Api.Seguranca;
 
 namespace SigeDash.Api.Data;
 
 /// <summary>
-/// Seed de DESENVOLVIMENTO. Cria o cliente "5 Estrelas", a loja (empresa 1) e os
-/// usuarios do app com senha em BCrypt — convertidos das senhas reais do SIGECOM
-/// (que eram SHA-1 fraco). Roda so quando o banco esta vazio.
-/// NAO usar em producao: a migracao real dos usuarios vem do agente/painel admin.
+/// Seed de DESENVOLVIMENTO (roda so em Development, quando o banco esta vazio).
+/// Cria o cliente "5 Estrelas", a loja (empresa 1) e um usuario ADMIN nativo para testes.
+/// Em producao os usuarios sao nativos, criados pelo ADM da empresa (senha BCrypt).
 /// </summary>
 public static class SeedData
 {
@@ -29,6 +29,19 @@ public static class SeedData
         };
         db.Clientes.Add(cliente);
         db.SaveChanges();
-        // Usuários são sincronizados automaticamente pelo agente via POST /ingest/usuarios
+
+        // Admin de DEV (login: admin / senha: admin123). Sem troca obrigatoria para facilitar o dev.
+        db.UsuariosApp.Add(new UsuarioApp
+        {
+            ClienteId          = cliente.Id,
+            Login              = "admin",
+            NomeExibicao       = "Administrador (dev)",
+            SenhaHash          = Senhas.Hash("admin123"),
+            EhAdmin            = true,
+            Ativo              = true,
+            PrecisaTrocarSenha = false,
+            CriadoEm           = DateTime.UtcNow
+        });
+        db.SaveChanges();
     }
 }
