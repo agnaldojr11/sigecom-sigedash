@@ -6,12 +6,41 @@ const API = (() => {
     : "";
   let token = sessionStorage.getItem("sd_token") || null;
 
+  // fetch com timeout (AbortController) + retry em falha de rede/timeout (nao retenta HTTP 4xx/5xx).
+  // Conexoes instaveis (ex.: tunnel oscilando) deixam de exigir refresh manual: o app se recupera sozinho.
+  async function _fetchRetry(url, opts) {
+    const maxTent = 3, timeoutMs = 12000;
+    let ultimoErro;
+    for (let i = 1; i <= maxTent; i++) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+      try {
+        const r = await fetch(url, Object.assign({}, opts || {}, { signal: ctrl.signal }));
+        clearTimeout(timer);
+        return r;                       // resposta HTTP (mesmo 4xx/5xx) - nao retenta
+      } catch (e) {
+        clearTimeout(timer);
+        ultimoErro = e;                 // erro de rede ou timeout (abort) - retenta com backoff
+        if (i < maxTent) await new Promise(res => setTimeout(res, 700 * i));
+      }
+    }
+    throw ultimoErro;
+  }
+
   async function login(cliente, login, senha) {
-    const r = await fetch(`${BASE}/auth/login`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cliente, login, senha })
-    });
-    if (!r.ok) throw new Error("Usuário ou senha inválidos");
+    let r;
+    try {
+      r = await _fetchRetry(`${BASE}/auth/login`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cliente, login, senha })
+      });
+    } catch (e) {
+      throw new Error("Falha de conexão. Verifique a internet e tente novamente.");
+    }
+    if (!r.ok) {
+      const d = await r.json().catch(() => ({}));
+      throw new Error(d.erro || "Usuário ou senha inválidos");
+    }
     const data = await r.json();
     token = data.token; sessionStorage.setItem("sd_token", token);
     sessionStorage.setItem("sd_cliente", data.cliente);
@@ -100,7 +129,7 @@ const API = (() => {
   }
 
   async function dashboards(codigoEmpresa = 1) {
-    const r = await fetch(`${BASE}/dash/${codigoEmpresa}`, {
+    const r = await _fetchRetry(`${BASE}/dash/${codigoEmpresa}`, {
       headers: { "Authorization": `Bearer ${token}` }
     });
     if (r.status === 401) throw _erro401(r);
@@ -122,9 +151,11 @@ const API = (() => {
   }
 
   async function empresas() {
-    const r = await fetch(`${BASE}/auth/empresas`);
-    if (!r.ok) return [];
-    return r.json();
+    try {
+      const r = await _fetchRetry(`${BASE}/auth/empresas`);
+      if (!r.ok) return [];
+      return r.json();
+    } catch (e) { return []; }
   }
 
   function sair() { token = null; sessionStorage.clear(); }
