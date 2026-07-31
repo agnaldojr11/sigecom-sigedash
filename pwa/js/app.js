@@ -994,9 +994,15 @@ function _mostrarSemAcesso() {
 }
 
 function mostrarApp() {
+  // Mobile: fecha o teclado e forca o recalculo do layout (100dvh) apos trocar o display.
+  // Sem isso, no Android/Chrome o container do app as vezes nao repinta ate um refresh manual.
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   _encerrando = false;
   document.getElementById('tela-login').style.display = 'none';
-  document.getElementById('app').hidden = false;
+  var _appEl = document.getElementById('app');
+  _appEl.hidden = false;
+  void _appEl.offsetHeight;                                   // forca reflow
+  requestAnimationFrame(function () { window.dispatchEvent(new Event('resize')); });  // cutuca o dvh
   document.getElementById('topo-cliente').textContent = sessionStorage.getItem('sd_cliente') || '';
   _aplicarPermissoes();
   _secAtiva = '';
