@@ -7,6 +7,7 @@ using SigeDash.Api.Seguranca;
 namespace SigeDash.Api.Endpoints;
 
 public record CriarClienteRequest(string Nome, int CodigoEmpresa, string NomeLoja, string? AdminLogin = null);
+public record ResetSenhaRequest(string Login, string? Cliente = null);
 
 /// <summary>
 /// Endpoints de administração — protegidos por X-Admin-Key (config AdminKey).
@@ -71,6 +72,40 @@ public static class AdminEndpoints
             await db.Clientes
                 .Select(c => new { c.Id, c.Nome, c.ChaveApi, c.Ativo })
                 .ToListAsync());
+
+        // ── POST /admin/reset-senha ───────────────────────────────────────────
+        // Recuperacao LOCAL (no servidor do cliente) quando o ADM perde a senha e nao ha
+        // outro admin para reseta-lo. Protegido por X-Admin-Key + gate "somente local"
+        // (bloqueado via tunnel). Gera senha temporaria (troca obrigatoria no proximo login).
+        // Chamado pelo resetar-senha.ps1 rodando na propria maquina.
+        admin.MapPost("/reset-senha", async (ResetSenhaRequest r, AppDbContext db) =>
+        {
+            Cliente? cliente;
+            if (!string.IsNullOrWhiteSpace(r.Cliente))
+                cliente = await db.Clientes.FirstOrDefaultAsync(c => c.Nome == r.Cliente);
+            else
+            {
+                // Servidor de cliente normalmente tem 1 cliente; se houver mais, exige informar.
+                var dois = await db.Clientes.Take(2).ToListAsync();
+                if (dois.Count != 1) return Results.BadRequest(new { erro = "Ha mais de um cliente; informe 'cliente'." });
+                cliente = dois[0];
+            }
+            if (cliente is null) return Results.NotFound(new { erro = "Cliente nao encontrado." });
+
+            var login = (r.Login ?? "").Trim();
+            var user = await db.UsuariosApp.FirstOrDefaultAsync(u => u.ClienteId == cliente.Id && u.Login == login);
+            if (user is null) return Results.NotFound(new { erro = $"Usuario '{login}' nao encontrado." });
+
+            var senha = Senhas.GerarTemporaria();
+            user.SenhaHash          = Senhas.Hash(senha);
+            user.PrecisaTrocarSenha = true;   // troca obrigatoria no proximo login
+            user.BloqueadoAte       = null;
+            user.TentativasFalhas   = 0;
+            user.SessaoToken        = null;   // derruba qualquer sessao ativa
+            user.AtualizadoEm       = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            return Results.Ok(new { cliente = cliente.Nome, login = user.Login, senhaTemporaria = senha });
+        });
     }
 
     private static string GerarChave()

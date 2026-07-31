@@ -194,7 +194,8 @@ app.Use(async (ctx, next) =>
 {
     var p = ctx.Request.Path.Value ?? "";
     var sensivelLocal = p.StartsWith("/ingest", StringComparison.OrdinalIgnoreCase)
-                     || p.Equals("/admin/clientes", StringComparison.OrdinalIgnoreCase);
+                     || p.Equals("/admin/clientes", StringComparison.OrdinalIgnoreCase)
+                     || p.Equals("/admin/reset-senha", StringComparison.OrdinalIgnoreCase);
     var viaTunnel = ctx.Request.Headers.ContainsKey("Cf-Ray")
                  || ctx.Request.Headers.ContainsKey("CF-Connecting-IP");
     if (sensivelLocal && viaTunnel)
