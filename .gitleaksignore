@@ -1,0 +1,5 @@
+# Achados IGNORADOS (falsos positivos) — placeholders de documentacao, nao sao segredos reais.
+# Formato: <commit>:<arquivo>:<regra>:<linha>  (fingerprint do gitleaks)
+# docs/GUIA-IMPLANTACAO.md usa "X-Admin-Key: CHAVE_ADMIN" em exemplos de curl.
+fa5de52a577f613fd4fdd2aa3d92958f865eaad7:docs/GUIA-IMPLANTACAO.md:curl-auth-header:135
+fa5de52a577f613fd4fdd2aa3d92958f865eaad7:docs/GUIA-IMPLANTACAO.md:curl-auth-header:150
