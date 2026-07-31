@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="css/app.css?v=14">
+  <link rel="stylesheet" href="css/app.css?v=15">
   <title>SigeDash</title>
 </head>
 <body>
@@ -162,22 +162,6 @@
     <div id="perm-body" class="perm-body" aria-live="polite"></div>
   </div>
 
-  <!-- Overlay: troca obrigatória de senha (1º acesso / senha resetada pelo admin) -->
-  <div id="overlay-trocar" hidden aria-modal="true" role="dialog" aria-label="Definir nova senha">
-    <div class="login-card trocar-card">
-      <div class="login-form">
-        <div class="trocar-titulo">Defina sua senha</div>
-        <div class="trocar-sub">Por segurança, crie uma nova senha para continuar.</div>
-        <label for="tr-nova">Nova senha</label>
-        <input id="tr-nova" type="password" placeholder="Mínimo 8, com letras e números" autocomplete="new-password">
-        <label for="tr-conf">Confirmar senha</label>
-        <input id="tr-conf" type="password" placeholder="Repita a nova senha" autocomplete="new-password">
-        <button id="btn-trocar" type="button">Salvar e entrar</button>
-        <p id="trocar-erro" class="erro" role="alert" aria-live="polite"></p>
-      </div>
-    </div>
-  </div>
-
   <!-- Overlay de encerramento de sessão (login em outro dispositivo) -->
   <div id="overlay-sessao" hidden role="alertdialog" aria-live="assertive" aria-label="Sessão encerrando">
     <div class="sessao-box">
@@ -223,10 +207,26 @@
 
 </div>
 
+<!-- Overlay: troca obrigatória de senha (1º acesso / reset). FORA do #app para aparecer no login. -->
+<div id="overlay-trocar" hidden aria-modal="true" role="dialog" aria-label="Definir nova senha">
+  <div class="login-card trocar-card">
+    <div class="login-form">
+      <div class="trocar-titulo">Defina sua senha</div>
+      <div class="trocar-sub">Por segurança, crie uma nova senha para continuar.</div>
+      <label for="tr-nova">Nova senha</label>
+      <input id="tr-nova" type="password" placeholder="Mínimo 8, com letras e números" autocomplete="new-password">
+      <label for="tr-conf">Confirmar senha</label>
+      <input id="tr-conf" type="password" placeholder="Repita a nova senha" autocomplete="new-password">
+      <button id="btn-trocar" type="button">Salvar e entrar</button>
+      <p id="trocar-erro" class="erro" role="alert" aria-live="polite"></p>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="js/api.js?v=14"></script>
-<script src="js/render.js?v=14"></script>
-<script src="js/app.js?v=14"></script>
-<script src="js/sw-register.js?v=14"></script>
+<script src="js/api.js?v=15"></script>
+<script src="js/render.js?v=15"></script>
+<script src="js/app.js?v=15"></script>
+<script src="js/sw-register.js?v=15"></script>
 </body>
 </html>
