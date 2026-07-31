@@ -17,10 +17,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Segredos (gitleaks)
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # CLI do gitleaks (MIT, sem licenca) — a gitleaks-action@v2 passou a exigir GITLEAKS_LICENSE.
+      - name: Segredos (gitleaks CLI)
+        shell: bash
+        run: |
+          VER=8.24.3
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${VER}/gitleaks_${VER}_linux_x64.tar.gz" -o gl.tar.gz
+          tar -xzf gl.tar.gz gitleaks
+          ./gitleaks detect --source . --config .gitleaks.toml --redact -v --exit-code 2
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
         with:
