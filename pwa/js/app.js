@@ -707,8 +707,34 @@ function _acaoErro(status, e) {
   status.textContent = (e && e.message) ? e.message : 'erro'; status.className = 'perm-status erro';
 }
 function _alertaSenha(titulo, senha) {
-  alert(titulo + '\n\nSenha temporaria: ' + senha +
-        '\n\nAnote e entregue ao usuario. A troca e obrigatoria no 1o acesso.');
+  var ov = document.createElement('div');
+  ov.className = 'senha-overlay';
+  ov.innerHTML =
+    '<div class="senha-box">' +
+      '<div class="senha-titulo">' + _escHtml(titulo) + '</div>' +
+      '<div class="senha-sub">Senha temporária — anote e entregue ao usuário (troca obrigatória no 1º acesso):</div>' +
+      '<div class="senha-linha">' +
+        '<input class="senha-val" type="text" readonly>' +
+        '<button type="button" class="senha-copiar">Copiar</button>' +
+      '</div>' +
+      '<button type="button" class="senha-fechar">Fechar</button>' +
+    '</div>';
+  document.body.appendChild(ov);
+  var inp  = ov.querySelector('.senha-val');
+  var btnC = ov.querySelector('.senha-copiar');
+  inp.value = senha;                                  // valor via propriedade (evita problema de escape)
+  inp.addEventListener('focus', function() { this.select(); });
+  btnC.addEventListener('click', function() {
+    inp.focus(); inp.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(senha).catch(function() {});
+    }
+    btnC.textContent = 'Copiado!';
+    setTimeout(function() { btnC.textContent = 'Copiar'; }, 1500);
+  });
+  ov.querySelector('.senha-fechar').addEventListener('click', function() { ov.remove(); });
+  setTimeout(function() { inp.focus(); inp.select(); }, 50);
 }
 
 // Bloco "Novo usuario": botao que revela um form (login, nome, admin) e cria o usuario.

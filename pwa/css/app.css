@@ -1075,3 +1075,30 @@ input, button { -webkit-appearance: none; appearance: none; }
 .nu-msg { font-size: 12px; margin: 2px 0 0; }
 .nu-msg.ok { color: var(--c-success); }
 .nu-msg.erro { color: var(--c-danger); }
+
+/* ── Modal de senha temporária (copiável) ─────────────────────────────────── */
+.senha-overlay {
+  position: fixed; inset: 0; z-index: 120;
+  background: rgba(15, 23, 42, .6);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.senha-box {
+  background: var(--c-surface); border: 1px solid var(--c-border);
+  border-radius: var(--r); padding: 20px; max-width: 380px; width: 100%;
+}
+.senha-titulo { font-size: 15px; font-weight: 700; color: var(--c-text); }
+.senha-sub { font-size: 12px; color: var(--c-muted); margin: 6px 0 12px; }
+.senha-linha { display: flex; gap: 8px; }
+.senha-val {
+  flex: 1; padding: 10px; border-radius: 8px; border: 1px solid var(--c-border);
+  background: var(--c-surface2); color: var(--c-text);
+  font-size: 16px; font-family: monospace; letter-spacing: .5px;
+}
+.senha-copiar {
+  padding: 10px 14px; border-radius: 8px; border: none;
+  background: var(--c-primary); color: #fff; font-weight: 700; cursor: pointer; white-space: nowrap;
+}
+.senha-fechar {
+  margin-top: 14px; width: 100%; padding: 10px; border-radius: 8px;
+  border: 1px solid var(--c-border); background: none; color: var(--c-text); cursor: pointer;
+}
