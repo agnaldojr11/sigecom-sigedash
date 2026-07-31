@@ -1023,3 +1023,55 @@ input, button { -webkit-appearance: none; appearance: none; }
   border-color: var(--c-primary);
   color: var(--c-primary);
 }
+
+/* ── Overlay: troca obrigatória de senha (1º acesso / reset) ───────────────── */
+#overlay-trocar {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(15, 23, 42, .92);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+#overlay-trocar[hidden] { display: none; }
+.trocar-card { max-width: 360px; width: 100%; }
+.trocar-titulo { font-size: 18px; font-weight: 700; color: var(--c-text); }
+.trocar-sub { font-size: 13px; color: var(--c-muted); margin: 4px 0 12px; }
+
+/* ── Gestão de usuários (tela de permissões) ──────────────────────────────── */
+.perm-card.inativo { opacity: .6; }
+.perm-user-sub { font-weight: 400; font-size: 12px; color: var(--c-muted); }
+.perm-badge {
+  display: inline-block; font-size: 11px; font-weight: 700;
+  padding: 2px 7px; border-radius: 999px; margin-right: 6px;
+  border: 1px solid var(--c-border); color: var(--c-muted);
+}
+.perm-badge.admin   { color: var(--c-success); border-color: var(--c-success); }
+.perm-badge.inativo { color: var(--c-danger);  border-color: var(--c-danger); }
+.perm-badge.pend    { color: var(--c-primary); border-color: var(--c-primary); }
+
+.perm-acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.perm-acao {
+  font-size: 12px; font-weight: 600; padding: 6px 10px;
+  border-radius: 8px; border: 1px solid var(--c-border);
+  background: var(--c-surface); color: var(--c-text); cursor: pointer;
+}
+.perm-acao:active { background: var(--c-surface2); }
+.perm-acao.perigo { color: var(--c-danger); border-color: var(--c-danger); }
+
+.perm-novo { margin-bottom: 14px; }
+.perm-novo-btn {
+  width: 100%; padding: 10px; border-radius: 8px;
+  border: 1px dashed var(--c-border); background: none;
+  color: var(--c-primary); font-weight: 700; cursor: pointer;
+}
+.perm-novo-form { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.perm-novo-form input[type="text"] {
+  padding: 10px; border-radius: 8px; border: 1px solid var(--c-border);
+  background: var(--c-surface); color: var(--c-text); font-size: 14px;
+}
+.nu-criar {
+  padding: 10px; border-radius: 8px; border: none;
+  background: var(--c-primary); color: #fff; font-weight: 700; cursor: pointer;
+}
+.nu-msg { font-size: 12px; margin: 2px 0 0; }
+.nu-msg.ok { color: var(--c-success); }
+.nu-msg.erro { color: var(--c-danger); }

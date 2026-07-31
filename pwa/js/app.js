@@ -569,8 +569,9 @@ function abrirPermissoes() {
   overlayPerm.hidden = false;
   API.listarUsuarios().then(function(usuarios) {
     body.innerHTML = '';
+    body.appendChild(_novoUsuarioBloco());
     if (!usuarios || !usuarios.length) {
-      body.appendChild(Render.emptyState('Nenhum usuário', 'Os usuários são sincronizados do SIGECOM pelo agente.'));
+      body.appendChild(Render.emptyState('Nenhum usuário', 'Use o botão acima para cadastrar o primeiro usuário.'));
       return;
     }
     usuarios.forEach(function(u) { body.appendChild(_permCard(u)); });
@@ -579,21 +580,61 @@ function abrirPermissoes() {
     body.innerHTML = '<p class="perm-aviso erro">' + _escHtml(e.message) + '</p>';
   });
 }
+function _recarregarPerm() { abrirPermissoes(); }
 
 function _permCard(u) {
   var card = document.createElement('div');
-  card.className = 'perm-card';
-  var tipo = TIPOS_USUARIO[u.codigoTipo] || 'Usuário';
+  card.className = 'perm-card' + (u.ativo === false ? ' inativo' : '');
+  var ehEu = (u.login === (sessionStorage.getItem('sd_login') || ''));
+
+  var badges = '';
+  if (u.admin) badges += '<span class="perm-badge admin">Admin</span>';
+  if (u.ativo === false) badges += '<span class="perm-badge inativo">Inativo</span>';
+  if (u.precisaTrocarSenha) badges += '<span class="perm-badge pend">senha pendente</span>';
 
   var head = document.createElement('div');
   head.className = 'perm-card-head';
   head.innerHTML =
     '<div class="perm-user">' +
-      '<span class="perm-user-nome">' + _escHtml(u.login) + '</span>' +
-      '<span class="perm-user-tipo">' + _escHtml(tipo) + '</span>' +
+      '<span class="perm-user-nome">' + _escHtml(u.login) +
+        (u.nomeExibicao ? ' <span class="perm-user-sub">' + _escHtml(u.nomeExibicao) + '</span>' : '') + '</span>' +
+      '<span class="perm-user-tipo">' + badges + '</span>' +
     '</div>' +
     '<span class="perm-status" aria-live="polite"></span>';
   card.appendChild(head);
+  var status = head.querySelector('.perm-status');
+
+  // Acoes de gestao do usuario
+  var acoes = document.createElement('div');
+  acoes.className = 'perm-acoes';
+  function botao(txt, cls) {
+    var b = document.createElement('button'); b.type = 'button';
+    b.className = 'perm-acao' + (cls ? ' ' + cls : ''); b.textContent = txt;
+    acoes.appendChild(b); return b;
+  }
+  botao('Resetar senha').addEventListener('click', function() {
+    _acaoStatus(status, 'resetando…');
+    API.resetarSenha(u.id).then(function(res) {
+      status.textContent = ''; status.className = 'perm-status';
+      _alertaSenha('Senha resetada — ' + u.login, res.senhaTemporaria);
+    }).catch(function(e) { _acaoErro(status, e); });
+  });
+  if (!ehEu) {
+    botao(u.ativo === false ? 'Ativar' : 'Desativar').addEventListener('click', function() {
+      _acaoStatus(status, 'salvando…');
+      API.editarUsuario(u.id, { ativo: u.ativo === false }).then(_recarregarPerm).catch(function(e) { _acaoErro(status, e); });
+    });
+    botao(u.admin ? 'Remover admin' : 'Tornar admin').addEventListener('click', function() {
+      _acaoStatus(status, 'salvando…');
+      API.editarUsuario(u.id, { ehAdmin: !u.admin }).then(_recarregarPerm).catch(function(e) { _acaoErro(status, e); });
+    });
+    botao('Excluir', 'perigo').addEventListener('click', function() {
+      if (!confirm('Excluir o usuário "' + u.login + '"? Essa ação não pode ser desfeita.')) return;
+      _acaoStatus(status, 'excluindo…');
+      API.excluirUsuario(u.id).then(_recarregarPerm).catch(function(e) { _acaoErro(status, e); });
+    });
+  }
+  card.appendChild(acoes);
 
   if (u.admin) {
     var nota = document.createElement('div');
@@ -659,6 +700,55 @@ function _permLinha(key, label, marcado, parentKey) {
   return row;
 }
 
+// Helpers de gestao de usuarios
+function _acaoStatus(status, txt) { status.textContent = txt; status.className = 'perm-status salvando'; }
+function _acaoErro(status, e) {
+  if (e && e.sessaoEncerrada) { overlayPerm.hidden = true; tratarQuedaSessao(e); return; }
+  status.textContent = (e && e.message) ? e.message : 'erro'; status.className = 'perm-status erro';
+}
+function _alertaSenha(titulo, senha) {
+  alert(titulo + '\n\nSenha temporaria: ' + senha +
+        '\n\nAnote e entregue ao usuario. A troca e obrigatoria no 1o acesso.');
+}
+
+// Bloco "Novo usuario": botao que revela um form (login, nome, admin) e cria o usuario.
+function _novoUsuarioBloco() {
+  var wrap = document.createElement('div');
+  wrap.className = 'perm-novo';
+  wrap.innerHTML =
+    '<button type="button" class="perm-novo-btn">+ Novo usuário</button>' +
+    '<div class="perm-novo-form" hidden>' +
+      '<input class="nu-login" type="text" placeholder="Login (ex.: joao)" autocomplete="off">' +
+      '<input class="nu-nome" type="text" placeholder="Nome para exibição (opcional)" autocomplete="off">' +
+      '<label class="perm-opt"><span class="perm-opt-lbl">Administrador</span>' +
+        '<span class="switch"><input class="nu-admin" type="checkbox"><span class="slider"></span></span></label>' +
+      '<button type="button" class="nu-criar">Criar usuário</button>' +
+      '<p class="nu-msg" aria-live="polite"></p>' +
+    '</div>';
+  var form = wrap.querySelector('.perm-novo-form');
+  wrap.querySelector('.perm-novo-btn').addEventListener('click', function() { form.hidden = !form.hidden; });
+  wrap.querySelector('.nu-criar').addEventListener('click', function() {
+    var msg = wrap.querySelector('.nu-msg');
+    var login = wrap.querySelector('.nu-login').value.trim();
+    var nome  = wrap.querySelector('.nu-nome').value.trim();
+    var admin = wrap.querySelector('.nu-admin').checked;
+    msg.className = 'nu-msg'; msg.textContent = '';
+    if (!login) { msg.className = 'nu-msg erro'; msg.textContent = 'Informe o login.'; return; }
+    var b = wrap.querySelector('.nu-criar'); b.disabled = true; b.textContent = 'Criando…';
+    API.criarUsuario({ login: login, nomeExibicao: nome || null, ehAdmin: admin, secoes: [] })
+      .then(function(res) {
+        _alertaSenha('Usuario "' + res.login + '" criado', res.senhaTemporaria);
+        _recarregarPerm();
+      })
+      .catch(function(e) {
+        if (e && e.sessaoEncerrada) { overlayPerm.hidden = true; tratarQuedaSessao(e); return; }
+        msg.className = 'nu-msg erro'; msg.textContent = (e && e.message) ? e.message : 'Erro ao criar usuário';
+        b.disabled = false; b.textContent = 'Criar usuário';
+      });
+  });
+  return wrap;
+}
+
 // ── Login ──────────────────────────────────────────────────────────────────
 document.getElementById('btn-entrar').addEventListener('click', async function() {
   var erro = document.getElementById('login-erro');
@@ -667,18 +757,58 @@ document.getElementById('btn-entrar').addEventListener('click', async function()
   btn.disabled = true;
   btn.textContent = 'Entrando…';
   try {
-    await API.login(
+    var senhaDigitada = document.getElementById('in-senha').value;
+    var data = await API.login(
       document.getElementById('in-cliente').value.trim(),
       document.getElementById('in-login').value.trim(),
-      document.getElementById('in-senha').value
+      senhaDigitada
     );
     sessionStorage.setItem('sd_login', document.getElementById('in-login').value.trim());
-    mostrarApp();
+    btn.disabled = false; btn.textContent = 'Entrar';
+    if (data && data.precisaTrocarSenha) {
+      abrirTrocaSenha(senhaDigitada);   // troca obrigatoria antes de entrar (1o acesso / reset)
+    } else {
+      mostrarApp();
+    }
   } catch (e) {
     erro.textContent = e.message;
     btn.disabled = false;
     btn.textContent = 'Entrar';
   }
+});
+
+// ── Troca obrigatória de senha (1º acesso / senha resetada) ──────────────────
+var _senhaAtualTroca = null;
+function abrirTrocaSenha(senhaAtual) {
+  _senhaAtualTroca = senhaAtual;
+  document.getElementById('tr-nova').value = '';
+  document.getElementById('tr-conf').value = '';
+  document.getElementById('trocar-erro').textContent = '';
+  document.getElementById('overlay-trocar').hidden = false;
+  setTimeout(function() { document.getElementById('tr-nova').focus(); }, 50);
+}
+document.getElementById('btn-trocar').addEventListener('click', async function() {
+  var erro = document.getElementById('trocar-erro');
+  var nova = document.getElementById('tr-nova').value;
+  var conf = document.getElementById('tr-conf').value;
+  erro.textContent = '';
+  if (nova.length < 8 || !/[A-Za-z]/.test(nova) || !/[0-9]/.test(nova)) {
+    erro.textContent = 'A senha deve ter ao menos 8 caracteres, com letras e números.'; return;
+  }
+  if (nova !== conf) { erro.textContent = 'As senhas não conferem.'; return; }
+  var btn = this; btn.disabled = true; btn.textContent = 'Salvando…';
+  try {
+    await API.trocarSenha(_senhaAtualTroca, nova);
+    _senhaAtualTroca = null;
+    document.getElementById('overlay-trocar').hidden = true;
+    mostrarApp();
+  } catch (e) {
+    if (e && e.sessaoEncerrada) { document.getElementById('overlay-trocar').hidden = true; tratarQuedaSessao(e); return; }
+    erro.textContent = e.message;
+  } finally { btn.disabled = false; btn.textContent = 'Salvar e entrar'; }
+});
+document.getElementById('tr-conf').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('btn-trocar').click();
 });
 
 document.getElementById('in-senha').addEventListener('keydown', function(e) {

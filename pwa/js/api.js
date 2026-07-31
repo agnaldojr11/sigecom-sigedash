@@ -46,6 +46,59 @@ const API = (() => {
     return r.json();
   }
 
+  // Troca da propria senha (primeiro acesso ou por escolha). Requer estar logado.
+  async function trocarSenha(senhaAtual, senhaNova) {
+    const r = await fetch(`${BASE}/auth/trocar-senha`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+      body: JSON.stringify({ senhaAtual, senhaNova })
+    });
+    if (r.status === 401) throw _erro401(r);
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).erro || "Erro ao trocar a senha");
+    return r.json();
+  }
+
+  // --- Gestao de usuarios (somente admin) ---
+  async function criarUsuario(dto) {
+    const r = await fetch(`${BASE}/admin/usuarios`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+      body: JSON.stringify(dto)
+    });
+    if (r.status === 401) throw _erro401(r);
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).erro || "Erro ao criar usuário");
+    return r.json();
+  }
+
+  async function editarUsuario(id, dto) {
+    const r = await fetch(`${BASE}/admin/usuarios/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+      body: JSON.stringify(dto)
+    });
+    if (r.status === 401) throw _erro401(r);
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).erro || "Erro ao editar usuário");
+    return r.json();
+  }
+
+  async function resetarSenha(id) {
+    const r = await fetch(`${BASE}/admin/usuarios/${id}/resetar-senha`, {
+      method: "POST", headers: { "Authorization": `Bearer ${token}` }
+    });
+    if (r.status === 401) throw _erro401(r);
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).erro || "Erro ao resetar senha");
+    return r.json();
+  }
+
+  async function excluirUsuario(id) {
+    const r = await fetch(`${BASE}/admin/usuarios/${id}`, {
+      method: "DELETE", headers: { "Authorization": `Bearer ${token}` }
+    });
+    if (r.status === 401) throw _erro401(r);
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).erro || "Erro ao excluir usuário");
+    return r.json();
+  }
+
   async function dashboards(codigoEmpresa = 1) {
     const r = await fetch(`${BASE}/dash/${codigoEmpresa}`, {
       headers: { "Authorization": `Bearer ${token}` }
@@ -97,5 +150,6 @@ const API = (() => {
   }
 
   return { login, dashboards, queryIA, empresas, sair, logado, ping,
-           ehAdmin, secoes, listarUsuarios, salvarPermissoes };
+           ehAdmin, secoes, listarUsuarios, salvarPermissoes,
+           trocarSenha, criarUsuario, editarUsuario, resetarSenha, excluirUsuario };
 })();
