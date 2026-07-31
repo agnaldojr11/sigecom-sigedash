@@ -1024,17 +1024,51 @@ input, button { -webkit-appearance: none; appearance: none; }
   color: var(--c-primary);
 }
 
-/* ── Overlay: troca obrigatória de senha (1º acesso / reset) ───────────────── */
+/* ── Overlay: troca obrigatória de senha (mesmo visual do login) ──────────── */
 #overlay-trocar {
-  position: fixed; inset: 0; z-index: 100;
-  background: rgba(15, 23, 42, .92);
-  display: flex; align-items: center; justify-content: center;
-  padding: 24px;
+  position: fixed; inset: 0; z-index: 130;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 24px; padding: 32px 20px 24px;
+  background: url('../bg-login.png') center center / cover no-repeat, #1565C0;
 }
 #overlay-trocar[hidden] { display: none; }
 .trocar-card { max-width: 360px; width: 100%; }
-.trocar-titulo { font-size: 18px; font-weight: 700; color: var(--c-text); }
-.trocar-sub { font-size: 13px; color: var(--c-muted); margin: 4px 0 12px; }
+.trocar-titulo { font-size: 20px; font-weight: 700; color: #263238; }
+.trocar-sub { font-size: 13px; color: #546E7A; margin: 4px 0 14px; line-height: 1.4; }
+
+/* botao igual ao de login (teal) */
+#btn-trocar {
+  height: 50px; margin-top: 16px;
+  background: #009688; color: #fff; border: none; border-radius: 8px;
+  font-size: 16px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  transition: opacity .15s, transform .1s; box-shadow: 0 4px 16px rgba(0,150,136,.45);
+}
+#btn-trocar:not(:disabled):active { opacity: .85; transform: scale(.98); }
+#btn-trocar:disabled { opacity: .5; }
+
+/* feedback de conferencia de senha */
+.match-hint { min-height: 16px; margin: 8px 0 0; font-size: 12.5px; font-weight: 600; text-align: center; }
+.match-hint.ok   { color: #2E7D32; }
+.match-hint.erro { color: #E53935; }
+
+/* ── Tela de carregamento (logo animada) ──────────────────────────────────── */
+#tela-loading {
+  position: fixed; inset: 0; z-index: 140;
+  display: flex; align-items: center; justify-content: center;
+  background: url('../bg-login.png') center center / cover no-repeat, #1565C0;
+}
+#tela-loading[hidden] { display: none; }
+.loading-box { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.loading-logo-wrap { position: relative; width: 96px; height: 96px; display: flex; align-items: center; justify-content: center; }
+.loading-logo { height: 56px; width: auto; filter: drop-shadow(0 2px 16px rgba(0,0,0,.45)); animation: sd-pulse 1.4s ease-in-out infinite; }
+.loading-ring {
+  position: absolute; inset: 0; border-radius: 50%;
+  border: 3px solid rgba(255,255,255,.25); border-top-color: #fff;
+  animation: sd-spin 1s linear infinite;
+}
+.loading-txt { color: rgba(255,255,255,.9); font-size: 14px; font-weight: 600; letter-spacing: .02em; }
+@keyframes sd-spin  { to { transform: rotate(360deg); } }
+@keyframes sd-pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .6; transform: scale(.92); } }
 
 /* ── Gestão de usuários (tela de permissões) ──────────────────────────────── */
 .perm-card.inativo { opacity: .6; }

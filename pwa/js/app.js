@@ -478,6 +478,8 @@ async function carregarDados() {
     if (e && e.sessaoEncerrada) { tratarQuedaSessao(e); return; }
     var el = document.getElementById('sec-' + _secAtiva);
     if (el) { el.innerHTML = ''; el.appendChild(Render.emptyState('Erro ao carregar', e.message)); }
+  } finally {
+    esconderLoading();
   }
 }
 
@@ -810,6 +812,7 @@ function abrirTrocaSenha(senhaAtual) {
   document.getElementById('tr-nova').value = '';
   document.getElementById('tr-conf').value = '';
   document.getElementById('trocar-erro').textContent = '';
+  _validarTroca();                                     // reseta o hint e desabilita o botao
   document.getElementById('overlay-trocar').hidden = false;
   setTimeout(function() { document.getElementById('tr-nova').focus(); }, 50);
 }
@@ -834,8 +837,27 @@ document.getElementById('btn-trocar').addEventListener('click', async function()
   } finally { btn.disabled = false; btn.textContent = 'Salvar e entrar'; }
 });
 document.getElementById('tr-conf').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') document.getElementById('btn-trocar').click();
+  if (e.key === 'Enter' && !document.getElementById('btn-trocar').disabled) document.getElementById('btn-trocar').click();
 });
+
+// Validacao em tempo real: politica (min 8, letra+numero) + confirmacao igual -> habilita o botao
+function _validarTroca() {
+  var nova = document.getElementById('tr-nova').value;
+  var conf = document.getElementById('tr-conf').value;
+  var hint = document.getElementById('tr-match');
+  var btn  = document.getElementById('btn-trocar');
+  var policyOk = nova.length >= 8 && /[A-Za-z]/.test(nova) && /[0-9]/.test(nova);
+  if (!nova && !conf) { hint.textContent = ''; hint.className = 'match-hint'; btn.disabled = true; return; }
+  if (!policyOk)      { hint.textContent = 'Mínimo 8 caracteres, com letras e números.'; hint.className = 'match-hint erro'; btn.disabled = true; return; }
+  if (nova !== conf)  { hint.textContent = conf ? 'As senhas não conferem.' : 'Repita a senha para confirmar.'; hint.className = 'match-hint erro'; btn.disabled = true; return; }
+  hint.textContent = '✓ As senhas conferem.'; hint.className = 'match-hint ok'; btn.disabled = false;
+}
+document.getElementById('tr-nova').addEventListener('input', _validarTroca);
+document.getElementById('tr-conf').addEventListener('input', _validarTroca);
+
+// Tela de carregamento (pos-login / pos-troca de senha)
+function mostrarLoading()  { var el = document.getElementById('tela-loading'); if (el) el.hidden = false; }
+function esconderLoading() { var el = document.getElementById('tela-loading'); if (el) el.hidden = true; }
 
 document.getElementById('in-senha').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') document.getElementById('btn-entrar').click();
@@ -875,6 +897,8 @@ function voltarParaLogin(msg) {
   overlayIA.hidden = true;
   overlayPerm.hidden = true;
   document.getElementById('overlay-sessao').hidden = true;
+  document.getElementById('overlay-trocar').hidden = true;
+  esconderLoading();
   document.getElementById('app').hidden = true;
   document.getElementById('tela-login').style.display = '';
   document.getElementById('in-senha').value = '';
@@ -1003,12 +1027,13 @@ function mostrarApp() {
   _appEl.hidden = false;
   void _appEl.offsetHeight;                                   // forca reflow
   requestAnimationFrame(function () { window.dispatchEvent(new Event('resize')); });  // cutuca o dvh
+  mostrarLoading();                                           // cobre a tela enquanto os dados carregam
   document.getElementById('topo-cliente').textContent = sessionStorage.getItem('sd_cliente') || '';
   _aplicarPermissoes();
   _secAtiva = '';
 
   var inicial = _secaoInicial();
-  if (!inicial) { _mostrarSemAcesso(); return; }
+  if (!inicial) { esconderLoading(); _mostrarSemAcesso(); return; }
 
   document.getElementById('nav-bottom').style.display = '';
   navegar(inicial);

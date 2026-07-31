@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="css/app.css?v=15">
+  <link rel="stylesheet" href="css/app.css?v=16">
   <title>SigeDash</title>
 </head>
 <body>
@@ -209,7 +209,8 @@
 
 <!-- Overlay: troca obrigatória de senha (1º acesso / reset). FORA do #app para aparecer no login. -->
 <div id="overlay-trocar" hidden aria-modal="true" role="dialog" aria-label="Definir nova senha">
-  <div class="login-card trocar-card">
+  <div class="login-logo-area"><img src="logo-sigedash.png" alt="SigeDash" class="login-logo"></div>
+  <div class="login-card">
     <div class="login-form">
       <div class="trocar-titulo">Defina sua senha</div>
       <div class="trocar-sub">Por segurança, crie uma nova senha para continuar.</div>
@@ -217,16 +218,29 @@
       <input id="tr-nova" type="password" placeholder="Mínimo 8, com letras e números" autocomplete="new-password">
       <label for="tr-conf">Confirmar senha</label>
       <input id="tr-conf" type="password" placeholder="Repita a nova senha" autocomplete="new-password">
-      <button id="btn-trocar" type="button">Salvar e entrar</button>
+      <p id="tr-match" class="match-hint" aria-live="polite"></p>
+      <button id="btn-trocar" type="button" disabled>Salvar e entrar</button>
       <p id="trocar-erro" class="erro" role="alert" aria-live="polite"></p>
     </div>
+  </div>
+  <p class="login-versao">SigeDash v2 · SistemasBr</p>
+</div>
+
+<!-- Tela de carregamento (pos-login / pos-troca de senha) -->
+<div id="tela-loading" hidden aria-hidden="true">
+  <div class="loading-box">
+    <div class="loading-logo-wrap">
+      <div class="loading-ring"></div>
+      <img src="logo-sigedash.png" alt="SigeDash" class="loading-logo">
+    </div>
+    <div class="loading-txt">Carregando seu painel…</div>
   </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="js/api.js?v=15"></script>
-<script src="js/render.js?v=15"></script>
-<script src="js/app.js?v=15"></script>
-<script src="js/sw-register.js?v=15"></script>
+<script src="js/api.js?v=16"></script>
+<script src="js/render.js?v=16"></script>
+<script src="js/app.js?v=16"></script>
+<script src="js/sw-register.js?v=16"></script>
 </body>
 </html>
