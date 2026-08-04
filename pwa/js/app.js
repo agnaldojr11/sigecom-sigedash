@@ -279,7 +279,9 @@ function _estProdutos(snap) {
   dados.forEach(function(d) {
     var nome = d.label || '';
     var g = mapa[nome];
-    if (!g) { g = mapa[nome] = { label: nome, estoque: 0, custo: 0, precos: [] }; ordem.push(g); }
+    if (!g) { g = mapa[nome] = { label: nome, codigo: '', categoria: '', estoque: 0, custo: 0, precos: [] }; ordem.push(g); }
+    if (!g.codigo && d.codigo)       g.codigo    = ('' + d.codigo).trim();
+    if (!g.categoria && d.categoria) g.categoria = ('' + d.categoria).trim();
     var est = Number(d.estoque != null ? d.estoque : 0);
     var cus = Number(d.custo   != null ? d.custo   : 0);
     if (est > g.estoque) g.estoque = est;
@@ -290,6 +292,12 @@ function _estProdutos(snap) {
   ordem.forEach(function(g) { g.precos.sort(function(a, b) { return a.cod - b.cod; }); });
   _estCache = { key: snap.geradoEm, lista: ordem };
   return ordem;
+}
+
+// Markup % = (venda / custo - 1) * 100. Vazio quando custo/venda invalidos.
+function _markupPct(venda, custo) {
+  if (!(custo > 0) || !(venda > 0)) return '';
+  return ((venda / custo - 1) * 100).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) + '%';
 }
 
 function _estRenderBusca(el, q) {
@@ -326,14 +334,24 @@ function _estRenderBusca(el, q) {
 
     var det = '<span class="' + (semEst ? 'tag-vencido' : 'tag-ok') + '">' + estStr + '</span>';
     if (custo > 0) det += ' &middot; Custo ' + Render.moeda(custo);
-    // Preço único fica inline; múltiplas tabelas viram uma lista de chips abaixo
-    if (precos.length === 1) det += ' &middot; Venda ' + Render.moeda(precos[0].venda);
+    // Preço único fica inline (com markup); múltiplas tabelas viram uma lista de chips abaixo
+    if (precos.length === 1) {
+      var mk1 = _markupPct(precos[0].venda, custo);
+      det += ' &middot; Venda ' + Render.moeda(precos[0].venda) + (mk1 ? ' <span class="mk">(markup ' + mk1 + ')</span>' : '');
+    }
+
+    // Linha de código + categoria (só quando há info)
+    var metaParts = [];
+    if (p.codigo)    metaParts.push('Cód. ' + _escHtml(p.codigo));
+    if (p.categoria) metaParts.push(_escHtml(p.categoria));
+    var metaHtml = metaParts.length ? '<div class="busca-item-meta">' + metaParts.join(' &middot; ') + '</div>' : '';
 
     var precosHtml = '';
     if (precos.length > 1) {
       precosHtml = '<div class="busca-precos">' + precos.map(function(pr) {
+        var mk = _markupPct(pr.venda, custo);
         return '<span class="preco-chip"><span class="preco-tab">' + _escHtml(pr.tabela || 'Tabela') +
-               '</span>' + Render.moeda(pr.venda) + '</span>';
+               '</span>' + Render.moeda(pr.venda) + (mk ? '<span class="mk"> &middot; mk ' + mk + '</span>' : '') + '</span>';
       }).join('') + '</div>';
     }
 
@@ -342,6 +360,7 @@ function _estRenderBusca(el, q) {
     item.innerHTML =
       '<div class="busca-item-info">' +
         '<div class="busca-item-nome">' + _escHtml(p.label) + '</div>' +
+        metaHtml +
         '<div class="busca-item-det">' + det + '</div>' +
         precosHtml +
       '</div>';

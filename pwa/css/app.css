@@ -961,6 +961,11 @@ input, button { -webkit-appearance: none; appearance: none; }
 .busca-item-det .tag-vencido { color: var(--c-danger); font-weight: 600; }
 .busca-item-det .tag-ok      { color: var(--c-success); }
 
+/* Codigo + categoria do produto (linha abaixo do nome) */
+.busca-item-meta { font-size: 11.5px; color: var(--c-muted); margin-top: 2px; }
+/* Markup (destaque) — inline e nos chips de preco */
+.mk { color: var(--c-primary); font-weight: 600; }
+
 /* Preços por tabela (quando o produto tem mais de uma tabela de preço) */
 .busca-precos {
   display: flex;
