@@ -286,8 +286,10 @@ function _estProdutos(snap) {
     var cus = Number(d.custo   != null ? d.custo   : 0);
     if (est > g.estoque) g.estoque = est;
     if (cus > g.custo)   g.custo   = cus;
-    var venda = Number(d.venda != null ? d.venda : 0);
-    if (venda > 0) g.precos.push({ cod: Number(d.codTabela || 0), tabela: d.tabela || '', venda: venda });
+    // Inclui a tabela de preco MESMO com venda zerada (mostra R$ 0,00); so ignora linha sem tabela.
+    if (d.codTabela != null && ('' + d.codTabela) !== '') {
+      g.precos.push({ cod: Number(d.codTabela || 0), tabela: d.tabela || '', venda: Number(d.venda != null ? d.venda : 0) });
+    }
   });
   ordem.forEach(function(g) { g.precos.sort(function(a, b) { return a.cod - b.cod; }); });
   _estCache = { key: snap.geradoEm, lista: ordem };
@@ -333,9 +335,11 @@ function _estRenderBusca(el, q) {
     var estStr  = estoque.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + ' un';
 
     var det = '<span class="' + (semEst ? 'tag-vencido' : 'tag-ok') + '">' + estStr + '</span>';
-    if (custo > 0) det += ' &middot; Custo ' + Render.moeda(custo);
-    // Preço único fica inline (com markup); múltiplas tabelas viram uma lista de chips abaixo
-    if (precos.length === 1) {
+    det += ' &middot; Custo ' + Render.moeda(custo);   // mostra R$ 0,00 se zerado
+    // Sem tabela ou preço único ficam inline; múltiplas tabelas viram chips abaixo
+    if (precos.length === 0) {
+      det += ' &middot; Venda ' + Render.moeda(0);
+    } else if (precos.length === 1) {
       var mk1 = _markupPct(precos[0].venda, custo);
       det += ' &middot; Venda ' + Render.moeda(precos[0].venda) + (mk1 ? ' <span class="mk">(markup ' + mk1 + ')</span>' : '');
     }
