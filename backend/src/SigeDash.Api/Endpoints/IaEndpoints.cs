@@ -74,12 +74,23 @@ public static class IaEndpoints
 
         if (!res.IsSuccessStatusCode)
         {
-            var err = await res.Content.ReadAsStringAsync(ct);
-            return Results.Problem("Erro da API de IA (" + (int)res.StatusCode + "): " + err, statusCode: 502);
+            // Extrai a mensagem de erro do provedor (formato OpenAI: { error: { message } }).
+            var raw = await res.Content.ReadAsStringAsync(ct);
+            var msg = raw;
+            try
+            {
+                var e = JsonSerializer.Deserialize<JsonElement>(raw);
+                if (e.TryGetProperty("error", out var er) && er.TryGetProperty("message", out var m))
+                    msg = m.GetString() ?? raw;
+            }
+            catch { /* mantem o corpo cru */ }
+            return Results.Problem("IA (" + (int)res.StatusCode + "): " + msg, statusCode: 502);
         }
 
         var json = await res.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
-        var texto = json.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString();
+        if (!json.TryGetProperty("choices", out var choices) || choices.GetArrayLength() == 0)
+            return Results.Problem("IA: o provedor não retornou conteúdo (verifique o modelo em Ia:Model).", statusCode: 502);
+        var texto = choices[0].GetProperty("message").GetProperty("content").GetString();
         return Results.Ok(new { resposta = string.IsNullOrWhiteSpace(texto) ? "(sem resposta)" : texto });
     }
 

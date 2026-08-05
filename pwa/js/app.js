@@ -597,6 +597,7 @@ function abrirPermissoes() {
   overlayPerm.hidden = false;
   API.listarUsuarios().then(function(usuarios) {
     body.innerHTML = '';
+    body.appendChild(_versaoBloco());
     body.appendChild(_novoUsuarioBloco());
     if (!usuarios || !usuarios.length) {
       body.appendChild(Render.emptyState('Nenhum usuário', 'Use o botão acima para cadastrar o primeiro usuário.'));
@@ -609,6 +610,34 @@ function abrirPermissoes() {
   });
 }
 function _recarregarPerm() { abrirPermissoes(); }
+
+// Bloco de versao no topo das configuracoes: mostra a versao instalada e se ha atualizacao.
+function _versaoBloco() {
+  var wrap = document.createElement('div');
+  wrap.className = 'perm-versao';
+  wrap.innerHTML =
+    '<div class="pv-linha">' +
+      '<span class="pv-label">Versão do SigeDash</span>' +
+      '<span class="pv-valor">…</span>' +
+    '</div>';
+  var valor = wrap.querySelector('.pv-valor');
+  API.statusAtualizacao().then(function(s) {
+    var atual = (s && s.versaoAtual) ? ('v' + s.versaoAtual) : '—';
+    if (s && s.atualizacaoDisponivel) {
+      valor.innerHTML = '<strong>' + _escHtml(atual) + '</strong>' +
+        ' <span class="pv-badge desatualizado">Atualização ' +
+        (s.versaoDisponivel ? 'v' + _escHtml(s.versaoDisponivel) + ' ' : '') + 'disponível</span>';
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'pv-btn'; b.textContent = 'Atualizar agora';
+      b.addEventListener('click', function() { overlayPerm.hidden = true; document.getElementById('ub-agora').click(); });
+      wrap.appendChild(b);
+    } else {
+      valor.innerHTML = '<strong>' + _escHtml(atual) + '</strong>' +
+        ' <span class="pv-badge atualizado">Atualizado</span>';
+    }
+  }).catch(function() { valor.textContent = '—'; });
+  return wrap;
+}
 
 function _permCard(u) {
   var card = document.createElement('div');
