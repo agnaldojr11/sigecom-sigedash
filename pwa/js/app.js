@@ -278,8 +278,11 @@ function _estProdutos(snap) {
   var mapa = {}, ordem = [];
   dados.forEach(function(d) {
     var nome = d.label || '';
-    var g = mapa[nome];
-    if (!g) { g = mapa[nome] = { label: nome, codigo: '', categoria: '', estoque: 0, custo: 0, precos: [] }; ordem.push(g); }
+    // Agrupa por identidade do produto (codProduto), NAO pelo nome: ha produtos distintos
+    // com o mesmo NOME_COMPLETO — agrupar por nome fundia os dois e duplicava os chips de preco.
+    var chave = (d.codProduto != null && ('' + d.codProduto) !== '') ? ('#' + d.codProduto) : nome;
+    var g = mapa[chave];
+    if (!g) { g = mapa[chave] = { label: nome, codigo: '', categoria: '', estoque: 0, custo: 0, precos: [] }; ordem.push(g); }
     if (!g.codigo && d.codigo)       g.codigo    = ('' + d.codigo).trim();
     if (!g.categoria && d.categoria) g.categoria = ('' + d.categoria).trim();
     var est = Number(d.estoque != null ? d.estoque : 0);
@@ -974,6 +977,9 @@ function contarEEncerrar(msg) {
 document.querySelectorAll('.nav-btn').forEach(function(btn) {
   btn.addEventListener('click', function() { navegar(btn.dataset.sec); });
 });
+
+// Logo/ícone do topo: atalho para o Resumo
+document.getElementById('btn-inicio').addEventListener('click', function() { navegar('resumo'); });
 
 // ── Popular dropdown de empresas no login ──────────────────────────────────
 (function carregarEmpresas() {

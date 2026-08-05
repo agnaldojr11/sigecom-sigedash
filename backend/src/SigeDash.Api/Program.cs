@@ -72,7 +72,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 builder.Services.AddAuthorization();
-builder.Services.AddHttpClient("claude");
+builder.Services.AddHttpClient("ia");
 
 // Compressao de resposta (gzip/brotli). O /dash pode trafegar a lista completa de
 // produtos (milhares de linhas); JSON repetitivo comprime para uma fracao do tamanho.
