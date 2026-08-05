@@ -1080,6 +1080,38 @@ input, button { -webkit-appearance: none; appearance: none; }
 @keyframes sd-spin  { to { transform: rotate(360deg); } }
 @keyframes sd-pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .6; transform: scale(.92); } }
 
+/* ── Tela de atualização (reusa o visual do loading) ─────────────────────────── */
+#tela-atualizando {
+  position: fixed; inset: 0; z-index: 150;
+  display: flex; align-items: center; justify-content: center;
+  background: url('../bg-login.png') center center / cover no-repeat, #1565C0;
+}
+#tela-atualizando[hidden] { display: none; }
+.atualizando-sub { color: rgba(255,255,255,.72); font-size: 12.5px; max-width: 280px; text-align: center; line-height: 1.5; }
+
+/* ── Banner de atualização disponível (somente admin) ────────────────────────── */
+#update-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  margin: 10px 14px 0; padding: 10px 12px;
+  background: linear-gradient(135deg, rgba(59,130,246,.16), rgba(29,78,216,.16));
+  border: 1px solid var(--c-primary); border-radius: var(--r-sm);
+}
+#update-banner[hidden] { display: none; }
+.ub-info { display: flex; align-items: center; gap: 8px; color: var(--c-primary); min-width: 0; }
+.ub-txt { font-size: 13px; font-weight: 600; color: var(--c-text); }
+#ub-versao { color: var(--c-primary); font-weight: 700; }
+.ub-acoes { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.ub-btn {
+  background: var(--c-primary); color: #fff; border: none; border-radius: 8px;
+  padding: 7px 14px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap;
+}
+.ub-btn:active { background: var(--c-primary-dk); }
+.ub-btn-sec {
+  background: none; color: var(--c-muted); border: 1px solid var(--c-border); border-radius: 8px;
+  padding: 7px 12px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.ub-btn-sec:active { color: var(--c-text); }
+
 /* ── Gestão de usuários (tela de permissões) ──────────────────────────────── */
 .perm-card.inativo { opacity: .6; }
 .perm-user-sub { font-weight: 400; font-size: 12px; color: var(--c-muted); }

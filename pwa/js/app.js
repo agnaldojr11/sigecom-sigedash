@@ -1067,10 +1067,52 @@ function mostrarApp() {
   document.getElementById('nav-bottom').style.display = '';
   navegar(inicial);
   carregarDados();
+  verificarAtualizacao();                                     // banner de update (só admin)
   clearInterval(_timerRefresh);
   _timerRefresh = setInterval(carregarDados, AUTO_REFRESH_MS);
   clearInterval(_timerHeartbeat);
   _timerHeartbeat = setInterval(baterHeartbeat, HEARTBEAT_MS);
+}
+
+// ── Atualização in-app (somente admin) ──────────────────────────────────────
+var _updBanner = document.getElementById('update-banner');
+
+function verificarAtualizacao() {
+  if (!API.ehAdmin()) return;
+  API.statusAtualizacao().then(function(s) {
+    if (s && s.atualizacaoDisponivel) {
+      document.getElementById('ub-versao').textContent = s.versaoDisponivel ? ('v' + s.versaoDisponivel) : '';
+      _updBanner.hidden = false;
+    }
+  }).catch(function() { /* silencioso: se a checagem falhar, nao atrapalha o uso */ });
+}
+
+document.getElementById('ub-depois').addEventListener('click', function() { _updBanner.hidden = true; });
+
+document.getElementById('ub-agora').addEventListener('click', function() {
+  var btn = document.getElementById('ub-agora');
+  btn.disabled = true; btn.textContent = 'Iniciando…';
+  API.aplicarAtualizacao().then(function() {
+    _updBanner.hidden = true;
+    document.getElementById('tela-atualizando').hidden = false;
+    _aguardarReinicioERecarregar();
+  }).catch(function(e) {
+    btn.disabled = false; btn.textContent = 'Atualizar agora';
+    alert((e && e.message) ? e.message : 'Não foi possível iniciar a atualização.');
+  });
+});
+
+// Espera o backend cair (atualização parando o serviço) e voltar; então recarrega o app
+// para pegar os assets novos (PWA/SW). Failsafe recarrega em 3 min de qualquer forma.
+function _aguardarReinicioERecarregar() {
+  var caiu = false;
+  var timer = setInterval(function() {
+    API.online().then(function(ok) {
+      if (!ok) { caiu = true; return; }
+      if (caiu) { clearInterval(timer); setTimeout(function() { location.reload(); }, 1500); }
+    });
+  }, 4000);
+  setTimeout(function() { clearInterval(timer); location.reload(); }, 180000);
 }
 
 if (API.logado()) mostrarApp();

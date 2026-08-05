@@ -150,12 +150,37 @@ const API = (() => {
     return r.json();
   }
 
+  // --- Atualizacao in-app (somente admin) ---
+  async function statusAtualizacao() {
+    const r = await fetch(`${BASE}/admin/atualizacao/status`, {
+      headers: { "Authorization": `Bearer ${token}` }
+    });
+    if (r.status === 401) throw _erro401(r);
+    if (!r.ok) throw new Error("Erro ao verificar atualização");
+    return r.json();
+  }
+
+  async function aplicarAtualizacao() {
+    const r = await fetch(`${BASE}/admin/atualizacao/aplicar`, {
+      method: "POST", headers: { "Authorization": `Bearer ${token}` }
+    });
+    if (r.status === 401) throw _erro401(r);
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || "Erro ao iniciar atualização");
+    return r.json();
+  }
+
   async function empresas() {
     try {
       const r = await _fetchRetry(`${BASE}/auth/empresas`);
       if (!r.ok) return [];
       return r.json();
     } catch (e) { return []; }
+  }
+
+  // Probe leve: backend respondendo? (usado para detectar o reinicio durante a atualizacao)
+  async function online() {
+    try { const r = await fetch(`${BASE}/auth/empresas`, { cache: "no-store" }); return r.ok; }
+    catch { return false; }
   }
 
   function sair() { token = null; sessionStorage.clear(); }
@@ -182,5 +207,6 @@ const API = (() => {
 
   return { login, dashboards, queryIA, empresas, sair, logado, ping,
            ehAdmin, secoes, listarUsuarios, salvarPermissoes,
-           trocarSenha, criarUsuario, editarUsuario, resetarSenha, excluirUsuario };
+           trocarSenha, criarUsuario, editarUsuario, resetarSenha, excluirUsuario,
+           statusAtualizacao, aplicarAtualizacao, online };
 })();

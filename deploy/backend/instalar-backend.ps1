@@ -216,6 +216,26 @@ if (Test-Path $atualizarSrc) {
         -Description "Verifica e aplica atualizacoes automaticas do SigeDash" | Out-Null
 
     Log "Tarefa agendada: $TASK_NAME (toda segunda as 03:00)"
+
+    # Tarefa SOB DEMANDA: disparada pelo backend (schtasks /Run) quando o admin clica
+    # "Atualizar agora" no painel. Roda como SYSTEM, independente do processo do backend
+    # (permite parar/sobrescrever/reiniciar o proprio backend durante a atualizacao).
+    $TASK_APLICAR = "SigeDash-Aplicar"
+    Unregister-ScheduledTask -TaskName $TASK_APLICAR -Confirm:$false -ErrorAction SilentlyContinue
+    $actionAp = New-ScheduledTaskAction `
+        -Execute "powershell.exe" `
+        -Argument "-NonInteractive -ExecutionPolicy Bypass -File `"$atualizarDst`""
+    $settingsAp = New-ScheduledTaskSettingsSet `
+        -ExecutionTimeLimit (New-TimeSpan -Hours 1) `
+        -StartWhenAvailable
+    Register-ScheduledTask `
+        -TaskName    $TASK_APLICAR `
+        -Action      $actionAp `
+        -Settings    $settingsAp `
+        -RunLevel    Highest `
+        -User        "SYSTEM" `
+        -Description "Aplica a atualizacao do SigeDash sob demanda (disparada pelo painel)" | Out-Null
+    Log "Tarefa sob demanda registrada: $TASK_APLICAR"
 } else {
     Log "AVISO: atualizar.ps1 nao encontrado - agendamento ignorado."
 }

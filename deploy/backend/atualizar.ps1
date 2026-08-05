@@ -181,5 +181,21 @@ try {
     Remove-Item $TEMP_DIR -Recurse -Force -ErrorAction SilentlyContinue
 } catch {}
 
+# Self-heal: garante a tarefa sob demanda SigeDash-Aplicar (disparada pelo painel via schtasks /Run).
+# Assim clientes que so ATUALIZAM (sem reinstalar) tambem passam a ter a atualizacao in-app.
+try {
+    $TASK_APLICAR = "SigeDash-Aplicar"
+    if (-not (Get-ScheduledTask -TaskName $TASK_APLICAR -ErrorAction SilentlyContinue)) {
+        $selfPath = Join-Path $InstallDir "atualizar.ps1"
+        $act = New-ScheduledTaskAction -Execute "powershell.exe" `
+            -Argument "-NonInteractive -ExecutionPolicy Bypass -File `"$selfPath`""
+        $set = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Hours 1) -StartWhenAvailable
+        Register-ScheduledTask -TaskName $TASK_APLICAR -Action $act -Settings $set `
+            -RunLevel Highest -User "SYSTEM" `
+            -Description "Aplica a atualizacao do SigeDash sob demanda (disparada pelo painel)" | Out-Null
+        Log "Tarefa sob demanda $TASK_APLICAR criada (self-heal)."
+    }
+} catch { Log "AVISO: nao foi possivel garantir a tarefa SigeDash-Aplicar: $_" }
+
 Log ""
 Log "=== Atualizacao concluida: $versaoAtual -> $tagLatest ==="
