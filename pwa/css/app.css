@@ -1114,6 +1114,21 @@ input, button { -webkit-appearance: none; appearance: none; }
 #tela-atualizando[hidden] { display: none; }
 .atualizando-sub { color: rgba(255,255,255,.72); font-size: 12.5px; max-width: 280px; text-align: center; line-height: 1.5; }
 
+/* Caixa da atualização: logo estática + barra de progresso indeterminada (sem sobreposição) */
+.upd-box { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 0 24px; max-width: 340px; text-align: center; }
+.upd-logo { height: 52px; width: auto; filter: drop-shadow(0 2px 16px rgba(0,0,0,.45)); animation: sd-pulse 1.8s ease-in-out infinite; }
+.upd-bar {
+  position: relative; width: 220px; max-width: 78vw; height: 6px;
+  border-radius: 999px; background: rgba(255,255,255,.22); overflow: hidden;
+}
+.upd-bar > span {
+  position: absolute; top: 0; height: 100%; width: 40%;
+  border-radius: 999px; background: #fff;
+  animation: upd-slide 1.15s ease-in-out infinite;
+}
+@keyframes upd-slide { 0% { left: -42%; } 100% { left: 100%; } }
+.upd-fase { color: rgba(255,255,255,.92); font-size: 13px; font-weight: 600; letter-spacing: .01em; }
+
 /* ── Banner de atualização disponível (somente admin) ────────────────────────── */
 #update-banner {
   display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;

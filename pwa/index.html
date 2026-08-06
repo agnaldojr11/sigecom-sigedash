@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="css/app.css?v=22">
+  <link rel="stylesheet" href="css/app.css?v=23">
   <title>SigeDash</title>
 </head>
 <body>
@@ -242,12 +242,11 @@
 
 <!-- Tela de atualizacao (apos clicar em "Atualizar agora") -->
 <div id="tela-atualizando" hidden aria-hidden="true">
-  <div class="loading-box">
-    <div class="loading-logo-wrap">
-      <div class="loading-ring"></div>
-      <img src="logo-sigedash.png" alt="SigeDash" class="loading-logo">
-    </div>
+  <div class="upd-box">
+    <img src="logo-sigedash.png" alt="SigeDash" class="upd-logo">
     <div class="loading-txt">Atualizando o SigeDash…</div>
+    <div class="upd-bar"><span></span></div>
+    <div class="upd-fase" id="upd-fase">Baixando e instalando…</div>
     <div class="atualizando-sub">O painel vai reiniciar em instantes. Não feche esta tela — ela recarrega sozinha.</div>
   </div>
 </div>
@@ -264,9 +263,9 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="js/api.js?v=22"></script>
-<script src="js/render.js?v=22"></script>
-<script src="js/app.js?v=22"></script>
-<script src="js/sw-register.js?v=22"></script>
+<script src="js/api.js?v=23"></script>
+<script src="js/render.js?v=23"></script>
+<script src="js/app.js?v=23"></script>
+<script src="js/sw-register.js?v=23"></script>
 </body>
 </html>

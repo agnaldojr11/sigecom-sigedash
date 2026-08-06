@@ -1172,6 +1172,9 @@ document.getElementById('ub-agora').addEventListener('click', function() {
   var btn = document.getElementById('ub-agora');
   btn.disabled = true; btn.textContent = 'Iniciando…';
   API.aplicarAtualizacao().then(function() {
+    // Para os timers de auto-refresh/heartbeat: evita chamadas (e 502s no console) durante o reinicio.
+    clearInterval(_timerRefresh);
+    clearInterval(_timerHeartbeat);
     _updBanner.hidden = true;
     document.getElementById('tela-atualizando').hidden = false;
     _aguardarReinicioERecarregar();
@@ -1184,13 +1187,24 @@ document.getElementById('ub-agora').addEventListener('click', function() {
 // Espera o backend cair (atualização parando o serviço) e voltar; então recarrega o app
 // para pegar os assets novos (PWA/SW). Failsafe recarrega em 3 min de qualquer forma.
 function _aguardarReinicioERecarregar() {
+  var fase = document.getElementById('upd-fase');
   var caiu = false;
   var timer = setInterval(function() {
     API.online().then(function(ok) {
-      if (!ok) { caiu = true; return; }
-      if (caiu) { clearInterval(timer); setTimeout(function() { location.reload(); }, 1500); }
+      if (!ok) {
+        // Backend parou = a instalação está trocando os arquivos / reiniciando.
+        caiu = true;
+        if (fase) fase.textContent = 'Reiniciando o painel…';
+        return;
+      }
+      if (caiu) {
+        clearInterval(timer);
+        if (fase) fase.textContent = 'Pronto! Recarregando…';
+        setTimeout(function() { location.reload(); }, 1200);
+      }
     });
-  }, 4000);
+  }, 3000);
+  // Failsafe: recarrega em 3 min de qualquer forma
   setTimeout(function() { clearInterval(timer); location.reload(); }, 180000);
 }
 
