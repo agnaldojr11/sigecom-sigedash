@@ -907,7 +907,7 @@ input, button { -webkit-appearance: none; appearance: none; }
 .sec-busca-input {
   width: 100%;
   height: 46px;
-  padding: 0 14px 0 36px;
+  padding: 0 42px 0 36px;
   background: var(--c-surface);
   border: 1.5px solid var(--c-border);
   border-radius: var(--r-sm);
@@ -925,6 +925,19 @@ input, button { -webkit-appearance: none; appearance: none; }
 
 .sec-busca-input::-webkit-search-cancel-button { -webkit-appearance: none; }
 .sec-busca-input::placeholder { color: var(--c-dim); }
+
+/* Botão limpar (X) — aparece só quando há texto (toggle via [hidden] no JS) */
+.sec-busca-clear {
+  position: absolute;
+  right: 8px; top: 50%;
+  transform: translateY(-50%);
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; padding: 0;
+  color: var(--c-muted); cursor: pointer; border-radius: 8px;
+}
+.sec-busca-clear:active { background: var(--c-surface2); color: var(--c-text); }
+.sec-busca-clear[hidden] { display: none; }
 
 /* ─── RESULTADOS DE BUSCA ───────────────────────── */
 .busca-cabecalho {
@@ -1009,6 +1022,18 @@ input, button { -webkit-appearance: none; appearance: none; }
 }
 
 .busca-item-valor.vencido { color: var(--c-danger); }
+.busca-item-valor.pagar { color: var(--c-orange); }
+
+/* Tag A receber / A pagar na busca do financeiro */
+.fin-tag {
+  display: inline-block;
+  font-size: 10px; font-weight: 800; letter-spacing: .03em;
+  text-transform: uppercase;
+  padding: 2px 6px; border-radius: 6px; margin-right: 4px;
+  vertical-align: middle;
+}
+.fin-tag.receber { background: rgba(52,211,153,.15); color: var(--c-success); }
+.fin-tag.pagar   { background: rgba(249,115,22,.15); color: var(--c-orange); }
 
 /* ─── CARREGAR MAIS (paginação) ─────────────────── */
 .btn-carregar-mais {

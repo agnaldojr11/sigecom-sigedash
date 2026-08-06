@@ -23,6 +23,7 @@
   { "handle": "financeiro_inadimplencia",       "titulo": "Inadimplência total",              "tipo": "info",    "cadenciaMinutos": 30, "arquivoSql": "financeiro/inadimplencia_total.sql" },
   { "handle": "financeiro_vencimentos_proximos","titulo": "A pagar — próximos 7 dias",        "tipo": "ranking", "cadenciaMinutos": 30, "arquivoSql": "financeiro/vencimentos_proximos.sql" },
   { "handle": "receber_por_cliente",            "titulo": "Contas a receber por cliente",     "tipo": "ranking", "cadenciaMinutos": 15, "arquivoSql": "financeiro/receber_por_cliente.sql" },
+  { "handle": "pagar_por_fornecedor",           "titulo": "Contas a pagar por fornecedor",    "tipo": "ranking", "cadenciaMinutos": 15, "arquivoSql": "financeiro/pagar_por_fornecedor.sql" },
   { "handle": "saldo_caixas",                   "titulo": "Saldo dos caixas",                 "tipo": "list",    "cadenciaMinutos": 15, "arquivoSql": "saldo/saldo_caixas.sql" },
   { "handle": "saldo_bancario",                 "titulo": "Saldo bancário",                   "tipo": "list",    "cadenciaMinutos": 30, "arquivoSql": "saldo/saldo_bancario.sql" }
 ]

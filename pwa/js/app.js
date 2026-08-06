@@ -211,16 +211,21 @@ function renderEstoque(el) {
       '<input id="est-busca" class="sec-busca-input" type="search" ' +
         'placeholder="Pesquisar produto…" value="' + _escHtml(_estBuscaQ) + '" ' +
         'autocomplete="off" inputmode="search" aria-label="Pesquisar produto">' +
+      _svgLimpar() +
     '</div>';
   el.appendChild(buscaWrap);
 
   var conteudoEl = document.createElement('div');
   el.appendChild(conteudoEl);
 
-  document.getElementById('est-busca').addEventListener('input', function() {
+  var estInput = document.getElementById('est-busca');
+  estInput.addEventListener('input', function() {
     _estBuscaQ = this.value.trim();
     _estTopN = 10;
     _estRenderConteudo(conteudoEl);
+  });
+  _wireBuscaClear(buscaWrap, estInput, function() {
+    _estBuscaQ = ''; _estTopN = 10; _estRenderConteudo(conteudoEl);
   });
 
   _estRenderConteudo(conteudoEl);
@@ -312,9 +317,11 @@ function _estRenderBusca(el, q) {
     return;
   }
 
-  var ql = q.toLowerCase();
+  // Busca por palavras (AND) em nome + código + categoria: "bermuda sure" acha
+  // "BERMUDA FEM BODY FOR SURE ..." mesmo os termos não sendo contíguos.
+  var termos = _tokens(q);
   var filtrados = _estProdutos(snap).filter(function(p) {
-    return (p.label || '').toLowerCase().indexOf(ql) >= 0;
+    return _matchTokens((p.label || '') + ' ' + (p.codigo || '') + ' ' + (p.categoria || ''), termos);
   });
 
   if (!filtrados.length) {
@@ -400,15 +407,20 @@ function renderFinanceiro(el) {
       '<input id="fin-busca" class="sec-busca-input" type="search" ' +
         'placeholder="Buscar cliente ou fornecedor…" value="' + _escHtml(_finBuscaQ) + '" ' +
         'autocomplete="off" inputmode="search" aria-label="Pesquisar">' +
+      _svgLimpar() +
     '</div>';
   el.appendChild(buscaWrap);
 
   var conteudoEl = document.createElement('div');
   el.appendChild(conteudoEl);
 
-  document.getElementById('fin-busca').addEventListener('input', function() {
+  var finInput = document.getElementById('fin-busca');
+  finInput.addEventListener('input', function() {
     _finBuscaQ = this.value.trim();
     _finRenderConteudo(conteudoEl);
+  });
+  _wireBuscaClear(buscaWrap, finInput, function() {
+    _finBuscaQ = ''; _finRenderConteudo(conteudoEl);
   });
 
   _finRenderConteudo(conteudoEl);
@@ -442,22 +454,23 @@ function _finRenderCards(el) {
 }
 
 function _finRenderBusca(el, q) {
-  var snap = _snaps['receber_por_cliente'];
-  if (!snap) {
-    el.appendChild(Render.emptyState('Dados ainda não sincronizados', 'O agente sincroniza contas a receber a cada 15 minutos.'));
+  var snapC = _snaps['receber_por_cliente'];
+  var snapF = _snaps['pagar_por_fornecedor'];
+  if (!snapC && !snapF) {
+    el.appendChild(Render.emptyState('Dados ainda não sincronizados', 'O agente sincroniza contas a receber/pagar a cada 15 minutos.'));
     return;
   }
 
-  var dados = Render.parseSnap(snap).dados;
-  var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-  var ql = q.toLowerCase();
+  // Junta clientes (a receber) e fornecedores (a pagar) numa lista única e busca por palavras.
+  var lista = [];
+  if (snapC) (Render.parseSnap(snapC).dados || []).forEach(function(d) { lista.push({ d: d, pagar: false }); });
+  if (snapF) (Render.parseSnap(snapF).dados || []).forEach(function(d) { lista.push({ d: d, pagar: true  }); });
 
-  var filtrados = dados.filter(function(d) {
-    return (d.label || '').toLowerCase().indexOf(ql) >= 0;
-  });
+  var termos = _tokens(q);
+  var filtrados = lista.filter(function(x) { return _matchTokens(x.d.label || '', termos); });
 
   if (!filtrados.length) {
-    el.appendChild(Render.emptyState('Nenhum resultado', 'Nenhum cliente com esse nome possui contas em aberto.'));
+    el.appendChild(Render.emptyState('Nenhum resultado', 'Nenhum cliente ou fornecedor com esse nome possui contas em aberto.'));
     return;
   }
 
@@ -466,7 +479,9 @@ function _finRenderBusca(el, q) {
   cab.textContent = filtrados.length + (filtrados.length === 1 ? ' resultado' : ' resultados') + ' para "' + q + '"';
   el.appendChild(cab);
 
-  filtrados.forEach(function(d) {
+  var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  filtrados.forEach(function(x) {
+    var d = x.d, ehPagar = x.pagar;
     var nome     = d.label || '';
     var total    = Number(d.value || 0);
     var parcelas = Number(d.parcelas || 1);
@@ -480,15 +495,17 @@ function _finRenderBusca(el, q) {
       ? ' &middot; <span class="' + (vencido ? 'tag-vencido' : 'tag-ok') + '">' +
           (vencido ? 'Venceu ' : 'Vence ') + vencFmt + '</span>'
       : '';
+    var tipoTag = '<span class="fin-tag ' + (ehPagar ? 'pagar' : 'receber') + '">' +
+                  (ehPagar ? 'A pagar' : 'A receber') + '</span>';
 
     var item = document.createElement('div');
     item.className = 'busca-item';
     item.innerHTML =
       '<div class="busca-item-info">' +
-        '<div class="busca-item-nome">' + _escHtml(nome) + '</div>' +
+        '<div class="busca-item-nome">' + tipoTag + ' ' + _escHtml(nome) + '</div>' +
         '<div class="busca-item-det">' + parStr + vencTag + '</div>' +
       '</div>' +
-      '<div class="busca-item-valor' + (vencido ? ' vencido' : '') + '">' + Render.moeda(total) + '</div>';
+      '<div class="busca-item-valor' + (ehPagar ? ' pagar' : (vencido ? ' vencido' : '')) + '">' + Render.moeda(total) + '</div>';
     el.appendChild(item);
   });
 }
@@ -584,6 +601,39 @@ async function enviarPerguntaIA(pergunta) {
 // ── Utilitários ────────────────────────────────────────────────────────────
 function _escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Busca tolerante: minúsculas + remove acentos (ç/á/ã…) para casar "acucar" com "AÇÚCAR".
+function _norm(s) {
+  return String(s == null ? '' : s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+// Quebra a query em termos (por espaço). Ex.: "bermuda sure" -> ["bermuda","sure"].
+function _tokens(q) { return _norm(q).split(/\s+/).filter(Boolean); }
+// Casa se TODOS os termos aparecem no texto (em qualquer ordem/posição) — busca por palavras.
+function _matchTokens(texto, termos) {
+  var t = _norm(texto);
+  for (var i = 0; i < termos.length; i++) if (t.indexOf(termos[i]) < 0) return false;
+  return true;
+}
+
+// HTML do botão "limpar" (X) das barras de busca.
+function _svgLimpar() {
+  return '<button type="button" class="sec-busca-clear" aria-label="Limpar busca" hidden>' +
+    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>' +
+    '</svg></button>';
+}
+
+// Liga o botão "limpar" (X) de uma barra de busca ao seu input.
+function _wireBuscaClear(inner, input, onClear) {
+  var btn = inner.querySelector('.sec-busca-clear');
+  if (!btn) return;
+  function toggle() { btn.hidden = !input.value; }
+  toggle();
+  input.addEventListener('input', toggle);
+  btn.addEventListener('click', function() {
+    input.value = ''; btn.hidden = true; input.focus(); if (onClear) onClear();
+  });
 }
 
 // ── Permissões (admin) ───────────────────────────────────────────────────────
