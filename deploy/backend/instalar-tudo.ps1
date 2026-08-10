@@ -34,6 +34,9 @@ param(
     [string]$NomeCliente       = "",
     [string]$FdbPath           = "C:\SIGECOM\SIGECOM.FDB",
 
+    # Limite de dispositivos/usuarios do plano comercial (0 = ilimitado). -1 = perguntar ao instalador.
+    [int]   $LimiteDispositivos = -1,
+
     [string]$TunnelToken       = "",
     [string]$SigeDashSenha     = "",
 
@@ -320,6 +323,21 @@ try {
 }
 
 # ============================================================
+# Limite de dispositivos do plano (comercial) - pergunta se nao veio por parametro.
+# ============================================================
+if ($LimiteDispositivos -lt 0) {
+    Write-Host ""
+    Write-Host "  PLANO COMERCIAL - Licenciamento por dispositivo" -ForegroundColor Cyan
+    Write-Host "  Quantos dispositivos/usuarios este CNPJ pode usar no SigeDash?" -ForegroundColor White
+    Write-Host "  (cada usuario = 1 dispositivo; digite 0 para ilimitado)" -ForegroundColor DarkGray
+    $resp = Read-Host "  Limite de dispositivos"
+    $n = 0
+    if (-not [int]::TryParse(($resp -replace '\D',''), [ref]$n)) { $n = 0 }
+    $LimiteDispositivos = $n
+}
+Log ("Limite de dispositivos do plano: " + $(if ($LimiteDispositivos -gt 0) { $LimiteDispositivos } else { 'ilimitado' }))
+
+# ============================================================
 Titulo "PASSO 3 - SigeDash Agente"
 # ============================================================
 # O agente agora e instalado via instalar-agente.ps1 (binarios + servico, nao-interativo).
@@ -336,11 +354,12 @@ if (-not (Test-Path $scriptAgente)) {
 } else {
     try {
         & $scriptAgente `
-            -BackendUrl  "http://localhost:5000" `
-            -AdminKey    $AdminKey `
-            -ClienteNome $NomeCliente `
-            -FdbPath     $FdbPath `
-            -AgenteSrc   $agenteSrc
+            -BackendUrl         "http://localhost:5000" `
+            -AdminKey           $AdminKey `
+            -ClienteNome        $NomeCliente `
+            -FdbPath            $FdbPath `
+            -LimiteDispositivos $LimiteDispositivos `
+            -AgenteSrc          $agenteSrc
         if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
             Log "AVISO: instalar-agente.ps1 retornou codigo $LASTEXITCODE. Verifique manualmente."
         } else {

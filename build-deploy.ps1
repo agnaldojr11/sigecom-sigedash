@@ -167,6 +167,7 @@ $SCRIPTS = @(
     "deploy\backend\atualizar.ps1",
     "deploy\backend\rotacionar-segredos.ps1",
     "deploy\backend\resetar-senha.ps1",
+    "deploy\backend\definir-limite.ps1",
     "deploy\agente\configurar-cliente.ps1"
 )
 

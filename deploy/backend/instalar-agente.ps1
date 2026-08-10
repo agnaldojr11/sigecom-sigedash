@@ -31,6 +31,7 @@ param(
     [string]$FdbPath,
 
     [string]$BackendUrl = "http://localhost:5000",
+    [int]   $LimiteDispositivos = 0,   # 0 = ilimitado; repassado ao configurar-cliente.ps1
     [string]$AgenteSrc  = (Join-Path $PSScriptRoot "agente"),
     [string]$InstallDir = "C:\Program Files\SistemasBr\SigeDash"
 )
@@ -92,11 +93,12 @@ if (-not (Test-Path $scriptConf)) {
 
 Log "Registrando cliente no backend e gravando config..."
 & $scriptConf `
-    -BackendUrl  $BackendUrl `
-    -AdminKey    $AdminKey `
-    -ClienteNome $ClienteNome `
-    -FdbPath     $FdbPath `
-    -ConfigDir   (Join-Path $InstallDir "Config")
+    -BackendUrl         $BackendUrl `
+    -AdminKey           $AdminKey `
+    -ClienteNome        $ClienteNome `
+    -FdbPath            $FdbPath `
+    -LimiteDispositivos $LimiteDispositivos `
+    -ConfigDir          (Join-Path $InstallDir "Config")
 if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
     Log "ERRO: configurar-cliente.ps1 falhou com codigo $LASTEXITCODE"
     exit 1

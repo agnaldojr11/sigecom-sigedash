@@ -3,6 +3,7 @@ param(
     [string]$AdminKey,
     [string]$ClienteNome,
     [string]$FdbPath,
+    [int]   $LimiteDispositivos = 0,   # 0 = ilimitado; definido pela SistemasBr (plano comercial)
     [string]$Sysdba      = "masterkey",
     [string]$ConfigDir    = "C:\SIGECOM\SIGEDASH"
 )
@@ -27,10 +28,12 @@ if (-not (Test-Path $FdbPath)) {
 # ── 2. Registra o cliente no backend ─────────────────────────────────────────
 try {
     $bodyCliente = @{
-        nome          = $ClienteNome
-        codigoEmpresa = 1
-        nomeLoja      = "Matriz"
+        nome               = $ClienteNome
+        codigoEmpresa      = 1
+        nomeLoja           = "Matriz"
+        limiteDispositivos = $LimiteDispositivos
     } | ConvertTo-Json
+    Log ("Limite de dispositivos do plano: " + $(if ($LimiteDispositivos -gt 0) { $LimiteDispositivos } else { 'ilimitado' }))
 
     $respCliente = Invoke-RestMethod `
         -Uri     "$BackendUrl/admin/clientes" `

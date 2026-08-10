@@ -56,6 +56,16 @@ public static class PermissoesEndpoints
             if (await db.UsuariosApp.AnyAsync(u => u.ClienteId == clienteId && u.Login == login))
                 return Results.Conflict(new { erro = $"Ja existe um usuario '{login}'." });
 
+            // Limite de dispositivos/seats do plano (0 = ilimitado). Usuario novo nasce ativo => consome 1 vaga.
+            var limite = await LimitePlano(db, clienteId);
+            if (limite > 0)
+            {
+                var ativos = await db.UsuariosApp.CountAsync(u => u.ClienteId == clienteId && u.Ativo);
+                if (ativos >= limite)
+                    return Results.Json(new { erro = $"Limite de dispositivos do plano atingido ({limite}). Contate a SistemasBr para liberar mais." },
+                                        statusCode: StatusCodes.Status409Conflict);
+            }
+
             // Senha: se o admin informar, valida a politica; senao gera uma temporaria forte.
             string senhaPlano;
             if (string.IsNullOrWhiteSpace(dto.Senha)) senhaPlano = Senhas.GerarTemporaria();
@@ -91,6 +101,18 @@ public static class PermissoesEndpoints
             var euId = UsuarioId(user);
             if (alvo.Id == euId && (dto.EhAdmin == false || dto.Ativo == false))
                 return Bad("Voce nao pode remover seu proprio acesso de administrador nem se desativar.");
+
+            // Reativar um usuario consome 1 vaga do plano — respeita o limite de dispositivos.
+            if (dto.Ativo == true && alvo.Ativo == false)
+            {
+                var limite = await LimitePlano(db, clienteId);
+                if (limite > 0)
+                {
+                    var ativos = await db.UsuariosApp.CountAsync(u => u.ClienteId == clienteId && u.Ativo);
+                    if (ativos >= limite)
+                        return Bad($"Limite de dispositivos do plano atingido ({limite}). Desative outro usuario ou contate a SistemasBr.");
+                }
+            }
 
             if (dto.NomeExibicao is not null) alvo.NomeExibicao = string.IsNullOrWhiteSpace(dto.NomeExibicao) ? null : dto.NomeExibicao.Trim();
             if (dto.EhAdmin is { } adm) alvo.EhAdmin = adm;
@@ -148,7 +170,28 @@ public static class PermissoesEndpoints
             await db.SaveChangesAsync();
             return Results.Ok(new { alvo.Id, alvo.Login, secoes = Permissoes.SecoesEfetivas(alvo).ToArray() });
         }).RequireAuthorization();
+
+        // Plano do cliente: limite de dispositivos (seats) e quantos usuarios ativos ha.
+        // O admin do cliente SO visualiza (nao altera o limite — isso e da SistemasBr).
+        app.MapGet("/admin/plano", async (ClaimsPrincipal user, AppDbContext db) =>
+        {
+            if (!await EhAdminAtual(user, db)) return Results.Forbid();
+            var clienteId = ClienteId(user);
+            var limite = await LimitePlano(db, clienteId);
+            var ativos = await db.UsuariosApp.CountAsync(u => u.ClienteId == clienteId && u.Ativo);
+            return Results.Ok(new
+            {
+                limiteDispositivos = limite,
+                usuariosAtivos     = ativos,
+                ilimitado          = limite <= 0,
+                disponivel         = limite <= 0 ? (int?)null : Math.Max(0, limite - ativos)
+            });
+        }).RequireAuthorization();
     }
+
+    // Limite de dispositivos/seats do plano do cliente (0 = ilimitado).
+    private static async Task<int> LimitePlano(AppDbContext db, int clienteId)
+        => await db.Clientes.Where(c => c.Id == clienteId).Select(c => c.LimiteDispositivos).FirstOrDefaultAsync();
 
     private static IResult Bad(string erro) => Results.Json(new { erro }, statusCode: StatusCodes.Status400BadRequest);
     private static int ClienteId(ClaimsPrincipal u) => int.Parse(u.FindFirstValue("cliente_id")!);

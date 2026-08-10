@@ -150,6 +150,14 @@ const API = (() => {
     return r.json();
   }
 
+  // Plano do cliente: limite de dispositivos (seats) e usuarios ativos (somente admin).
+  async function plano() {
+    const r = await fetch(`${BASE}/admin/plano`, { headers: { "Authorization": `Bearer ${token}` } });
+    if (r.status === 401) throw _erro401(r);
+    if (!r.ok) throw new Error("Erro ao carregar o plano");
+    return r.json();
+  }
+
   // --- Atualizacao in-app (somente admin) ---
   async function statusAtualizacao() {
     const r = await fetch(`${BASE}/admin/atualizacao/status`, {
@@ -208,5 +216,5 @@ const API = (() => {
   return { login, dashboards, queryIA, empresas, sair, logado, ping,
            ehAdmin, secoes, listarUsuarios, salvarPermissoes,
            trocarSenha, criarUsuario, editarUsuario, resetarSenha, excluirUsuario,
-           statusAtualizacao, aplicarAtualizacao, online };
+           statusAtualizacao, aplicarAtualizacao, online, plano };
 })();

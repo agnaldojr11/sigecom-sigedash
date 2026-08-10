@@ -6,8 +6,9 @@ using SigeDash.Api.Seguranca;
 
 namespace SigeDash.Api.Endpoints;
 
-public record CriarClienteRequest(string Nome, int CodigoEmpresa, string NomeLoja, string? AdminLogin = null);
+public record CriarClienteRequest(string Nome, int CodigoEmpresa, string NomeLoja, string? AdminLogin = null, int LimiteDispositivos = 0);
 public record ResetSenhaRequest(string Login, string? Cliente = null);
+public record DefinirLimiteRequest(int Limite, string? Cliente = null);
 
 /// <summary>
 /// Endpoints de administração — protegidos por X-Admin-Key (config AdminKey).
@@ -28,7 +29,7 @@ public static class AdminEndpoints
                 return Results.Conflict(new { erro = $"Cliente '{r.Nome}' já existe." });
 
             var chave = GerarChave();
-            var cliente = new Cliente { Nome = r.Nome, ChaveApi = chave, Ativo = true };
+            var cliente = new Cliente { Nome = r.Nome, ChaveApi = chave, Ativo = true, LimiteDispositivos = r.LimiteDispositivos };
             db.Clientes.Add(cliente);
             await db.SaveChangesAsync();
 
@@ -70,8 +71,33 @@ public static class AdminEndpoints
         // ── GET /admin/clientes ───────────────────────────────────────────────
         admin.MapGet("/clientes", async (AppDbContext db) =>
             await db.Clientes
-                .Select(c => new { c.Id, c.Nome, c.ChaveApi, c.Ativo })
+                .Select(c => new { c.Id, c.Nome, c.ChaveApi, c.Ativo, c.LimiteDispositivos })
                 .ToListAsync());
+
+        // ── POST /admin/limite-dispositivos ───────────────────────────────────
+        // Define/ajusta o limite de usuarios (seats/dispositivos) do plano. SO pela SistemasBr
+        // (X-Admin-Key + gate "somente local"). O admin do cliente nunca altera — apenas visualiza.
+        // Usado no install e pelo definir-limite.ps1 quando o cliente compra mais licencas.
+        admin.MapPost("/limite-dispositivos", async (DefinirLimiteRequest r, AppDbContext db) =>
+        {
+            if (r.Limite < 0) return Results.BadRequest(new { erro = "Limite invalido (use 0 para ilimitado)." });
+
+            Cliente? cliente;
+            if (!string.IsNullOrWhiteSpace(r.Cliente))
+                cliente = await db.Clientes.FirstOrDefaultAsync(c => c.Nome == r.Cliente);
+            else
+            {
+                var dois = await db.Clientes.Take(2).ToListAsync();
+                if (dois.Count != 1) return Results.BadRequest(new { erro = "Ha mais de um cliente; informe 'cliente'." });
+                cliente = dois[0];
+            }
+            if (cliente is null) return Results.NotFound(new { erro = "Cliente nao encontrado." });
+
+            cliente.LimiteDispositivos = r.Limite;
+            await db.SaveChangesAsync();
+            var ativos = await db.UsuariosApp.CountAsync(u => u.ClienteId == cliente.Id && u.Ativo);
+            return Results.Ok(new { cliente = cliente.Nome, limiteDispositivos = cliente.LimiteDispositivos, usuariosAtivos = ativos });
+        });
 
         // ── POST /admin/reset-senha ───────────────────────────────────────────
         // Recuperacao LOCAL (no servidor do cliente) quando o ADM perde a senha e nao ha

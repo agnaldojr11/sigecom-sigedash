@@ -7,6 +7,11 @@ public class Cliente
     public string Nome { get; set; } = "";
     public string ChaveApi { get; set; } = "";
     public bool Ativo { get; set; } = true;
+
+    /// <summary>Limite de usuarios (seats/dispositivos) do plano comercial. 0 = ilimitado.
+    /// Definido SO pela SistemasBr (install / script com X-Admin-Key); o admin do cliente apenas visualiza.</summary>
+    public int LimiteDispositivos { get; set; }
+
     public List<Loja> Lojas { get; set; } = new();
 }
 

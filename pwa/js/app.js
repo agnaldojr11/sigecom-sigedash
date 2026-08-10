@@ -648,6 +648,7 @@ function abrirPermissoes() {
   API.listarUsuarios().then(function(usuarios) {
     body.innerHTML = '';
     body.appendChild(_versaoBloco());
+    body.appendChild(_planoBloco());
     body.appendChild(_novoUsuarioBloco());
     if (!usuarios || !usuarios.length) {
       body.appendChild(Render.emptyState('Nenhum usuário', 'Use o botão acima para cadastrar o primeiro usuário.'));
@@ -660,6 +661,30 @@ function abrirPermissoes() {
   });
 }
 function _recarregarPerm() { abrirPermissoes(); }
+
+// Bloco do plano: quantos dispositivos/usuarios estao em uso vs o limite contratado.
+function _planoBloco() {
+  var wrap = document.createElement('div');
+  wrap.className = 'perm-versao';
+  wrap.innerHTML =
+    '<div class="pv-linha">' +
+      '<span class="pv-label">Dispositivos do plano</span>' +
+      '<span class="pv-valor">…</span>' +
+    '</div>';
+  var valor = wrap.querySelector('.pv-valor');
+  API.plano().then(function(p) {
+    if (p.ilimitado) {
+      valor.innerHTML = '<strong>' + p.usuariosAtivos + '</strong> em uso ' +
+        '<span class="pv-badge atualizado">ilimitado</span>';
+    } else {
+      var cheio = p.disponivel <= 0;
+      valor.innerHTML = '<strong>' + p.usuariosAtivos + ' de ' + p.limiteDispositivos + '</strong> ' +
+        '<span class="pv-badge ' + (cheio ? 'desatualizado' : 'atualizado') + '">' +
+        (cheio ? 'limite atingido' : (p.disponivel + ' vaga(s) livre(s)')) + '</span>';
+    }
+  }).catch(function() { valor.textContent = '—'; });
+  return wrap;
+}
 
 // Bloco de versao no topo das configuracoes: mostra a versao instalada e se ha atualizacao.
 function _versaoBloco() {
