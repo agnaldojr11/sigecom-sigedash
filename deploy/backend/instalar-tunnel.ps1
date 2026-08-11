@@ -78,6 +78,15 @@ if ($svc) {
     Log "Servico removido."
 }
 
+# Remove a chave de EventLog remanescente de instalacao anterior. Sem isso, o 'service install'
+# falha com "Cannot install event logger ... registry key already exists" e o servico nao sobe
+# (tunel fica inactive). 'service uninstall' NAO limpa essa chave.
+$evtKey = "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\Cloudflared"
+if (Test-Path $evtKey) {
+    Remove-Item $evtKey -Recurse -Force -ErrorAction SilentlyContinue
+    Log "Chave de EventLog remanescente do cloudflared removida."
+}
+
 # Baixa cloudflared.exe se necessario
 if (-not (Test-Path $CLOUDFLARED)) {
     Log "Baixando cloudflared.exe..."
