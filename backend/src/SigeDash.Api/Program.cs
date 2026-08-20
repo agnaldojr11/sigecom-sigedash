@@ -74,6 +74,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 builder.Services.AddHttpClient("ia");
 
+// Telemetria phone-home para o SigeDash Central (no-op se Central:Url/ChaveTelemetria vazios).
+builder.Services.AddHttpClient("central");
+builder.Services.AddHostedService<SigeDash.Api.Servicos.TelemetriaHostedService>();
+
 // Compressao de resposta (gzip/brotli). O /dash pode trafegar a lista completa de
 // produtos (milhares de linhas); JSON repetitivo comprime para uma fracao do tamanho.
 // EnableForHttps: o backend pode atender direto (sem o tunnel comprimir na borda).

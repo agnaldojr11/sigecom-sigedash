@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0d1526">
+  <title>SigeDash Central</title>
+  <link rel="stylesheet" href="css/painel.css?v=1">
+</head>
+<body>
+
+  <!-- LOGIN -->
+  <section id="tela-login">
+    <div class="login-card">
+      <div class="login-brand"><span class="dot"></span> SigeDash Central</div>
+      <div class="login-sub">Painel da frota · SistemasBr</div>
+      <label for="in-login">Usuário</label>
+      <input id="in-login" type="text" autocomplete="username" placeholder="admin">
+      <label for="in-senha">Senha</label>
+      <input id="in-senha" type="password" autocomplete="current-password" placeholder="Senha">
+      <button id="btn-entrar" type="button">Entrar</button>
+      <p id="login-erro" class="erro" role="alert"></p>
+    </div>
+  </section>
+
+  <!-- APP -->
+  <div id="app" hidden>
+    <header class="topbar">
+      <div class="brand"><span class="dot"></span> SigeDash Central</div>
+      <div class="top-actions">
+        <span id="atualizado" class="atualizado"></span>
+        <button id="btn-refresh" title="Atualizar">↻</button>
+        <button id="btn-sair" title="Sair">Sair</button>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <section id="resumo" class="cards"></section>
+
+      <div class="sec-titulo">Clientes</div>
+      <div class="tbl-wrap">
+        <table id="tbl-frota">
+          <thead>
+            <tr>
+              <th>Cliente</th><th>Status</th><th>Versão</th>
+              <th>Dispositivos</th><th>Indicadores</th><th>Último sinal</th>
+            </tr>
+          </thead>
+          <tbody id="frota-body"></tbody>
+        </table>
+      </div>
+      <p id="frota-vazio" class="vazio" hidden>Nenhum cliente registrado ainda. Registre pelo endpoint <code>/admin/clientes</code>.</p>
+    </main>
+  </div>
+
+  <!-- DETALHE -->
+  <div id="overlay" hidden>
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <div id="det-nome" class="modal-titulo"></div>
+          <div id="det-sub" class="modal-sub"></div>
+        </div>
+        <button id="btn-fechar" title="Fechar">✕</button>
+      </div>
+      <div id="det-body" class="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="js/painel.js?v=1"></script>
+</body>
+</html>
