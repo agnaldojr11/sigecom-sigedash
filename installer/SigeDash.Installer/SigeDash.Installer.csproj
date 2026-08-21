@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>Instalar-SigeDash</AssemblyName>
+    <RootNamespace>SigeDash.Installer</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyTitle>SigeDash Instalador</AssemblyTitle>
+    <Company>SistemasBr</Company>
+    <Product>SigeDash</Product>
+    <Version>1.0.0</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets\logo-sigedash.png" />
+  </ItemGroup>
+</Project>

@@ -158,7 +158,8 @@ Start-Sleep -Seconds 3
 
 # 1) Backend: tudo, exceto a subpasta 'agente\' e o appsettings.Production.json (senhas do cliente)
 $arqBackend = Get-ChildItem $extractPath -Recurse -File | Where-Object {
-    $_.Name -ne "appsettings.Production.json" -and $_.FullName -notmatch '\\agente\\'
+    $_.Name -ne "appsettings.Production.json" -and $_.FullName -notmatch '\\agente\\' `
+    -and $_.Name -ne "Instalar-SigeDash.exe"   # instalador (68 MB) so serve p/ install novo, nao p/ update
 }
 $qtdBack = 0
 foreach ($f in $arqBackend) {

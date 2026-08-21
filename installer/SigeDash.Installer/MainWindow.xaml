@@ -1,0 +1,281 @@
+<Window x:Class="SigeDash.Installer.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SigeDash Instalador" Height="580" Width="820"
+        WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="NoResize"
+        FontFamily="Segoe UI" AllowsTransparency="False" Background="#0F172A">
+
+    <Window.Resources>
+        <SolidColorBrush x:Key="Bg"       Color="#0F172A"/>
+        <SolidColorBrush x:Key="Surface"  Color="#1E293B"/>
+        <SolidColorBrush x:Key="Surface2" Color="#263348"/>
+        <SolidColorBrush x:Key="Border"   Color="#334155"/>
+        <SolidColorBrush x:Key="Text"     Color="#E2E8F0"/>
+        <SolidColorBrush x:Key="Muted"    Color="#94A3B8"/>
+        <SolidColorBrush x:Key="Dim"      Color="#64748B"/>
+        <SolidColorBrush x:Key="Accent"   Color="#3B82F6"/>
+        <SolidColorBrush x:Key="AccentLt" Color="#5B9BFF"/>
+        <SolidColorBrush x:Key="Success"  Color="#34D399"/>
+
+        <!-- Botão primário -->
+        <Style x:Key="BtnPrimary" TargetType="Button">
+            <Setter Property="Background" Value="#2563EB"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Height" Value="42"/>
+            <Setter Property="Padding" Value="22,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="9" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#3B82F6"/></Trigger>
+                <Trigger Property="IsEnabled" Value="False"><Setter Property="Background" Value="#334155"/><Setter Property="Foreground" Value="#64748B"/></Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Botão secundário (ghost) -->
+        <Style x:Key="BtnGhost" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Height" Value="42"/>
+            <Setter Property="Padding" Value="18,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="9" BorderBrush="{StaticResource Border}" BorderThickness="1" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{StaticResource Text}"/><Setter Property="Background" Value="#1E293B"/></Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Botão copiar (pequeno) -->
+        <Style x:Key="BtnCopy" TargetType="Button" BasedOn="{StaticResource BtnGhost}">
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+
+        <!-- Campo de texto -->
+        <Style x:Key="Input" TargetType="TextBox">
+            <Setter Property="Background" Value="{StaticResource Bg}"/>
+            <Setter Property="Foreground" Value="{StaticResource Text}"/>
+            <Setter Property="CaretBrush" Value="{StaticResource AccentLt}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Border}"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Height" Value="42"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="12,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="9">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsKeyboardFocused" Value="True"><Setter Property="BorderBrush" Value="{StaticResource Accent}"/></Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="Label" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="2,0,0,6"/>
+        </Style>
+        <Style x:Key="Hint" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource Dim}"/>
+            <Setter Property="FontSize" Value="11.5"/>
+            <Setter Property="Margin" Value="2,6,0,0"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+    </Window.Resources>
+
+    <Border BorderBrush="#29385A" BorderThickness="1">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="250"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- ===== RAIL (marca + etapas) ===== -->
+            <Grid Grid.Column="0">
+                <Grid.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#1D4ED8" Offset="0"/>
+                        <GradientStop Color="#1E3A8A" Offset="0.5"/>
+                        <GradientStop Color="#0F172A" Offset="1"/>
+                    </LinearGradientBrush>
+                </Grid.Background>
+                <StackPanel Margin="26,34,20,0">
+                    <Image Source="pack://application:,,,/Assets/logo-sigedash.png" Height="46" HorizontalAlignment="Left"/>
+                    <TextBlock Text="SigeDash" Foreground="White" FontSize="24" FontWeight="Bold" Margin="0,16,0,0"/>
+                    <TextBlock Text="Assistente de instalação" Foreground="#C7D6F5" FontSize="12.5" Margin="0,2,0,0"/>
+
+                    <StackPanel x:Name="Steps" Margin="0,40,0,0">
+                        <Grid x:Name="stepRow1" Margin="0,0,0,20">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <Border x:Name="stepNum1" Width="26" Height="26" CornerRadius="13" Background="#33FFFFFF" HorizontalAlignment="Left">
+                                <TextBlock Text="1" Foreground="White" FontWeight="Bold" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock x:Name="stepTxt1" Grid.Column="1" Text="Bem-vindo" Foreground="White" FontSize="13.5" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                        </Grid>
+                        <Grid x:Name="stepRow2" Margin="0,0,0,20">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <Border x:Name="stepNum2" Width="26" Height="26" CornerRadius="13" Background="#22FFFFFF" HorizontalAlignment="Left">
+                                <TextBlock Text="2" Foreground="#C7D6F5" FontWeight="Bold" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock x:Name="stepTxt2" Grid.Column="1" Text="Configuração" Foreground="#9FB4E0" FontSize="13.5" VerticalAlignment="Center"/>
+                        </Grid>
+                        <Grid x:Name="stepRow3" Margin="0,0,0,20">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <Border x:Name="stepNum3" Width="26" Height="26" CornerRadius="13" Background="#22FFFFFF" HorizontalAlignment="Left">
+                                <TextBlock Text="3" Foreground="#C7D6F5" FontWeight="Bold" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock x:Name="stepTxt3" Grid.Column="1" Text="Instalação" Foreground="#9FB4E0" FontSize="13.5" VerticalAlignment="Center"/>
+                        </Grid>
+                        <Grid x:Name="stepRow4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="34"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <Border x:Name="stepNum4" Width="26" Height="26" CornerRadius="13" Background="#22FFFFFF" HorizontalAlignment="Left">
+                                <TextBlock Text="4" Foreground="#C7D6F5" FontWeight="Bold" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock x:Name="stepTxt4" Grid.Column="1" Text="Concluído" Foreground="#9FB4E0" FontSize="13.5" VerticalAlignment="Center"/>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+                <TextBlock Text="SistemasBr" Foreground="#88A0CC" FontSize="11" VerticalAlignment="Bottom" Margin="26,0,0,20"/>
+            </Grid>
+
+            <!-- ===== LADO DIREITO ===== -->
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Top bar (arrastar + min/fechar) -->
+                <Grid x:Name="TopBar" Grid.Row="0" Background="#0F172A" Height="40">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0">
+                        <Button x:Name="btnMin" Content="—" Width="34" Height="30" Foreground="{StaticResource Muted}" Background="Transparent" BorderThickness="0" Cursor="Hand" FontSize="13"/>
+                        <Button x:Name="btnClose" Content="✕" Width="34" Height="30" Foreground="{StaticResource Muted}" Background="Transparent" BorderThickness="0" Cursor="Hand" FontSize="13"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Conteúdo (4 painéis) -->
+                <Grid Grid.Row="1" Margin="40,10,40,0">
+
+                    <!-- Painel 1: Bem-vindo -->
+                    <StackPanel x:Name="panelWelcome">
+                        <TextBlock Text="Bem-vindo 👋" Foreground="{StaticResource Text}" FontSize="26" FontWeight="Bold"/>
+                        <TextBlock Text="Vamos instalar e configurar o SigeDash neste servidor. O processo é automático e leva cerca de 5 minutos."
+                                   Foreground="{StaticResource Muted}" FontSize="14" TextWrapping="Wrap" Margin="0,10,0,0" MaxWidth="440" HorizontalAlignment="Left"/>
+                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="12" Margin="0,24,0,0" Padding="18,14">
+                            <StackPanel>
+                                <TextBlock Text="O que será instalado" Foreground="{StaticResource Dim}" FontSize="11" FontWeight="SemiBold"/>
+                                <TextBlock Text="•  Banco de dados PostgreSQL" Foreground="{StaticResource Text}" FontSize="13.5" Margin="0,8,0,0"/>
+                                <TextBlock Text="•  Servidor SigeDash (backend + painel)" Foreground="{StaticResource Text}" FontSize="13.5" Margin="0,6,0,0"/>
+                                <TextBlock Text="•  Agente de indicadores (SIGECOM)" Foreground="{StaticResource Text}" FontSize="13.5" Margin="0,6,0,0"/>
+                                <TextBlock Text="•  Acesso remoto seguro (Cloudflare Tunnel)" Foreground="{StaticResource Text}" FontSize="13.5" Margin="0,6,0,0"/>
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="Requisitos: privilégios de administrador e conexão com a internet." Style="{StaticResource Hint}" Margin="2,16,0,0"/>
+                    </StackPanel>
+
+                    <!-- Painel 2: Configuração -->
+                    <StackPanel x:Name="panelConfig" Visibility="Collapsed">
+                        <TextBlock Text="Configuração" Foreground="{StaticResource Text}" FontSize="24" FontWeight="Bold"/>
+                        <TextBlock Text="Confirme os dados deste cliente." Foreground="{StaticResource Muted}" FontSize="13.5" Margin="0,6,0,18"/>
+
+                        <TextBlock Text="EMPRESA" Style="{StaticResource Label}"/>
+                        <TextBox x:Name="txtEmpresa" Style="{StaticResource Input}"/>
+                        <TextBlock Text="Deixe em branco para detectar automaticamente pelo banco do SIGECOM." Style="{StaticResource Hint}"/>
+
+                        <Grid Margin="0,16,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="140"/></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="CAMINHO DO BANCO (FDB)" Style="{StaticResource Label}"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBox x:Name="txtFdb" Grid.Column="0" Style="{StaticResource Input}" Text="C:\SIGECOM\SIGECOM.FDB"/>
+                                    <Button x:Name="btnProcurar" Grid.Column="2" Content="Procurar" Style="{StaticResource BtnGhost}"/>
+                                </Grid>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="DISPOSITIVOS" Style="{StaticResource Label}"/>
+                                <TextBox x:Name="txtLimite" Style="{StaticResource Input}" Text="1"/>
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Text="Dispositivos = licenças do plano (0 = ilimitado). O administrador conta como 1." Style="{StaticResource Hint}"/>
+
+                        <TextBlock Text="TOKEN DO TÚNEL (opcional)" Style="{StaticResource Label}" Margin="2,16,0,6"/>
+                        <TextBox x:Name="txtToken" Style="{StaticResource Input}"/>
+                        <TextBlock Text="Deixe em branco para criar o túnel automaticamente." Style="{StaticResource Hint}"/>
+                    </StackPanel>
+
+                    <!-- Painel 3: Instalação -->
+                    <Grid x:Name="panelProgress" Visibility="Collapsed">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" x:Name="txtProgTitulo" Text="Instalando o SigeDash…" Foreground="{StaticResource Text}" FontSize="22" FontWeight="Bold"/>
+                        <ProgressBar Grid.Row="1" x:Name="barProg" IsIndeterminate="True" Height="6" Margin="0,16,0,14"
+                                     Background="#1E293B" Foreground="#3B82F6" BorderThickness="0"/>
+                        <Border Grid.Row="2" Background="#0B1220" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="10" Margin="0,0,0,6">
+                            <TextBox x:Name="txtLog" IsReadOnly="True" Background="Transparent" Foreground="#B5C4DB" BorderThickness="0"
+                                     FontFamily="Consolas" FontSize="12" Padding="12,10" TextWrapping="NoWrap"
+                                     VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+                        </Border>
+                    </Grid>
+
+                    <!-- Painel 4: Concluído -->
+                    <StackPanel x:Name="panelFinish" Visibility="Collapsed">
+                        <StackPanel Orientation="Horizontal">
+                            <Border Width="40" Height="40" CornerRadius="20" Background="#1B3B2E" VerticalAlignment="Center">
+                                <TextBlock Text="✓" Foreground="{StaticResource Success}" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel Margin="14,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="SigeDash instalado!" Foreground="{StaticResource Text}" FontSize="22" FontWeight="Bold"/>
+                                <TextBlock x:Name="txtFinishSub" Text="Anote as credenciais abaixo e entregue ao responsável." Foreground="{StaticResource Muted}" FontSize="13"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="12" Margin="0,20,0,0" Padding="18,14">
+                            <StackPanel x:Name="finishCreds">
+                                <!-- linhas preenchidas em código -->
+                            </StackPanel>
+                        </Border>
+                        <TextBlock Text="⚠  A troca da senha do administrador é obrigatória no primeiro acesso." Style="{StaticResource Hint}" Foreground="#FBBF24" Margin="2,14,0,0"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Barra de navegação -->
+                <Grid Grid.Row="2" Margin="40,16,40,22">
+                    <Button x:Name="btnVoltar" Content="Voltar" Style="{StaticResource BtnGhost}" HorizontalAlignment="Left" Width="110" Visibility="Collapsed"/>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button x:Name="btnCancelar" Content="Cancelar" Style="{StaticResource BtnGhost}" Width="110" Margin="0,0,10,0"/>
+                        <Button x:Name="btnAvancar" Content="Avançar" Style="{StaticResource BtnPrimary}" Width="150"/>
+                        <Button x:Name="btnInstalar" Content="Instalar" Style="{StaticResource BtnPrimary}" Width="150" Visibility="Collapsed"/>
+                        <Button x:Name="btnConcluir" Content="Concluir" Style="{StaticResource BtnPrimary}" Width="150" Visibility="Collapsed"/>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

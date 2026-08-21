@@ -229,54 +229,28 @@ if (Test-Path $cfJson) {
     Write-Host "  Execute .\configurar-cf.ps1 para habilitar criacao automatica de tunnels." -ForegroundColor Yellow
 }
 
-# 4d. Gera Instalar-SigeDash.exe via ps2exe
-Titulo "4d" "Gerando Instalar-SigeDash.exe..."
-$ps2exeModule = Get-Module -ListAvailable ps2exe | Select-Object -First 1
-if ($ps2exeModule) {
-    $launcherSrc = Join-Path $env:TEMP "sigedash-launcher.ps1"
-    $exePath     = Join-Path $PKG_DIR "Instalar-SigeDash.exe"
-
-    # Script minimo que o exe vai executar.
-    # IMPORTANTE: em exe do ps2exe, $PSScriptRoot/$PSCommandPath vem VAZIO. Por isso usamos
-    # o caminho real do processo (o proprio exe) via MainModule.FileName para achar os .ps1.
-    $launcherLines = @(
-        '$exeDir = Split-Path ([System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName)',
-        'Get-ChildItem "$exeDir\*.ps1" -ErrorAction SilentlyContinue | Unblock-File',
-        '$instalador = Join-Path $exeDir "instalar-tudo.ps1"',
-        'if (-not (Test-Path $instalador)) {',
-        '    Write-Host "ERRO: instalar-tudo.ps1 nao encontrado em $exeDir" -ForegroundColor Red',
-        '    Read-Host "Pressione Enter para fechar"; exit 1',
-        '}',
-        '# Roda em processo filho: isola o "exit" do script e garante a pausa final para ler o erro.',
-        '& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $instalador',
-        'Write-Host ""',
-        'Read-Host "Pressione Enter para fechar"'
-    )
-    $launcherLines | Out-File $launcherSrc -Encoding UTF8
-
-    Import-Module ps2exe -ErrorAction SilentlyContinue
-    $versaoExe = "$Versao.0"   # ps2exe exige formato X.X.X.X
-    Invoke-ps2exe `
-        -InputFile    $launcherSrc `
-        -OutputFile   $exePath `
-        -requireAdmin `
-        -title        "SigeDash Instalador" `
-        -description  "Instalacao automatica do SigeDash - SistemasBr" `
-        -company      "SistemasBr" `
-        -product      "SigeDash" `
-        -version      $versaoExe
-
-    Remove-Item $launcherSrc -ErrorAction SilentlyContinue
-
-    if (Test-Path $exePath) {
-        $exeSizeKB = [math]::Round((Get-Item $exePath).Length / 1KB, 0)
-        Log "Instalar-SigeDash.exe gerado (${exeSizeKB} KB)."
+# 4d. Gera Instalar-SigeDash.exe — wizard grafico WPF (.NET), self-contained single-file.
+#     Roda em Windows Server limpo (sem runtime instalado). Reaproveita o instalar-tudo.ps1 por baixo.
+Titulo "4d" "Gerando Instalar-SigeDash.exe (wizard WPF)..."
+$instProj = Join-Path $ROOT "installer\SigeDash.Installer\SigeDash.Installer.csproj"
+$exePath  = Join-Path $PKG_DIR "Instalar-SigeDash.exe"
+if (Test-Path $instProj) {
+    $instOut = Join-Path $env:TEMP "sgd-installer-pub"
+    if (Test-Path $instOut) { Remove-Item $instOut -Recurse -Force -ErrorAction SilentlyContinue }
+    & dotnet publish $instProj -c Release -r win-x64 --self-contained true `
+        -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true `
+        -p:EnableCompressionInSingleFile=true -p:DebugType=none -p:DebugSymbols=false `
+        -o $instOut --nologo -v q
+    $instExe = Join-Path $instOut "Instalar-SigeDash.exe"
+    if (Test-Path $instExe) {
+        Copy-Item $instExe $exePath -Force
+        $exeSizeMB = [math]::Round((Get-Item $exePath).Length / 1MB, 1)
+        Log "Instalar-SigeDash.exe (WPF) gerado (${exeSizeMB} MB)."
     } else {
-        Write-Host "  AVISO: falha ao gerar exe - iniciar.cmd disponivel como alternativa." -ForegroundColor Yellow
+        Write-Host "  AVISO: falha ao publicar o instalador WPF - iniciar.cmd disponivel como alternativa." -ForegroundColor Yellow
     }
 } else {
-    Write-Host "  AVISO: ps2exe nao instalado - pulando geracao do exe." -ForegroundColor Yellow
-    Write-Host "  Execute: Install-Module ps2exe -Force -Scope CurrentUser" -ForegroundColor Yellow
+    Write-Host "  AVISO: projeto do instalador nao encontrado ($instProj) - pulando." -ForegroundColor Yellow
 }
 
 # 4e. Assina os executaveis com o certificado EV (DigiCert no token).
