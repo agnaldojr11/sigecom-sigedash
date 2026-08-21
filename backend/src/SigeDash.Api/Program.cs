@@ -78,6 +78,9 @@ builder.Services.AddHttpClient("ia");
 builder.Services.AddHttpClient("central");
 builder.Services.AddHostedService<SigeDash.Api.Servicos.TelemetriaHostedService>();
 
+// Retenção/expurgo (LGPD): mantém só o snapshot mais recente por indicador.
+builder.Services.AddHostedService<SigeDash.Api.Servicos.RetencaoSnapshotsHostedService>();
+
 // Compressao de resposta (gzip/brotli). O /dash pode trafegar a lista completa de
 // produtos (milhares de linhas); JSON repetitivo comprime para uma fracao do tamanho.
 // EnableForHttps: o backend pode atender direto (sem o tunnel comprimir na borda).

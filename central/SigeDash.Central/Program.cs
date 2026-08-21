@@ -38,6 +38,9 @@ builder.Services.AddRateLimiter(o =>
 
 builder.Services.AddResponseCompression();
 
+// Retenção/expurgo (LGPD) do histórico de heartbeats.
+builder.Services.AddHostedService<SigeDash.Central.Servicos.RetencaoHostedService>();
+
 var app = builder.Build();
 
 // Migra o banco + semeia o usuário do painel a partir das variáveis de ambiente.
