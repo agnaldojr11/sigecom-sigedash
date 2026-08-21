@@ -62,6 +62,10 @@ public class UsuarioPainel
     public string Login { get; set; } = "";
     public string SenhaHash { get; set; } = "";
     public DateTime? UltimoLoginEm { get; set; }
+
+    // Lockout por tentativas (defesa contra brute force, além do rate limit por IP).
+    public int TentativasFalhas { get; set; }
+    public DateTime? BloqueadoAte { get; set; }
 }
 
 // ── DTOs de telemetria (payload que o cliente envia) ────────────────────────

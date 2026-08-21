@@ -21,8 +21,13 @@ param(
     [string]$InstallDir = "C:\SigeDash\Backend",
     [string]$AgenteDir  = "C:\Program Files\SistemasBr\SigeDash",
     [string]$Repo       = "agnaldojr11/sigecom-sigedash",
-    [switch]$Forcar
+    [switch]$Forcar,
+    # Emergencia: permite aplicar pacote NAO assinado (por padrao exige assinatura EV da SistemasBr).
+    [switch]$PermitirNaoAssinado
 )
+
+# Assinante EV esperado no pacote (defesa contra pacote adulterado - auditoria A-03).
+$SIGNER_ESPERADO = "SISTEMASBR"
 
 $ErrorActionPreference = "Stop"
 $SVC_NAME   = "SigeDashBackend"
@@ -108,6 +113,38 @@ try {
 # Extrai o pacote
 Log "Extraindo pacote..."
 Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+
+# Verifica a assinatura Authenticode dos executaveis ANTES de aplicar (auditoria A-03).
+# Comprometer o repo/release nao basta: pacote sem assinatura EV valida da SistemasBr e recusado.
+$exesVerificar = @(
+    (Join-Path $extractPath "SigeDash.Api.exe"),
+    (Join-Path $extractPath "agente\SigeDash.Agente.exe")
+) | Where-Object { Test-Path $_ }
+
+if ($exesVerificar.Count -eq 0) {
+    Log "ERRO: nenhum executavel encontrado no pacote para verificar - abortando."
+    exit 1
+}
+foreach ($exe in $exesVerificar) {
+    $sig = Get-AuthenticodeSignature $exe
+    $subject = if ($sig.SignerCertificate) { $sig.SignerCertificate.Subject } else { "" }
+    $nome = Split-Path $exe -Leaf
+    if ($sig.Status -eq 'Valid' -and $subject -match $SIGNER_ESPERADO) {
+        Log "Assinatura OK: $nome ($(($subject -split ',')[0]))"
+    }
+    elseif ($sig.Status -eq 'Valid') {
+        Log "ERRO: $nome assinado por OUTRO emissor ($subject) - abortando (pacote suspeito)."
+        exit 1
+    }
+    elseif ($PermitirNaoAssinado) {
+        Log "AVISO: $nome sem assinatura valida ($($sig.Status)) - prosseguindo por -PermitirNaoAssinado."
+    }
+    else {
+        Log "ERRO: $nome sem assinatura EV valida da SistemasBr ($($sig.Status)) - abortando."
+        Log "Assine o pacote antes de publicar (ou use -PermitirNaoAssinado apenas para pacote de teste)."
+        exit 1
+    }
+}
 
 # Para os servicos (backend e agente) antes de sobrescrever binarios
 foreach ($nome in @($SVC_NAME, $SVC_AGENTE)) {

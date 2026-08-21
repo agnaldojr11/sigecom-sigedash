@@ -15,12 +15,13 @@ public static class AdminCentralEndpoints
 {
     public static void MapAdminCentral(this IEndpointRouteBuilder app, IConfiguration cfg)
     {
-        var grupo = app.MapGroup("/admin").AddEndpointFilter(async (ctx, next) =>
+        var grupo = app.MapGroup("/admin").RequireRateLimiting("admin").AddEndpointFilter(async (ctx, next) =>
         {
             var adminKey = cfg["Central:AdminKey"];
             if (string.IsNullOrWhiteSpace(adminKey))
                 return Results.Problem("Central:AdminKey não configurada.", statusCode: 500);
-            if (ctx.HttpContext.Request.Headers["X-Admin-Key"].ToString() != adminKey)
+            var fornecida = ctx.HttpContext.Request.Headers["X-Admin-Key"].ToString();
+            if (!Auth.ChaveConfere(fornecida, adminKey))
                 return Results.Unauthorized();
             return await next(ctx);
         });

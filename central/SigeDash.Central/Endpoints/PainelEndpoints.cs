@@ -20,13 +20,29 @@ public static class PainelEndpoints
         {
             var login = (dto.Login ?? "").Trim();
             var u = await db.UsuariosPainel.FirstOrDefaultAsync(x => x.Login == login);
-            if (u is null || !Auth.ConfereSenha(dto.Senha ?? "", u.SenhaHash))
-                return Results.Json(new { erro = "Usuário ou senha inválidos." }, statusCode: 401);
 
+            // Lockout: 5 falhas → 15 min bloqueado.
+            if (u is not null && u.BloqueadoAte is { } ate && ate > DateTime.UtcNow)
+                return Results.Json(new { erro = "Muitas tentativas. Tente novamente em alguns minutos." },
+                                    statusCode: StatusCodes.Status429TooManyRequests);
+
+            if (u is null || !Auth.ConfereSenha(dto.Senha ?? "", u.SenhaHash))
+            {
+                if (u is not null)
+                {
+                    u.TentativasFalhas++;
+                    if (u.TentativasFalhas >= 5) { u.BloqueadoAte = DateTime.UtcNow.AddMinutes(15); u.TentativasFalhas = 0; }
+                    await db.SaveChangesAsync();
+                }
+                return Results.Json(new { erro = "Usuário ou senha inválidos." }, statusCode: 401);
+            }
+
+            u.TentativasFalhas = 0;
+            u.BloqueadoAte = null;
             u.UltimoLoginEm = DateTime.UtcNow;
             await db.SaveChangesAsync();
             return Results.Ok(new { token = Auth.GerarToken(jwtSecret, u.Login), login = u.Login });
-        });
+        }).RequireRateLimiting("login");
 
         // Resumo da frota (dashboard)
         app.MapGet("/painel/frota", async (CentralDbContext db) =>

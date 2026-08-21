@@ -1,3 +1,4 @@
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -16,13 +17,24 @@ builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 var conn = ResolverConexao(builder.Configuration);
 builder.Services.AddDbContext<CentralDbContext>(o => o.UseNpgsql(conn));
 
-// JWT do painel
+// JWT do painel — FAIL-FAST: sem chave forte, o serviço NÃO sobe (nunca usa fallback público).
 var jwtSecret = builder.Configuration["Jwt:SecretKey"];
 if (string.IsNullOrWhiteSpace(jwtSecret) || jwtSecret.Length < 32)
-    jwtSecret = "DEV-ONLY-troque-por-uma-chave-longa-32+-em-producao!!";
+    throw new InvalidOperationException(
+        "Jwt:SecretKey ausente ou fraca (mínimo 32 caracteres). Defina a variável Jwt__SecretKey no Railway.");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(o => o.TokenValidationParameters = Auth.ValidationParams(jwtSecret));
 builder.Services.AddAuthorization();
+
+// Rate limiting por IP (defesa contra brute force/credential stuffing). Particiona pelo IP real
+// (X-Forwarded-For do proxy do Railway; cai para o RemoteIpAddress).
+builder.Services.AddRateLimiter(o =>
+{
+    o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    o.AddPolicy("login",      ctx => Limite(IpDe(ctx), 5,   TimeSpan.FromMinutes(1)));
+    o.AddPolicy("admin",      ctx => Limite(IpDe(ctx), 10,  TimeSpan.FromMinutes(1)));
+    o.AddPolicy("telemetria", ctx => Limite(IpDe(ctx), 120, TimeSpan.FromMinutes(1)));
+});
 
 builder.Services.AddResponseCompression();
 
@@ -45,9 +57,24 @@ using (var scope = app.Services.CreateScope())
     SemearAdmin(db, app.Configuration, app.Logger);
 }
 
+// Cabeçalhos de segurança (defesa-em-profundidade no painel público).
+app.Use(async (ctx, next) =>
+{
+    var h = ctx.Response.Headers;
+    h["X-Content-Type-Options"] = "nosniff";
+    h["X-Frame-Options"] = "DENY";
+    h["Referrer-Policy"] = "no-referrer";
+    h["Content-Security-Policy"] =
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
+        "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'";
+    if (ctx.Request.IsHttps) h["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
+    await next();
+});
+
 app.UseResponseCompression();
 app.UseDefaultFiles();
 app.UseStaticFiles();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -62,6 +89,19 @@ app.Run();
 
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
+static RateLimitPartition<string> Limite(string chave, int limite, TimeSpan janela)
+    => RateLimitPartition.GetFixedWindowLimiter(chave, _ => new FixedWindowRateLimiterOptions
+    {
+        PermitLimit = limite, Window = janela, QueueLimit = 0
+    });
+
+static string IpDe(HttpContext ctx)
+{
+    var xff = ctx.Request.Headers["X-Forwarded-For"].ToString();
+    if (!string.IsNullOrWhiteSpace(xff)) return xff.Split(',')[0].Trim();
+    return ctx.Connection.RemoteIpAddress?.ToString() ?? "desconhecido";
+}
+
 static string ResolverConexao(IConfiguration cfg)
 {
     var url = Environment.GetEnvironmentVariable("DATABASE_URL");

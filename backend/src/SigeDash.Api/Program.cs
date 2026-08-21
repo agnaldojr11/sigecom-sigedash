@@ -196,7 +196,9 @@ app.Use(async (ctx, next) =>
 // a esses endpoints sensiveis. O PWA (/, /auth, /dash, /ia, /admin/usuarios) segue liberado.
 app.Use(async (ctx, next) =>
 {
-    var p = ctx.Request.Path.Value ?? "";
+    // Normaliza a barra final: sem isso, "/admin/clientes/" casa a rota mas escapa do Equals
+    // (bypass do gate). TrimEnd resolve — ver auditoria M-01.
+    var p = (ctx.Request.Path.Value ?? "").TrimEnd('/');
     var sensivelLocal = p.StartsWith("/ingest", StringComparison.OrdinalIgnoreCase)
                      || p.Equals("/admin/clientes", StringComparison.OrdinalIgnoreCase)
                      || p.Equals("/admin/reset-senha", StringComparison.OrdinalIgnoreCase)

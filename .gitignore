@@ -13,6 +13,12 @@ appsettings.*.local.json
 appsettings.Production.json
 .claude/settings.local.json
 deploy/cf.json
+# Segredos do Central/Railway (NUNCA versionar)
+key-railway.txt
+*.railway.txt
+*-secrets.txt
+seguranca.md
+seguranca/
 
 # ── Build .NET ────────────────────────────────────────────────────────────────
 bin/

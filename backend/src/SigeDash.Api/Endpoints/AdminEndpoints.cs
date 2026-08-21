@@ -150,9 +150,15 @@ public static class AdminEndpoints
                 return Results.Problem("AdminKey não configurada no servidor.", statusCode: 500);
 
             var headerKey = ctx.HttpContext.Request.Headers["X-Admin-Key"].ToString();
-            if (headerKey != adminKey)
+            if (!ChaveConfere(headerKey, adminKey))
                 return Results.Unauthorized();
 
             return await next(ctx);
         };
+
+    // Comparação em tempo constante (evita timing attack na AdminKey).
+    private static bool ChaveConfere(string? fornecida, string? esperada)
+        => CryptographicOperations.FixedTimeEquals(
+            System.Text.Encoding.UTF8.GetBytes(fornecida ?? ""),
+            System.Text.Encoding.UTF8.GetBytes(esperada ?? ""));
 }

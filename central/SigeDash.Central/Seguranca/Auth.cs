@@ -39,6 +39,14 @@ public static class Auth
         try { return BCrypt.Net.BCrypt.Verify(senha, hash); } catch { return false; }
     }
 
+    /// <summary>Comparação de chave/segredo em tempo constante (evita timing attack).</summary>
+    public static bool ChaveConfere(string? fornecida, string? esperada)
+    {
+        var a = Encoding.UTF8.GetBytes(fornecida ?? "");
+        var b = Encoding.UTF8.GetBytes(esperada ?? "");
+        return CryptographicOperations.FixedTimeEquals(a, b);
+    }
+
     /// <summary>Chave de telemetria url-safe (256 bits CSPRNG).</summary>
     public static string GerarChaveTelemetria()
     {
