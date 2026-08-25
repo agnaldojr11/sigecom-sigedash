@@ -192,9 +192,14 @@ public partial class MainWindow : Window
 
         var empresa  = !string.IsNullOrWhiteSpace(empresaDigitada) ? empresaDigitada : P(@"Empresa\s*:\s*(.+)");
         var url      = Regex.Match(txt, @"https://[\w\-\.]+\.sigedash\.com\.br", RegexOptions.IgnoreCase).Value;
-        var login    = P(@"Login\s*:\s*(\S+)");
-        var senha    = P(@"Senha\s*:\s*(\S+)");
         var adminKey = P(@"AdminKey\s*:\s*(\S+)");
+
+        // IMPORTANTE: o Login/Senha do ADMIN devem ser lidos DENTRO do bloco "ADMINISTRADOR".
+        // Senão o "Senha :" do PostgreSQL (impresso antes, no Passo 1) e capturado por engano.
+        string? login = null, senha = null;
+        var mAdm = Regex.Match(txt, @"ADMINISTRADOR[\s\S]*?Login\s*:\s*(\S+)[\s\S]*?Senha\s*:\s*(\S+)", RegexOptions.IgnoreCase);
+        if (mAdm.Success) { login = mAdm.Groups[1].Value.Trim(); senha = mAdm.Groups[2].Value.Trim(); }
+        else { login = P(@"Login\s*:\s*(\S+)"); }
 
         finishCreds.Children.Clear();
         if (!string.IsNullOrWhiteSpace(empresa))  AddCred("Empresa", empresa!, false);
