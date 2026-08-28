@@ -202,20 +202,20 @@ public partial class MainWindow : Window
         else { login = P(@"Login\s*:\s*(\S+)"); }
 
         finishCreds.Children.Clear();
-        if (!string.IsNullOrWhiteSpace(empresa))  AddCred("Empresa", empresa!, false);
-        if (!string.IsNullOrWhiteSpace(url))      AddCred("Endereço", url, true);
-        if (!string.IsNullOrWhiteSpace(login))    AddCred("Login do admin", login!, true);
-        if (!string.IsNullOrWhiteSpace(senha))    AddCred("Senha temporária", senha!, true);
-        if (!string.IsNullOrWhiteSpace(adminKey)) AddCred("Chave de administração", adminKey!, true);
+        if (!string.IsNullOrWhiteSpace(empresa))  AddCred("Empresa", empresa!);
+        if (!string.IsNullOrWhiteSpace(url))      AddCred("Endereço", url);
+        if (!string.IsNullOrWhiteSpace(login))    AddCred("Login do admin", login!);
+        if (!string.IsNullOrWhiteSpace(senha))    AddCred("Senha temporária", senha!);
+        if (!string.IsNullOrWhiteSpace(adminKey)) AddCred("Chave de administração", adminKey!);
 
         if (finishCreds.Children.Count == 0)
         {
             txtFinishSub.Text = "Instalação concluída. Confira os dados no log da etapa anterior.";
-            AddCred("Status", "Instalado com sucesso", false);
+            AddCred("Status", "Instalado com sucesso");
         }
     }
 
-    private void AddCred(string rotulo, string valor, bool copiar)
+    private void AddCred(string rotulo, string valor)
     {
         var row = new Grid { Margin = new Thickness(0, 6, 0, 6) };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
@@ -239,16 +239,29 @@ public partial class MainWindow : Window
         row.Children.Add(lbl);
         row.Children.Add(val);
 
-        if (copiar)
+        // Ícone de copiar (📋) — clique copia a linha e vira ✓ por 1,5s.
+        var btn = new Button
         {
-            var btn = new Button { Content = "Copiar", Style = (Style)FindResource("BtnCopy"), VerticalAlignment = VerticalAlignment.Center };
-            btn.Click += (_, __) =>
+            Content = "\U0001F4CB", ToolTip = "Copiar", Width = 34,
+            Style = (Style)FindResource("BtnCopy"), VerticalAlignment = VerticalAlignment.Center,
+            FontFamily = new FontFamily("Segoe UI Emoji, Segoe UI Symbol"), FontSize = 14
+        };
+        btn.Click += (_, __) =>
+        {
+            try
             {
-                try { Clipboard.SetText(valor); btn.Content = "Copiado!"; } catch { }
-            };
-            Grid.SetColumn(btn, 2);
-            row.Children.Add(btn);
-        }
+                Clipboard.SetText(valor);
+                btn.Content = "✓";
+                btn.Foreground = new SolidColorBrush(Color.FromRgb(0x34, 0xD3, 0x99));
+                var t = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
+                t.Tick += (s, e) => { btn.Content = "\U0001F4CB"; btn.ClearValue(ForegroundProperty); t.Stop(); };
+                t.Start();
+            }
+            catch { }
+        };
+        Grid.SetColumn(btn, 2);
+        row.Children.Add(btn);
+
         finishCreds.Children.Add(row);
     }
 }

@@ -347,21 +347,38 @@ $utf8Nobom  = New-Object System.Text.UTF8Encoding $false
 [System.IO.File]::WriteAllText($readmePath, $readme, $utf8Nobom)
 Log "README criado."
 
-# 6. Gera o ZIP
-Titulo "6" "Compactando pacote: $PKG_NAME.zip..."
-Compress-Archive -Path "$PKG_DIR\*" -DestinationPath $ZIP_OUT -CompressionLevel Optimal
+# 6. Gera DOIS ZIPs (empacotamento otimizado):
+#    - SigeDash-Deploy-vX.zip    : ENXUTO (sem o wizard de ~68 MB) -> e o que o AUTO-UPDATE baixa.
+#    - SigeDash-Instalador-vX.zip : COMPLETO (com o wizard grafico) -> so para INSTALAR cliente novo.
+Titulo "6" "Compactando (enxuto p/ update + completo p/ instalar)..."
+$INSTALADOR_EXE = "Instalar-SigeDash.exe"
+$INSTZIP_OUT    = Join-Path $DIST "SigeDash-Instalador-v$Versao.zip"
+
+# 6a. ZIP enxuto: tudo, MENOS o instalador grafico.
+$updItems = @(Get-ChildItem $PKG_DIR | Where-Object { $_.Name -ne $INSTALADOR_EXE } | Select-Object -ExpandProperty FullName)
+Compress-Archive -Path $updItems -DestinationPath $ZIP_OUT -CompressionLevel Optimal -Force
 $zipSizeMB = [math]::Round((Get-Item $ZIP_OUT).Length / 1MB, 1)
-Log "ZIP gerado: $ZIP_OUT ($zipSizeMB MB)"
+Log "ZIP enxuto (auto-update): $ZIP_OUT ($zipSizeMB MB)"
+
+# 6b. ZIP completo (com o wizard), so se o exe existir.
+$instZipSizeMB = 0
+if (Test-Path (Join-Path $PKG_DIR $INSTALADOR_EXE)) {
+    Compress-Archive -Path "$PKG_DIR\*" -DestinationPath $INSTZIP_OUT -CompressionLevel Optimal -Force
+    $instZipSizeMB = [math]::Round((Get-Item $INSTZIP_OUT).Length / 1MB, 1)
+    Log "ZIP instalador (novo cliente): $INSTZIP_OUT ($instZipSizeMB MB)"
+}
 
 # Resumo
 Write-Host ""
 Write-Host ("=" * 55) -ForegroundColor Green
-Write-Host "  Pacote pronto!" -ForegroundColor Green
+Write-Host "  Pacotes prontos!" -ForegroundColor Green
 Write-Host ("=" * 55) -ForegroundColor Green
 Write-Host ""
-Write-Host "  Arquivo : $ZIP_OUT" -ForegroundColor White
-Write-Host "  Tamanho : $zipSizeMB MB" -ForegroundColor White
+Write-Host "  Auto-update  : $ZIP_OUT ($zipSizeMB MB)" -ForegroundColor White
+if ($instZipSizeMB -gt 0) {
+    Write-Host "  Instalador   : $INSTZIP_OUT ($instZipSizeMB MB)" -ForegroundColor White
+}
 Write-Host ""
-Write-Host "  Entregue o ZIP ao tecnico responsavel pela instalacao." -ForegroundColor Yellow
-Write-Host "  Instrucoes: README-INSTALACAO.txt dentro do ZIP." -ForegroundColor Yellow
+Write-Host "  Cliente NOVO -> SigeDash-Instalador (roda o Instalar-SigeDash.exe)." -ForegroundColor Yellow
+Write-Host "  Atualizacao  -> o auto-update baixa o SigeDash-Deploy (enxuto)." -ForegroundColor Yellow
 Write-Host ""
