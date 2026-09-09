@@ -1,13 +1,17 @@
 # Arquitetura do SigeDash BR
 
-> Documento gerado em 22/06/2026. Descreve a versão atual do repositório (`main`).
+> Atualizado em 08/09/2026. Descreve a versão atual do repositório (`main`), com a stack em produção:
+> usuários nativos (BCrypt + JWT com sessão única), SigeDash Central (telemetria/frota), auto-update
+> in-app, instalador gráfico WPF e licenciamento por dispositivo.
 
 ---
 
 ## 1. Visão geral
 
 O SigeDash BR coleta indicadores do banco Firebird do ERP **Sigecom** e os exibe em
-um Progressive Web App (PWA) acessível pelo celular. O fluxo completo é:
+um Progressive Web App (PWA) acessível pelo celular. Toda a stack roda **no servidor do próprio
+cliente**; a SistemasBr acompanha apenas a saúde da frota pela **SigeDash Central** (telemetria sem
+dados pessoais). O fluxo completo é:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
@@ -40,11 +44,12 @@ um Progressive Web App (PWA) acessível pelo celular. O fluxo completo é:
 
 **Resumo do fluxo:**
 
-1. O **Agente** executa queries SQL no Firebird a cada N minutos (cadência por indicador).
+1. O **Agente** executa queries SQL no Firebird (somente leitura) a cada N minutos (cadência por indicador).
 2. O resultado é serializado em JSON, comprimido com gzip e enviado via `POST /ingest/{empresa}/{handle}`.
-3. O **Backend** autentica o agente pela `X-SigeDash-Key`, descomprime e persiste o snapshot no PostgreSQL.
-4. O **PWA** faz login com JWT, busca os snapshots via `GET /dash/{empresa}` e renderiza os KPIs.
-5. O dono acessa o PWA de qualquer celular via Cloudflare Tunnel (HTTPS gratuito).
+3. O **Backend** autentica o agente pela `X-SigeDash-Key`, descomprime e persiste o snapshot no PostgreSQL (mantendo só o mais recente por indicador).
+4. O **PWA** faz login (BCrypt + JWT com sessão única), busca os snapshots via `GET /dash/{empresa}` e renderiza os KPIs.
+5. O dono acessa o PWA de qualquer celular via Cloudflare Tunnel (HTTPS, sem porta aberta).
+6. O **Backend** envia periodicamente à **SigeDash Central** apenas métricas de saúde (versão, uso, status) — **sem PII**.
 
 ---
 
@@ -62,10 +67,12 @@ um Progressive Web App (PWA) acessível pelo celular. O fluxo completo é:
 **Responsabilidades:**
 
 - Carregar a lista de indicadores do arquivo `indicadores.json`.
-- Executar cada query SQL no Firebird respeitando a cadencia configurada.
+- Executar cada query SQL no Firebird (somente leitura) respeitando a cadencia configurada.
 - Serializar o resultado em JSON, comprimir em gzip e `POST /ingest/{codigoEmpresa}/{handle}`.
-- Sincronizar usuarios do Firebird (tabela `USUARIO`) para o backend a cada 1 hora via `POST /ingest/usuarios`.
-- Decodificar a senha proprietaria do Sigecom (`enc[p*4] - 10 - p`) e reencripta-la como SHA-1 hex antes de enviar.
+
+> **Nota:** os usuarios do app deixaram de ser derivados do Firebird. Hoje sao **usuarios nativos**
+> do SigeDash (`UsuarioApp`), criados pelo ADM da empresa, com senha em **BCrypt** (ver §5). O agente
+> nao le mais senhas do Firebird nem sincroniza a tabela `USUARIO`.
 
 **Componentes internos:**
 
@@ -92,44 +99,62 @@ Config/
 | Atributo | Valor |
 |---|---|
 | Plataforma | ASP.NET Core 8, .NET 8 |
-| Banco | PostgreSQL via EF Core 8 + Npgsql |
-| Autenticacao | JWT Bearer (HMAC-SHA256) |
-| Hospedagem | Windows Service ou Linux (systemd) |
+| Banco | PostgreSQL via EF Core 8 + Npgsql (local, scram-sha-256) |
+| Autenticacao | JWT Bearer (HS256) com sessao unica; senhas em BCrypt |
+| Hospedagem | Windows Service (no servidor do cliente) |
+| Exposicao | Cloudflare Tunnel (HTTPS, sem porta aberta) |
 | PWA | Servido como arquivos estaticos de `wwwroot/` |
+| Seguranca | Headers (CSP/HSTS/nosniff/frame), rate limiting, gate local, telemetria a Central |
 
-**Endpoints:**
+**Endpoints (principais):**
 
 | Rota | Metodo | Auth | Descricao |
 |---|---|---|---|
 | `/auth/empresas` | GET | Nenhuma | Lista clientes ativos (popula dropdown do login) |
-| `/auth/login` | POST | Nenhuma | Autentica usuario, retorna JWT (8 h) |
-| `/ingest/usuarios` | POST | `X-SigeDash-Key` | Sincroniza usuarios do Firebird |
+| `/auth/login` | POST | Nenhuma | Autentica usuario (BCrypt), retorna JWT + `sid`; aplica lockout |
+| `/auth/trocar-senha` | POST | JWT | Troca de senha (obrigatoria no primeiro acesso) |
+| `/auth/sessao` | GET | JWT | Valida o token/sessao atual |
 | `/ingest/{empresa}/{handle}` | POST | `X-SigeDash-Key` | Recebe snapshot gzip de um indicador |
-| `/dash/{empresa}` | GET | JWT Bearer | Retorna todos os snapshots mais recentes da empresa |
-| `/ia/query` | POST | JWT Bearer | Consulta ao assistente IA com contexto dos snapshots |
-| `/admin/clientes` | GET/POST | `X-Admin-Key` | Gerencia clientes (uso interno SistemasBr) |
+| `/dash/{empresa}` | GET | JWT | Retorna todos os snapshots mais recentes da empresa |
+| `/ia/query` | POST | JWT | Consulta ao assistente IA (OpenAI-compatible) com contexto dos snapshots |
+| `/admin/usuarios` (+ `/{id}`, `/permissoes`, `/resetar-senha`) | GET/POST/PUT/DELETE | JWT (admin) | Gestao de usuarios e permissoes pelo ADM da empresa |
+| `/admin/plano` | GET | JWT (admin) | Limite de dispositivos e uso atual |
+| `/admin/atualizacao/status` · `/aplicar` | GET · POST | JWT (admin) | Auto-update in-app (ver §9) |
+| `/admin/clientes` | GET/POST | `X-Admin-Key` | Provisionamento de clientes (uso interno SistemasBr) |
+| `/admin/limite-dispositivos` · `/reset-senha` | POST | `X-Admin-Key` | Operacoes internas (licenca, reset) |
 
-**Modelo de dados:**
+> Endpoints com papel de admin **relem `EhAdmin` no banco** a cada chamada (não confiam só no claim);
+> operacoes sensiveis tem **gate local** (bloqueadas fora da rede do servidor). Chaves `X-Admin-Key` /
+> `X-Telemetria-Key` sao comparadas em **tempo constante** (`FixedTimeEquals`).
+
+**Modelo de dados (essencial):**
 
 ```
 Cliente
-  Id, Nome, ChaveApi, Ativo
+  Id, Nome, ChaveApi, Ativo, LimiteDispositivos (0 = ilimitado)
   └── Loja (1-N)
         Id, ClienteId, CodigoEmpresa, Nome
 
-UsuarioApp
-  Id, ClienteId, Login, SenhaApp (SHA-1 hex)
+UsuarioApp                          ← usuario NATIVO do SigeDash
+  Id, ClienteId, Login, SenhaHash (BCrypt)
+  EhAdmin, PrimeiroAcesso, Permissoes
+  SessaoToken (sid da sessao ativa) ← sessao unica
+  TentativasFalhas, BloqueadoAte    ← lockout
+  TotpSecret, TotpAtivado           ← estrutura 2FA (roadmap)
 
-Snapshot
+Snapshot                            ← so o mais recente por (cliente, empresa, indicador)
   Id, ClienteId, CodigoEmpresa, IndicadorHandle
   PayloadJson, GeradoEm, RecebidoEm
 ```
 
 **Startup:**
-- Migrations sao aplicadas automaticamente no inicio (`db.Database.Migrate()`).
-- Em ambiente `Development`, o `SeedData` cria o cliente "5 Estrelas" com `ChaveApi = "TESTE-5ESTRELAS-0001"` se o banco estiver vazio.
+- Migrations sao aplicadas automaticamente no inicio, com **retry** aguardando o PostgreSQL subir
+  (evita o boot-race que derrubava o servico → 502 no Cloudflare).
+- O `SeedData`/instalador cria o cliente e o usuario **admin inicial** com senha temporaria
+  (troca obrigatoria no primeiro login).
 - Em desenvolvimento, o `WebRoot` aponta para `../../../pwa/` (fonte) para hot-reload sem build step.
 - Em producao (publish), a pasta `pwa/` e copiada para `wwwroot/` pelo `.csproj`.
+- Servicos hospedados: **telemetria** (heartbeat a Central) e **retencao** (expurgo de snapshots antigos).
 
 ---
 
@@ -184,18 +209,11 @@ pwa/
     │       5. POST /ingest/{codigoEmpresa}/{handle}
     │          Header: X-SigeDash-Key: <chave>
     │          Header: Content-Encoding: gzip
-    │       6. Backend descomprime, insere Snapshot no PostgreSQL
-    │
-    └─► A cada 1 hora (e no startup):
-            1. SELECT LOGIN, SENHA FROM USUARIO WHERE DESATIVADO = 'N'
-            2. Decodifica senha proprietaria Sigecom
-            3. Recalcula SHA-1 hex
-            4. POST /ingest/usuarios → backend upserta UsuarioApp
+    │       6. Backend descomprime, insere Snapshot no PostgreSQL (substitui o anterior do mesmo indicador)
 ```
 
-**Nota sobre senhas:** o Sigecom armazena senhas com codificacao proprietaria. O agente decodifica
-(`byte = enc[p*4] - 10 - p`), reaplica SHA-1, e envia o hash para o backend. O backend compara
-esse hash no login.
+> Os **usuarios do app sao nativos** (`UsuarioApp`, senha BCrypt), criados pelo ADM da empresa — o
+> agente nao sincroniza mais usuarios nem le senhas do Firebird.
 
 ### 3.2 Exibicao (PWA)
 
@@ -203,7 +221,9 @@ esse hash no login.
 [Usuario abre o PWA]
     │
     ├─► GET /auth/empresas → popula <select> de empresa
-    ├─► POST /auth/login   → retorna JWT (8 h), salvo em sessionStorage
+    ├─► POST /auth/login   → BCrypt.Verify(senha, SenhaHash)
+    │                        gera JWT com `sid`, grava `sid` em UsuarioApp.SessaoToken
+    │                        (login novo derruba a sessao anterior); salvo em sessionStorage
     │
     └─► GET /dash/{empresa}
             │
@@ -278,50 +298,56 @@ Total: **26 indicadores**, organizados em 4 dominios.
 
 ---
 
-## 5. Autenticação
+## 5. Autenticação e autorização
 
-O sistema usa dois mecanismos de autenticacao distintos:
+Detalhes completos e a postura de seguranca do produto estao em [`SEGURANCA.md`](SEGURANCA.md).
+Resumo dos mecanismos:
 
 ### 5.1 Autenticacao do Agente (chave de API)
 
 ```
 Agente → Backend
   Header: X-SigeDash-Key: <ChaveApi do cliente>
-
-Geracao da chave: <NOME_CLIENTE_12CHARS>-<ANO>-<8 chars UUID>
-  Exemplo: "5ESTRELAS-2025-A1B2C3D4"
 ```
 
-- A chave fica em `sigedash-agente.ini` (no servidor do cliente).
-- O backend valida contra `Cliente.ChaveApi` no PostgreSQL.
-- Usada em: `POST /ingest/usuarios` e `POST /ingest/{empresa}/{handle}`.
+- A chave fica no config do agente (no servidor do cliente) e valida contra `Cliente.ChaveApi`.
+- Usada em: `POST /ingest/{empresa}/{handle}`.
 
-### 5.2 Autenticacao do Usuario (JWT)
+### 5.2 Autenticacao do Usuario (BCrypt + JWT com sessao unica)
 
 ```
 PWA → Backend
   1. POST /auth/login  { cliente, login, senha }
-     ├─ Backend verifica: SHA1(senha) == UsuarioApp.SenhaApp
-     └─ Retorna JWT (HMAC-SHA256, validade 8 h)
+     ├─ BCrypt.Verify(senha, UsuarioApp.SenhaHash)   (fator 12)
+     ├─ Lockout: apos N tentativas erradas, bloqueia por um tempo (TentativasFalhas/BloqueadoAte)
+     ├─ Gera JWT HS256; grava o `sid` do token em UsuarioApp.SessaoToken (SESSAO UNICA)
+     └─ Se PrimeiroAcesso, exige troca de senha (/auth/trocar-senha)
 
   2. Requisicoes autenticadas:
      Header: Authorization: Bearer <token>
-     Token claims: cliente_id (int), name (login)
+     Claims: cliente_id, usuario_id, admin, sid, name
+     ├─ Middleware compara `sid` do token com UsuarioApp.SessaoToken → 401 se divergente
+     │  (login em outro dispositivo derruba o anterior — last-login-wins)
+     └─ Isolamento por `cliente_id`: cada consulta filtra pelo cliente do token
 ```
 
-- O JWT e guardado em `sessionStorage` (limpo ao fechar a aba).
-- O token tem duracao de **8 horas**.
-- Algoritmo de assinatura: `HMAC-SHA256` com chave simetrica (`Jwt:SecretKey`).
+- JWT em `sessionStorage` (limpo ao fechar a aba), assinado com `Jwt:SecretKey` (HS256, algoritmo
+  travado na validacao).
+- **Permissoes por usuario:** cada usuario ve so as secoes liberadas pelo ADM (trava no backend e na UI).
+- **Papel de admin revalidado no banco** (`EhAdmin`) a cada operacao sensivel.
+- **Licenciamento por dispositivo:** `Cliente.LimiteDispositivos` (0 = ilimitado) trava criacao de
+  usuarios acima do limite contratado.
 
-### 5.3 Autenticacao Admin
+### 5.3 Autenticacao Admin/interno (chave)
 
 ```
-Operacoes admin → Backend
-  Header: X-Admin-Key: <AdminKey do appsettings>
-  Rotas: GET /admin/clientes, POST /admin/clientes
+Operacoes internas SistemasBr → Backend
+  Header: X-Admin-Key: <AdminKey do appsettings>   (comparada em tempo constante)
+  Rotas: /admin/clientes, /admin/limite-dispositivos, /admin/reset-senha
 ```
 
-Usada pela equipe SistemasBr para cadastrar novos clientes no backend.
+Usada para provisionar clientes e operacoes de suporte. As rotas `/admin/usuarios*`, `/admin/plano` e
+`/admin/atualizacao/*` sao do **ADM da empresa** (autenticacao JWT, nao a chave interna).
 
 ---
 
@@ -482,21 +508,78 @@ sigedash-br/
 │   ├── service-worker.js             ← cache offline
 │   └── manifest.webmanifest          ← metadados PWA
 │
+├── central/
+│   └── SigeDash.Central/             ← telemetria + painel da frota (.NET 8 + PG, Railway)
+│       ├── Program.cs                ← DATABASE_URL, fail-fast JWT, rate limit, headers, seed
+│       ├── Endpoints/               (Telemetria / Painel / AdminCentral)
+│       ├── Servicos/RetencaoHostedService.cs   ← expurgo do historico
+│       ├── wwwroot/                 ← painel (login + dashboard da frota)
+│       └── Dockerfile · README-RAILWAY.md
+│
+├── installer/
+│   └── SigeDash.Installer/           ← wizard grafico WPF (.NET 8, self-contained)
+│       ├── MainWindow.xaml(.cs)      ← 4 etapas, roda instalar-tudo.ps1, mostra credenciais
+│       └── app.manifest              ← requireAdministrator
+│
 ├── deploy/
 │   ├── agente/
 │   │   └── configurar-cliente.ps1    ← gera config e registra servico Windows
 │   └── backend/
-│       ├── instalar-tudo.ps1         ← orquestrador (executado pelo tecnico)
+│       ├── instalar-tudo.ps1         ← orquestrador (chamado pelo wizard/tecnico)
 │       ├── instalar-agente.ps1       ← instala binarios + servico do agente
-│       ├── instalar-backend.ps1      ← registra backend como Windows Service
+│       ├── instalar-backend.ps1      ← registra backend + tarefa SigeDash-Aplicar
 │       ├── instalar-postgres.ps1     ← instala PostgreSQL
-│       └── instalar-tunnel.ps1       ← instala Cloudflare Tunnel
+│       ├── instalar-tunnel.ps1       ← instala Cloudflare Tunnel
+│       └── atualizar.ps1             ← auto-update (verifica Authenticode)
 │
 ├── docs/
-│   └── ARQUITETURA.md                ← este documento
+│   ├── ARQUITETURA.md                ← este documento
+│   └── SEGURANCA.md                  ← postura de seguranca e LGPD
 │
+├── build-deploy.ps1                  ← publica backend/agente/wizard + gera os 2 zips
 └── iniciar-backend.ps1               ← atalho para dev local
 ```
+
+---
+
+## 9. SigeDash Central (telemetria + painel da frota)
+
+Servico independente (`central/SigeDash.Central`, .NET 8 + PostgreSQL) hospedado na **Railway**. Recebe
+o phone-home dos backends dos clientes e serve o painel de monitoramento da frota para a SistemasBr.
+
+- **Telemetria (phone-home):** o backend de cada cliente envia um heartbeat periodico
+  (`TelemetriaHostedService`, ~3 min) com **apenas** versao, uso e status/saude dos indicadores —
+  **nenhum dado pessoal ou de venda**. Autenticado por `X-Telemetria-Key` (gerada por CSPRNG, prefixo `SGT-`).
+- **Painel:** login proprio (com lockout), visao da frota (`/painel/frota`) e detalhe por cliente —
+  quem esta online, em que versao, se os indicadores sincronizam.
+- **Provisionamento interno:** `/admin/clientes` protegido por `X-Admin-Key` (tempo constante).
+- **Hardening:** JWT com fail-fast (nao sobe com chave fraca), rate limiting (login/admin/telemetria),
+  headers de seguranca (CSP/HSTS/nosniff/frame), truncamento/cap na telemetria, retencao/expurgo do
+  historico (`RetencaoHostedService`, `Retencao:HistoricoDias`).
+
+## 10. Atualizacao automatica (auto-update in-app)
+
+O admin da empresa atualiza o cliente pelo painel, sem tecnico presencial:
+
+- `GET /admin/atualizacao/status` compara o `version.txt` local com a ultima release do GitHub
+  (cache, tolerante a offline). O PWA mostra um **banner "Atualizar agora"** (so admin).
+- `POST /admin/atualizacao/aplicar` dispara a tarefa agendada **SYSTEM** `SigeDash-Aplicar`, que roda o
+  `atualizar.ps1` independentemente do backend (permite auto-sobrescrever).
+- O `atualizar.ps1` baixa o pacote **enxuto** (`SigeDash-Deploy-v*.zip`), **verifica a assinatura
+  Authenticode** dos executaveis (assinante deve conter `SISTEMASBR`, senao aborta — A-03), para os
+  servicos, copia preservando os configs e reinicia. Ha tambem a tarefa semanal como fallback.
+
+## 11. Instalador grafico (wizard WPF)
+
+`installer/SigeDash.Installer` — aplicativo WPF (.NET 8, self-contained single-file, roda em Windows
+limpo sem runtime) com a identidade do SigeDash (4 etapas: Bem-vindo / Configuracao / Instalacao /
+Concluido). Coleta empresa/FDB/dispositivos/token, roda o `instalar-tudo.ps1` por baixo (streaming do
+log + barra) e mostra as credenciais finais (login/senha do admin, AdminKey, URL) com botao de copiar.
+Eleva via `app.manifest`. Substitui o antigo launcher de console.
+
+**Empacotamento (2 pacotes):** `SigeDash-Deploy-vX.zip` (enxuto, sem o wizard → usado pelo auto-update)
+e `SigeDash-Instalador-vX.zip` (com o wizard → instalacao de cliente novo). Os executaveis sao
+assinados (EV DigiCert) antes da distribuicao.
 
 ---
 
@@ -505,17 +588,29 @@ sigedash-br/
 ```
 # Sem autenticacao
 GET  /auth/empresas                → lista clientes ativos
-POST /auth/login                   → { cliente, login, senha } → { token, cliente }
+POST /auth/login                   → { cliente, login, senha } → { token, cliente, sid }
 
-# Agente (X-SigeDash-Key)
-POST /ingest/usuarios              → sincroniza usuarios do Firebird
-POST /ingest/{empresa}/{handle}    → snapshot gzip de um indicador
-
-# PWA (Bearer JWT)
+# Autenticado (JWT)
+POST /auth/trocar-senha            → troca de senha (obrigatoria no 1o acesso)
+GET  /auth/sessao                  → valida token/sessao
 GET  /dash/{empresa}               → todos os snapshots mais recentes
 POST /ia/query                     → { pergunta, contexto } → resposta IA
 
-# Admin (X-Admin-Key)
-GET  /admin/clientes               → lista clientes
-POST /admin/clientes               → cadastra novo cliente, retorna ChaveApi
+# ADM da empresa (JWT admin)
+GET/POST/PUT/DELETE /admin/usuarios[...]      → gestao de usuarios e permissoes
+GET  /admin/plano                             → limite de dispositivos e uso
+GET  /admin/atualizacao/status                → ha nova versao?
+POST /admin/atualizacao/aplicar               → dispara o auto-update
+
+# Agente (X-SigeDash-Key)
+POST /ingest/{empresa}/{handle}    → snapshot gzip de um indicador
+
+# Interno SistemasBr (X-Admin-Key, tempo constante)
+GET/POST /admin/clientes           → provisiona clientes / retorna ChaveApi
+POST /admin/limite-dispositivos    → define a licenca por dispositivo
+POST /admin/reset-senha            → reset de senha (suporte)
+
+# SigeDash Central (servico separado, Railway)
+POST /telemetria/heartbeat         → (X-Telemetria-Key) metricas de saude, sem PII
+POST /painel/login · GET /painel/frota · /painel/clientes/{id}   → painel da frota
 ```
