@@ -17,6 +17,11 @@ public static class AuthEndpoints
     private const int LimiteTentativas = 5;
     private const int BloqueioMinutos  = 15;
 
+    // Hash "isca" (BCrypt real, mesmo work factor dos usuarios) usado quando o cliente/usuario
+    // nao existe: gasta o mesmo tempo de um Verify real para NAO revelar a existencia da conta
+    // pelo tempo de resposta (anti-enumeracao por timing). Ver Senhas.Hash (work factor 12).
+    private static readonly string HashIsca = Senhas.Hash("isca-sem-uso-timing");
+
     public static void MapAuth(this IEndpointRouteBuilder app, IConfiguration cfg)
     {
         // Lista de empresas cadastradas — usado para popular o dropdown do login no PWA
@@ -35,12 +40,18 @@ public static class AuthEndpoints
             var invalido = Results.Json(new { erro = "Usuario ou senha invalidos." }, statusCode: StatusCodes.Status401Unauthorized);
 
             var cliente = await db.Clientes.FirstOrDefaultAsync(c => c.Nome == r.Cliente && c.Ativo);
-            if (cliente is null) return invalido;
 
-            var user = await db.UsuariosApp
+            var user = cliente is null ? null : await db.UsuariosApp
                 .FirstOrDefaultAsync(u => u.ClienteId == cliente.Id && u.Login == r.Login);
-            // Mensagem generica p/ usuario inexistente/inativo (evita enumeracao).
-            if (user is null || !user.Ativo) return invalido;
+
+            // Cliente/usuario inexistente ou inativo: roda o Verify contra o hash "isca" para
+            // gastar o MESMO tempo de um BCrypt real e devolve a mesma mensagem generica.
+            // Assim o atacante nao distingue "conta existe" de "nao existe" (nem pelo corpo nem pelo tempo).
+            if (user is null || !user.Ativo)
+            {
+                Senhas.Conferir(r.Senha, HashIsca);
+                return invalido;
+            }
 
             // Bloqueio temporario por tentativas
             if (user.BloqueadoAte is { } ate && ate > DateTime.UtcNow)
@@ -70,9 +81,10 @@ public static class AuthEndpoints
             user.SessaoToken = sid;
             await db.SaveChangesAsync();
 
+            // user != null garante cliente != null (user so e buscado quando cliente existe).
             var admin  = Permissoes.EhAdmin(user);
             var secoes = Permissoes.SecoesEfetivas(user).ToArray();
-            var token  = GerarJwt(cfg, cliente.Id, user.Id, user.Login, admin, sid);
+            var token  = GerarJwt(cfg, cliente!.Id, user.Id, user.Login, admin, sid);
             return Results.Ok(new { token, cliente = cliente.Nome, admin, secoes, precisaTrocarSenha = user.PrecisaTrocarSenha });
         }).RequireRateLimiting("login");
 

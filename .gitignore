@@ -19,6 +19,9 @@ key-railway.txt
 *-secrets.txt
 seguranca.md
 seguranca/
+# Credenciais de teste/dev — nunca versionar (higiene + nao dar mapa a atacante)
+CREDENCIAIS-TESTE.md
+*CREDENCIAIS*
 
 # ── Build .NET ────────────────────────────────────────────────────────────────
 bin/

@@ -21,6 +21,18 @@ public static class IngestEndpoints
             var cliente = await db.Clientes.FirstOrDefaultAsync(c => c.ChaveApi == chave && c.Ativo);
             if (cliente is null) return Results.Unauthorized();
 
+            // 1b) o snapshot fica sempre ESCOPADO a uma loja conhecida DESTE cliente (o ClienteId
+            // vem da chave, nunca da URL — nao ha cross-tenant). Se a empresa/filial ainda nao
+            // estiver cadastrada, registra-a para este cliente (auto-provisiona filiais) em vez de
+            // rejeitar — evita quebrar clientes com mais de uma empresa no SIGECOM.
+            if (codigoEmpresa <= 0) return Results.BadRequest(new { erro = "codigoEmpresa invalido." });
+            var lojaExiste = await db.Lojas.AnyAsync(l => l.ClienteId == cliente.Id && l.CodigoEmpresa == codigoEmpresa);
+            if (!lojaExiste)
+            {
+                db.Lojas.Add(new Loja { ClienteId = cliente.Id, CodigoEmpresa = codigoEmpresa, Nome = $"Empresa {codigoEmpresa}" });
+                await db.SaveChangesAsync();
+            }
+
             // 2) le o corpo (pode vir gzip do agente) sem materializar varias copias
             string json;
             Stream body = req.Body;
