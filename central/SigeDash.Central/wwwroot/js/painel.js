@@ -166,18 +166,44 @@
     return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
   }
 
+  var versoesTodas = [];
+  var versoesPag = 0;
+  var VERS_POR_PAG = 6;
+
   async function carregarVersoes() {
     var msg = $("versoes-msg"), lista = $("versoes-lista");
-    msg.hidden = true; lista.innerHTML = '<div class="vazio">Carregando…</div>';
+    msg.hidden = true; $("versoes-pag").hidden = true;
+    lista.innerHTML = '<div class="vazio">Carregando…</div>';
     try {
-      var vers = await api("/painel/versoes");
-      if (!vers.length) { lista.innerHTML = ""; msg.hidden = false; msg.textContent = "Nenhuma release encontrada no GitHub."; return; }
-      lista.innerHTML = vers.map(renderVersao).join("");
+      versoesTodas = await api("/painel/versoes");
+      if (!versoesTodas.length) { lista.innerHTML = ""; msg.hidden = false; msg.textContent = "Nenhuma release encontrada no GitHub."; return; }
+      var maxPag = Math.ceil(versoesTodas.length / VERS_POR_PAG) - 1;
+      if (versoesPag > maxPag) versoesPag = maxPag;   // mantém página válida após recarregar
+      if (versoesPag < 0) versoesPag = 0;
+      renderPaginaVersoes();
     } catch (e) {
       lista.innerHTML = "";
       msg.hidden = false;
       msg.textContent = e.message;
     }
+  }
+
+  function renderPaginaVersoes() {
+    var total = versoesTodas.length;
+    var totalPags = Math.ceil(total / VERS_POR_PAG);
+    var ini = versoesPag * VERS_POR_PAG;
+    var fatia = versoesTodas.slice(ini, ini + VERS_POR_PAG);
+    $("versoes-lista").innerHTML = fatia.map(renderVersao).join("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    var pag = $("versoes-pag");
+    if (totalPags <= 1) { pag.hidden = true; return; }
+    pag.hidden = false;
+    pag.innerHTML =
+      '<button class="pag-btn" data-nav="prev"' + (versoesPag === 0 ? " disabled" : "") + '>← Anterior</button>' +
+      '<span class="pag-info">Página ' + (versoesPag + 1) + ' de ' + totalPags +
+        ' · ' + total + ' versões</span>' +
+      '<button class="pag-btn" data-nav="next"' + (versoesPag >= totalPags - 1 ? " disabled" : "") + '>Próxima →</button>';
   }
 
   function renderVersao(v) {
@@ -229,6 +255,14 @@
     if (lib) { toggleLiberar(lib.getAttribute("data-tag"), lib.getAttribute("data-lib") !== "1", lib); return; }
     var as = e.target.closest(".asset-btn");
     if (as && !as.disabled) { baixarAsset(as.getAttribute("data-tag"), as.getAttribute("data-id"), as.getAttribute("data-nome"), as); }
+  });
+
+  // Navegação da paginação de versões.
+  $("versoes-pag").addEventListener("click", function (e) {
+    var b = e.target.closest(".pag-btn");
+    if (!b || b.disabled) return;
+    versoesPag += (b.getAttribute("data-nav") === "next" ? 1 : -1);
+    renderPaginaVersoes();
   });
 
   // ── Eventos ──
