@@ -170,6 +170,17 @@
           '<div style="text-align:right"><span class="pill ' + cls + '">' + esc(i.status || "—") + '</span>' +
           '<div class="t">' + quando + '</div></div></div>';
       }).join("");
+      // Histórico das mudanças de assinatura (motivos registrados).
+      var aud = (c.auditoria || []);
+      body += '<div class="ind-titulo">Histórico da assinatura (' + aud.length + ')</div>';
+      if (!aud.length) body += '<div class="ind"><span class="t">Nenhuma mudança registrada ainda.</span></div>';
+      body += aud.map(function (a) {
+        var txt = a.detalhe || "";
+        if (c.nome && txt.indexOf(c.nome + ":") === 0) txt = txt.substring((c.nome + ":").length).trim();
+        return '<div class="aud-item"><div class="aud-txt">' + esc(txt) + '</div>' +
+          '<div class="aud-meta">' + esc(a.usuario || "?") + ' · ' + dataHora(a.ts) + '</div></div>';
+      }).join("");
+
       $("det-body").innerHTML = body;
       $("overlay").hidden = false;
     } catch (e) { alert(e.message); }
@@ -251,6 +262,10 @@
   function dataBR(iso) {
     if (!iso) return "—";
     return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  }
+  function dataHora(iso) {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
   }
 
   var versoesTodas = [];

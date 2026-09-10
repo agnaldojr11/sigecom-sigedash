@@ -120,6 +120,13 @@ public static class PainelEndpoints
             var agora = DateTime.UtcNow;
             var online = c.Heartbeat != null && (agora - c.Heartbeat.RecebidoEm) <= LimiteOnline;
 
+            // Histórico das ações de assinatura (motivos), para consulta posterior.
+            var auditoria = await db.LogsAuditoria
+                .Where(l => l.ClienteId == id && l.Acao == "estado_assinatura")
+                .OrderByDescending(l => l.Ts).Take(50)
+                .Select(l => new { l.Ts, l.Usuario, l.Detalhe })
+                .ToListAsync();
+
             return Results.Ok(new
             {
                 c.Id, c.Nome, c.Cnpj, c.LimiteDispositivos, c.CriadoEm, c.Observacao,
@@ -127,7 +134,8 @@ public static class PainelEndpoints
                 c.Estado, c.ExpiraEm, c.MotivoBloqueio, c.EstadoAtualizadoEm, c.EstadoPor,
                 heartbeat = c.Heartbeat,
                 indicadores = c.Indicadores.OrderBy(i => i.Handle),
-                historico = hist
+                historico = hist,
+                auditoria
             });
         }).RequireAuthorization();
 

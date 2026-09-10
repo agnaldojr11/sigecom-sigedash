@@ -179,3 +179,10 @@ tbody tr:last-child td { border-bottom: none; }
 .btn-pri:hover { background: var(--accent); }
 .btn-pri.perigo { background: var(--crit); }
 .btn-pri.perigo:hover { background: #ef4444; }
+
+/* HISTÓRICO DE ASSINATURA (auditoria no detalhe) */
+.aud-item { display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  padding: 9px 0; border-bottom: 1px solid var(--border); }
+.aud-item:last-child { border-bottom: none; }
+.aud-txt { font-size: .85rem; }
+.aud-meta { color: var(--dim); font-size: .74rem; font-family: var(--mono); white-space: nowrap; }
