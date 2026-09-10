@@ -208,6 +208,25 @@ namespace SigeDash.Central.Migrations
                     b.ToTable("UsuariosPainel");
                 });
 
+            modelBuilder.Entity("SigeDash.Central.Modelos.VersaoLiberada", b =>
+                {
+                    b.Property<string>("Tag")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("AtualizadoEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("AtualizadoPor")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("Liberada")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Tag");
+
+                    b.ToTable("VersoesLiberadas");
+                });
+
             modelBuilder.Entity("SigeDash.Central.Modelos.Heartbeat", b =>
                 {
                     b.HasOne("SigeDash.Central.Modelos.ClienteCentral", null)
