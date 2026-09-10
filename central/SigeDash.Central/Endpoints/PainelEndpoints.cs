@@ -1,10 +1,13 @@
+using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using SigeDash.Central.Data;
+using SigeDash.Central.Modelos;
 using SigeDash.Central.Seguranca;
 
 namespace SigeDash.Central.Endpoints;
 
 public record LoginDto(string Login, string Senha);
+public record EstadoDto(string Estado, string? Motivo, DateTime? ExpiraEm);
 
 /// <summary>API do painel interno (SistemasBr). Login por JWT; leitura da frota.</summary>
 public static class PainelEndpoints
@@ -73,6 +76,7 @@ public static class PainelEndpoints
                 {
                     c.Id, c.Nome, c.Cnpj,
                     online,
+                    estado = c.Estado,
                     versao = ver,
                     desatualizado,
                     usuariosAtivos = hb?.UsuariosAtivos ?? 0,
@@ -90,6 +94,7 @@ public static class PainelEndpoints
                 online = lista.Count(x => x.online),
                 offline = lista.Count(x => !x.online),
                 desatualizados = lista.Count(x => x.desatualizado),
+                suspensos = lista.Count(x => EstadoAssinatura.Bloqueia(x.estado)),
                 comAlertas = lista.Count(x => !x.online || x.desatualizado || x.indicadoresErro > 0),
                 versaoTopo = versaoTopo.ToString()
             };
@@ -119,10 +124,43 @@ public static class PainelEndpoints
             {
                 c.Id, c.Nome, c.Cnpj, c.LimiteDispositivos, c.CriadoEm, c.Observacao,
                 online,
+                c.Estado, c.ExpiraEm, c.MotivoBloqueio, c.EstadoAtualizadoEm, c.EstadoPor,
                 heartbeat = c.Heartbeat,
                 indicadores = c.Indicadores.OrderBy(i => i.Handle),
                 historico = hist
             });
+        }).RequireAuthorization();
+
+        // Muda o estado da assinatura (kill-switch). O cliente aplica no próximo heartbeat.
+        app.MapPost("/painel/clientes/{id:int}/estado", async (
+            int id, EstadoDto dto, ClaimsPrincipal user, CentralDbContext db) =>
+        {
+            var estado = (dto.Estado ?? "").Trim().ToLowerInvariant();
+            if (!EstadoAssinatura.Todos.Contains(estado))
+                return Results.BadRequest(new { erro = "Estado inválido. Use: " + string.Join(", ", EstadoAssinatura.Todos) });
+
+            var c = await db.Clientes.FirstOrDefaultAsync(x => x.Id == id);
+            if (c is null) return Results.NotFound();
+
+            var quem = user.FindFirstValue("login") ?? user.Identity?.Name ?? "?";
+            var anterior = c.Estado;
+
+            c.Estado = estado;
+            c.MotivoBloqueio = string.IsNullOrWhiteSpace(dto.Motivo) ? null : dto.Motivo!.Trim();
+            c.ExpiraEm = dto.ExpiraEm;
+            c.EstadoAtualizadoEm = DateTime.UtcNow;
+            c.EstadoPor = quem;
+
+            db.LogsAuditoria.Add(new LogAuditoria
+            {
+                Usuario = quem,
+                Acao = "estado_assinatura",
+                ClienteId = c.Id,
+                Detalhe = $"{c.Nome}: {anterior} → {estado}" + (c.MotivoBloqueio is null ? "" : $" ({c.MotivoBloqueio})")
+            });
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new { c.Id, c.Estado, c.MotivoBloqueio, c.ExpiraEm, c.EstadoPor, c.EstadoAtualizadoEm });
         }).RequireAuthorization();
     }
 

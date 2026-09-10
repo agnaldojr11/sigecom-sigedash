@@ -13,6 +13,7 @@ public class CentralDbContext : DbContext
     public DbSet<IndicadorSaude> IndicadoresSaude => Set<IndicadorSaude>();
     public DbSet<UsuarioPainel> UsuariosPainel => Set<UsuarioPainel>();
     public DbSet<VersaoLiberada> VersoesLiberadas => Set<VersaoLiberada>();
+    public DbSet<LogAuditoria> LogsAuditoria => Set<LogAuditoria>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -33,5 +34,7 @@ public class CentralDbContext : DbContext
         b.Entity<UsuarioPainel>(e => e.HasIndex(x => x.Login).IsUnique());
 
         b.Entity<VersaoLiberada>(e => e.HasKey(x => x.Tag));
+
+        b.Entity<LogAuditoria>(e => e.HasIndex(x => x.Ts));
     }
 }

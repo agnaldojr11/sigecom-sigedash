@@ -8,9 +8,16 @@ public class ClienteCentral
     public string? Cnpj { get; set; }
     public string ChaveTelemetria { get; set; } = "";
     public int LimiteDispositivos { get; set; }        // espelho do plano (informativo)
-    public bool Ativo { get; set; } = true;
+    public bool Ativo { get; set; } = true;            // registro válido (aceita telemetria) — NÃO é a assinatura
     public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
     public string? Observacao { get; set; }
+
+    // ── Assinatura (kill-switch por PULL: o cliente lê o estado no heartbeat) ──
+    public string Estado { get; set; } = EstadoAssinatura.Ativo;   // ativo | trial | suspenso | cancelado
+    public DateTime? ExpiraEm { get; set; }                        // validade do trial/assinatura (informativo)
+    public string? MotivoBloqueio { get; set; }                    // mensagem opcional exibida ao cliente
+    public DateTime? EstadoAtualizadoEm { get; set; }
+    public string? EstadoPor { get; set; }
 
     public Heartbeat? Heartbeat { get; set; }          // estado atual (1:1)
     public List<IndicadorSaude> Indicadores { get; set; } = new();
@@ -64,6 +71,31 @@ public class VersaoLiberada
     public bool Liberada { get; set; }
     public DateTime AtualizadoEm { get; set; } = DateTime.UtcNow;
     public string? AtualizadoPor { get; set; }
+}
+
+/// <summary>Estados possíveis da assinatura de um cliente.</summary>
+public static class EstadoAssinatura
+{
+    public const string Ativo = "ativo";
+    public const string Trial = "trial";
+    public const string Suspenso = "suspenso";
+    public const string Cancelado = "cancelado";
+
+    public static readonly string[] Todos = { Ativo, Trial, Suspenso, Cancelado };
+
+    /// <summary>Estados em que o cliente deve se auto-bloquear (kill-switch).</summary>
+    public static bool Bloqueia(string estado) => estado is Suspenso or Cancelado;
+}
+
+/// <summary>Trilha de auditoria das ações do painel (quem fez o quê e quando).</summary>
+public class LogAuditoria
+{
+    public long Id { get; set; }
+    public DateTime Ts { get; set; } = DateTime.UtcNow;
+    public string Usuario { get; set; } = "";
+    public string Acao { get; set; } = "";
+    public int? ClienteId { get; set; }
+    public string? Detalhe { get; set; }
 }
 
 /// <summary>Usuário do painel interno da SistemasBr.</summary>

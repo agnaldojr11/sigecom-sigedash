@@ -73,7 +73,22 @@ public static class TelemetriaEndpoints
             }
 
             await db.SaveChangesAsync();
-            return Results.NoContent();
+
+            // Resposta do heartbeat = estado da assinatura (kill-switch por PULL). O backend do
+            // cliente (v1.0.43+) lê isto e se auto-bloqueia se 'bloqueado'. Clientes antigos ignoram.
+            var bloqueado = EstadoAssinatura.Bloqueia(cliente.Estado);
+            return Results.Ok(new
+            {
+                assinatura = new
+                {
+                    estado = cliente.Estado,
+                    bloqueado,
+                    mensagem = bloqueado
+                        ? (cliente.MotivoBloqueio ?? "Acesso suspenso. Entre em contato com a SistemasBr.")
+                        : null,
+                    expiraEm = cliente.ExpiraEm
+                }
+            });
         }).RequireRateLimiting("telemetria");
     }
 

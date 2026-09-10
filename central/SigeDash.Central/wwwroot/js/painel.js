@@ -63,8 +63,16 @@
       kpi(r.total, "Clientes", "") +
       kpi(r.online, "Online", "on") +
       kpi(r.offline, "Offline", r.offline > 0 ? "off" : "") +
-      kpi(r.desatualizados, "Desatualizados", r.desatualizados > 0 ? "alerta" : "") +
+      kpi(r.suspensos != null ? r.suspensos : 0, "Suspensos", (r.suspensos > 0) ? "off" : "") +
       kpi(r.comAlertas, "Com alertas", r.comAlertas > 0 ? "alerta" : "");
+  }
+
+  // Estados de assinatura → pill colorido (reutiliza classes .pill existentes).
+  var ESTADO_CLS = { ativo: "ok", trial: "acc", suspenso: "crit", cancelado: "neutro" };
+  var ESTADO_LBL = { ativo: "ativo", trial: "trial", suspenso: "suspenso", cancelado: "cancelado" };
+  function estadoPill(estado) {
+    var e = (estado || "ativo").toLowerCase();
+    return '<span class="pill ' + (ESTADO_CLS[e] || "neutro") + '">' + esc(ESTADO_LBL[e] || e) + '</span>';
   }
   function kpi(n, l, cls) {
     return '<div class="kpi ' + cls + '"><div class="n">' + n + '</div><div class="l">' + l + '</div></div>';
@@ -83,8 +91,9 @@
       var ind = c.indicadoresErro > 0
         ? '<span class="pill warn">' + c.indicadoresErro + ' c/ erro</span>'
         : '<span class="pill ok">ok</span>';
+      var estadoTag = (c.estado && c.estado !== "ativo") ? ' ' + estadoPill(c.estado) : '';
       return '<tr data-id="' + c.id + '">' +
-        '<td><div class="cli-nome">' + esc(c.nome) + '</div>' + (c.cnpj ? '<div class="cli-cnpj">' + esc(c.cnpj) + '</div>' : '') + '</td>' +
+        '<td><div class="cli-nome">' + esc(c.nome) + estadoTag + '</div>' + (c.cnpj ? '<div class="cli-cnpj">' + esc(c.cnpj) + '</div>' : '') + '</td>' +
         '<td>' + status + '</td>' +
         '<td>' + ver + '</td>' +
         '<td><span class="pill ' + dispCls + '">' + disp + '</span></td>' +
@@ -112,13 +121,33 @@
   }
 
   // ── Detalhe ──
+  var clienteAberto = null;
   async function abrirDetalhe(id) {
     try {
       var c = await api("/painel/clientes/" + id);
+      clienteAberto = c;
       $("det-nome").textContent = c.nome;
-      $("det-sub").textContent = (c.cnpj ? c.cnpj + " · " : "") + (c.online ? "online" : "offline");
+      $("det-sub").innerHTML = (c.cnpj ? esc(c.cnpj) + " · " : "") + (c.online ? "online" : "offline") + " · " + estadoPill(c.estado);
       var hb = c.heartbeat || {};
+
+      // Bloco de assinatura (kill-switch)
+      var estado = (c.estado || "ativo").toLowerCase();
+      var acoes = [
+        { e: "ativo", l: "Ativar", cls: "ok" },
+        { e: "trial", l: "Trial", cls: "acc" },
+        { e: "suspenso", l: "Suspender", cls: "crit" },
+        { e: "cancelado", l: "Cancelar", cls: "neutro" }
+      ].filter(function (a) { return a.e !== estado; })
+       .map(function (a) { return '<button class="est-btn ' + a.cls + '" data-estado="' + a.e + '">' + a.l + '</button>'; }).join("");
+      var quem = c.estadoPor ? (' · por ' + esc(c.estadoPor) + (c.estadoAtualizadoEm ? ' em ' + dataBR(c.estadoAtualizadoEm) : '')) : '';
       var body =
+        '<div class="assinatura">' +
+          '<div class="ass-topo"><span class="ass-lbl">Assinatura</span> ' + estadoPill(c.estado) +
+            (c.expiraEm ? ' <span class="t">expira ' + dataBR(c.expiraEm) + '</span>' : '') + '</div>' +
+          (c.motivoBloqueio ? '<div class="ass-motivo">“' + esc(c.motivoBloqueio) + '”' + quem + '</div>' : (c.estadoPor ? '<div class="t">' + quem.replace(/^ · /, "") + '</div>' : '')) +
+          '<input id="ass-motivo" class="ass-input" type="text" placeholder="Motivo (opcional) — ex.: inadimplência, cliente saiu">' +
+          '<div class="ass-acoes">' + acoes + '</div>' +
+        '</div>' +
         '<div class="kv">' +
           item("Versão", hb.versao ? "v" + esc(hb.versao) : "—") +
           item("Dispositivos", (hb.usuariosAtivos != null ? hb.usuariosAtivos : "—") + (c.limiteDispositivos > 0 ? " / " + c.limiteDispositivos : " / ∞")) +
@@ -145,6 +174,21 @@
     } catch (e) { alert(e.message); }
   }
   function item(l, v) { return '<div class="item"><div class="l">' + l + '</div><div class="v">' + v + '</div></div>'; }
+
+  async function mudarEstado(estado) {
+    if (!clienteAberto) return;
+    var el = $("ass-motivo");
+    var motivo = (el && el.value.trim()) || null;
+    if ((estado === "suspenso" || estado === "cancelado") &&
+        !confirm('Confirma mudar a assinatura de "' + clienteAberto.nome + '" para ' + estado.toUpperCase() + '?\nO cliente será bloqueado no próximo contato com a Central.')) return;
+    try {
+      await api("/painel/clientes/" + clienteAberto.id + "/estado", {
+        method: "POST", body: JSON.stringify({ estado: estado, motivo: motivo, expiraEm: null })
+      });
+      await abrirDetalhe(clienteAberto.id);  // recarrega o modal
+      carregar();                            // atualiza a lista da frota
+    } catch (e) { alert(e.message); }
+  }
 
   // ── Navegação entre views ──
   function trocarView(nome) {
@@ -273,6 +317,10 @@
   $("in-senha").addEventListener("keydown", function (e) { if (e.key === "Enter") entrar(); });
   $("btn-sair").addEventListener("click", sair);
   $("btn-refresh").addEventListener("click", carregar);
+  $("det-body").addEventListener("click", function (e) {
+    var b = e.target.closest(".est-btn");
+    if (b) mudarEstado(b.getAttribute("data-estado"));
+  });
   $("btn-fechar").addEventListener("click", function () { $("overlay").hidden = true; });
   $("overlay").addEventListener("click", function (e) { if (e.target === $("overlay")) $("overlay").hidden = true; });
 
