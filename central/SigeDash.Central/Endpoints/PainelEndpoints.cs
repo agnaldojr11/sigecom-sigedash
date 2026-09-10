@@ -139,6 +139,10 @@ public static class PainelEndpoints
             if (!EstadoAssinatura.Todos.Contains(estado))
                 return Results.BadRequest(new { erro = "Estado inválido. Use: " + string.Join(", ", EstadoAssinatura.Todos) });
 
+            var motivo = (dto.Motivo ?? "").Trim();
+            if (motivo.Length < 3)
+                return Results.BadRequest(new { erro = "Informe o motivo da mudança (mín. 3 caracteres)." });
+
             var c = await db.Clientes.FirstOrDefaultAsync(x => x.Id == id);
             if (c is null) return Results.NotFound();
 
@@ -146,7 +150,9 @@ public static class PainelEndpoints
             var anterior = c.Estado;
 
             c.Estado = estado;
-            c.MotivoBloqueio = string.IsNullOrWhiteSpace(dto.Motivo) ? null : dto.Motivo!.Trim();
+            // MotivoBloqueio (mostrado ao cliente) só faz sentido quando o estado bloqueia; o motivo
+            // sempre fica registrado na auditoria abaixo.
+            c.MotivoBloqueio = EstadoAssinatura.Bloqueia(estado) ? motivo : null;
             c.ExpiraEm = dto.ExpiraEm;
             c.EstadoAtualizadoEm = DateTime.UtcNow;
             c.EstadoPor = quem;
@@ -156,7 +162,7 @@ public static class PainelEndpoints
                 Usuario = quem,
                 Acao = "estado_assinatura",
                 ClienteId = c.Id,
-                Detalhe = $"{c.Nome}: {anterior} → {estado}" + (c.MotivoBloqueio is null ? "" : $" ({c.MotivoBloqueio})")
+                Detalhe = $"{c.Nome}: {anterior} → {estado} ({motivo})"
             });
             await db.SaveChangesAsync();
 

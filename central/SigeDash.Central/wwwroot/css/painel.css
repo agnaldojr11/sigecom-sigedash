@@ -159,3 +159,23 @@ tbody tr:last-child td { border-bottom: none; }
 .est-btn.crit:hover { color: var(--crit); border-color: var(--crit); }
 .est-btn.neutro:hover { color: var(--muted); border-color: var(--muted); }
 .est-btn:disabled { opacity: .5; cursor: default; }
+.ass-input.erro-campo { border-color: var(--crit); box-shadow: 0 0 0 3px var(--crit-bg); }
+.ass-erro { color: var(--crit); font-size: .8rem; margin-top: 8px; }
+
+/* MODAL DE CONFIRMAÇÃO (design da Central, substitui o confirm() nativo) */
+#confirm-overlay { position: fixed; inset: 0; background: rgba(5,10,20,.7); display: flex; align-items: center;
+  justify-content: center; padding: 20px; z-index: 40; }
+#confirm-overlay[hidden] { display: none; }
+.confirm-box { width: 100%; max-width: 440px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 24px; box-shadow: 0 24px 70px rgba(0,0,0,.55); }
+.confirm-titulo { font-size: 1.1rem; font-weight: 700; }
+.confirm-msg { color: var(--muted); font-size: .92rem; margin-top: 10px; line-height: 1.55; }
+.confirm-acoes { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
+.btn-sec { background: var(--surface2); color: var(--muted); border: 1px solid var(--border);
+  border-radius: 9px; padding: 9px 18px; font-size: .88rem; font-weight: 600; }
+.btn-sec:hover { color: var(--text); }
+.btn-pri { background: var(--accent-dk); color: #fff; border: none; border-radius: 9px;
+  padding: 9px 18px; font-size: .88rem; font-weight: 700; }
+.btn-pri:hover { background: var(--accent); }
+.btn-pri.perigo { background: var(--crit); }
+.btn-pri.perigo:hover { background: #ef4444; }

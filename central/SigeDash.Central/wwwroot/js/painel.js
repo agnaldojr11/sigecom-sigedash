@@ -145,7 +145,8 @@
           '<div class="ass-topo"><span class="ass-lbl">Assinatura</span> ' + estadoPill(c.estado) +
             (c.expiraEm ? ' <span class="t">expira ' + dataBR(c.expiraEm) + '</span>' : '') + '</div>' +
           (c.motivoBloqueio ? '<div class="ass-motivo">“' + esc(c.motivoBloqueio) + '”' + quem + '</div>' : (c.estadoPor ? '<div class="t">' + quem.replace(/^ · /, "") + '</div>' : '')) +
-          '<input id="ass-motivo" class="ass-input" type="text" placeholder="Motivo (opcional) — ex.: inadimplência, cliente saiu">' +
+          '<input id="ass-motivo" class="ass-input" type="text" maxlength="200" placeholder="Motivo (obrigatório) — ex.: inadimplência, cliente saiu">' +
+          '<div id="ass-erro" class="ass-erro" hidden></div>' +
           '<div class="ass-acoes">' + acoes + '</div>' +
         '</div>' +
         '<div class="kv">' +
@@ -175,19 +176,61 @@
   }
   function item(l, v) { return '<div class="item"><div class="l">' + l + '</div><div class="v">' + v + '</div></div>'; }
 
+  // Modal de confirmação com o design da Central (substitui o confirm() nativo). Retorna Promise<bool>.
+  function confirmar(titulo, msg, perigo) {
+    return new Promise(function (resolve) {
+      $("confirm-titulo").textContent = titulo;
+      $("confirm-msg").textContent = msg;
+      var ok = $("confirm-ok"), cancel = $("confirm-cancelar"), ov = $("confirm-overlay");
+      ok.className = perigo ? "btn-pri perigo" : "btn-pri";
+      ov.hidden = false; ok.focus();
+      function limpar(v) {
+        ov.hidden = true;
+        ok.removeEventListener("click", onOk);
+        cancel.removeEventListener("click", onCancel);
+        ov.removeEventListener("click", onBg);
+        document.removeEventListener("keydown", onKey);
+        resolve(v);
+      }
+      function onOk() { limpar(true); }
+      function onCancel() { limpar(false); }
+      function onBg(e) { if (e.target === ov) limpar(false); }
+      function onKey(e) { if (e.key === "Escape") limpar(false); else if (e.key === "Enter") limpar(true); }
+      ok.addEventListener("click", onOk);
+      cancel.addEventListener("click", onCancel);
+      ov.addEventListener("click", onBg);
+      document.addEventListener("keydown", onKey);
+    });
+  }
+
   async function mudarEstado(estado) {
     if (!clienteAberto) return;
-    var el = $("ass-motivo");
-    var motivo = (el && el.value.trim()) || null;
-    if ((estado === "suspenso" || estado === "cancelado") &&
-        !confirm('Confirma mudar a assinatura de "' + clienteAberto.nome + '" para ' + estado.toUpperCase() + '?\nO cliente será bloqueado no próximo contato com a Central.')) return;
+    var el = $("ass-motivo"), erro = $("ass-erro");
+    var motivo = (el && el.value.trim()) || "";
+    if (motivo.length < 3) {
+      el.classList.add("erro-campo");
+      erro.textContent = "Informe o motivo (mín. 3 caracteres) — ele fica registrado na auditoria.";
+      erro.hidden = false;
+      el.focus();
+      return;
+    }
+    el.classList.remove("erro-campo"); erro.hidden = true;
+
+    var bloqueia = (estado === "suspenso" || estado === "cancelado");
+    var msg = 'Mudar a assinatura de "' + clienteAberto.nome + '" para ' + (ESTADO_LBL[estado] || estado).toUpperCase() + '.' +
+      (bloqueia ? " O cliente será bloqueado no próximo contato com a Central." : "");
+    var ok = await confirmar("Confirmar mudança de assinatura", msg, bloqueia);
+    if (!ok) return;
+
     try {
       await api("/painel/clientes/" + clienteAberto.id + "/estado", {
         method: "POST", body: JSON.stringify({ estado: estado, motivo: motivo, expiraEm: null })
       });
       await abrirDetalhe(clienteAberto.id);  // recarrega o modal
       carregar();                            // atualiza a lista da frota
-    } catch (e) { alert(e.message); }
+    } catch (e) {
+      erro.textContent = e.message; erro.hidden = false;
+    }
   }
 
   // ── Navegação entre views ──

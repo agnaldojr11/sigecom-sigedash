@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0d1526">
   <title>SigeDash Central</title>
-  <link rel="stylesheet" href="css/painel.css?v=4">
+  <link rel="stylesheet" href="css/painel.css?v=5">
 </head>
 <body>
 
@@ -85,6 +85,18 @@
     </div>
   </div>
 
-  <script src="js/painel.js?v=4"></script>
+  <!-- CONFIRMAÇÃO (substitui o confirm() nativo, com o design da Central) -->
+  <div id="confirm-overlay" hidden>
+    <div class="confirm-box">
+      <div id="confirm-titulo" class="confirm-titulo"></div>
+      <div id="confirm-msg" class="confirm-msg"></div>
+      <div class="confirm-acoes">
+        <button id="confirm-cancelar" class="btn-sec">Cancelar</button>
+        <button id="confirm-ok" class="btn-pri">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/painel.js?v=5"></script>
 </body>
 </html>
