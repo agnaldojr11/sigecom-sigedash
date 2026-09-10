@@ -1,8 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using SigeDash.Central.Data;
 using SigeDash.Central.Modelos;
+using SigeDash.Central.Seguranca;
 
 namespace SigeDash.Central.Endpoints;
+
+public record RegistrarDto(string Nome, string? Cnpj);
 
 /// <summary>
 /// Recebe o que a frota EMPURRA (phone-home). Autenticado por X-Telemetria-Key (chave por cliente).
@@ -10,8 +13,44 @@ namespace SigeDash.Central.Endpoints;
 /// </summary>
 public static class TelemetriaEndpoints
 {
-    public static void MapTelemetria(this IEndpointRouteBuilder app)
+    public static void MapTelemetria(this IEndpointRouteBuilder app, IConfiguration cfg)
     {
+        // Auto-registro (chamado pelo instalador/script do cliente, NÃO pelo heartbeat).
+        // Autenticado pela chave de provisionamento compartilhada (X-Bootstrap-Key). Idempotente
+        // por CNPJ (senão por Nome): reinstalar o mesmo cliente devolve a chave existente, não duplica.
+        app.MapPost("/telemetria/registrar", async (RegistrarDto dto, HttpContext ctx, CentralDbContext db) =>
+        {
+            var bootstrap = cfg["Central:ChaveBootstrap"];
+            if (string.IsNullOrWhiteSpace(bootstrap))
+                return Results.Problem("Central:ChaveBootstrap não configurada.", statusCode: 503);
+            var fornecida = ctx.Request.Headers["X-Bootstrap-Key"].ToString();
+            if (!Auth.ChaveConfere(fornecida, bootstrap)) return Results.Unauthorized();
+
+            var nome = (dto.Nome ?? "").Trim();
+            if (nome.Length == 0) return Results.BadRequest(new { erro = "Informe o nome do cliente." });
+            var cnpj = SoDigitos(dto.Cnpj);
+
+            // Idempotência: acha por CNPJ (se houver) senão por Nome exato.
+            ClienteCentral? c = null;
+            if (cnpj is not null) c = await db.Clientes.FirstOrDefaultAsync(x => x.Cnpj == cnpj);
+            c ??= await db.Clientes.FirstOrDefaultAsync(x => x.Nome == nome);
+
+            var novo = c is null;
+            if (novo)
+            {
+                c = new ClienteCentral { Nome = nome, Cnpj = cnpj, ChaveTelemetria = Auth.GerarChaveTelemetria(), Ativo = true };
+                db.Clientes.Add(c);
+            }
+            else
+            {
+                // Completa dados faltantes sem sobrescrever o que já foi ajustado no painel.
+                if (string.IsNullOrWhiteSpace(c!.Cnpj) && cnpj is not null) c.Cnpj = cnpj;
+            }
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new { c!.Id, c.Nome, chaveTelemetria = c.ChaveTelemetria, novo });
+        }).RequireRateLimiting("admin");
+
         app.MapPost("/telemetria/heartbeat", async (
             HeartbeatDto dto, HttpContext ctx, CentralDbContext db) =>
         {
@@ -98,5 +137,13 @@ public static class TelemetriaEndpoints
         if (string.IsNullOrEmpty(s)) return s;
         s = s.Trim();
         return s.Length <= max ? s : s.Substring(0, max);
+    }
+
+    // CNPJ normalizado (só dígitos) para idempotência; null se vazio.
+    private static string? SoDigitos(string? s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return null;
+        var d = new string(s.Where(char.IsDigit).ToArray());
+        return d.Length == 0 ? null : d;
     }
 }

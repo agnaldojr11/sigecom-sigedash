@@ -168,6 +168,8 @@ $SCRIPTS = @(
     "deploy\backend\rotacionar-segredos.ps1",
     "deploy\backend\resetar-senha.ps1",
     "deploy\backend\definir-limite.ps1",
+    "deploy\backend\registrar-central.ps1",
+    "deploy\backend\sincronizar-central.ps1",
     "deploy\agente\configurar-cliente.ps1"
 )
 
@@ -227,6 +229,15 @@ if (Test-Path $cfJson) {
 } else {
     Write-Host "  AVISO: deploy\cf.json nao encontrado - tunnel precisara de token manual." -ForegroundColor Yellow
     Write-Host "  Execute .\configurar-cf.ps1 para habilitar criacao automatica de tunnels." -ForegroundColor Yellow
+}
+
+# 4c. Inclui central.json (Url + ChaveBootstrap) para o auto-registro na SigeDash Central
+$centralJson = Join-Path $ROOT "deploy\central.json"
+if (Test-Path $centralJson) {
+    Copy-Item $centralJson $PKG_DIR -Force
+    Log "central.json incluido (auto-registro na Central habilitado)."
+} else {
+    Write-Host "  AVISO: deploy\central.json nao encontrado - clientes novos NAO se registrarao na Central." -ForegroundColor Yellow
 }
 
 # 4d. Gera Instalar-SigeDash.exe — wizard grafico WPF (.NET), self-contained single-file.

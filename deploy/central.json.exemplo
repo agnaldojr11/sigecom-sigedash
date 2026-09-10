@@ -1,0 +1,5 @@
+{
+  "_comentario": "Copie para deploy/central.json (gitignored) e preencha. A ChaveBootstrap deve ser IDENTICA a variavel Central__ChaveBootstrap definida no Railway. Habilita o auto-registro dos clientes na SigeDash Central.",
+  "Url": "https://sigecom-sigedash-production.up.railway.app",
+  "ChaveBootstrap": "COLE-A-MESMA-CHAVE-DO-RAILWAY"
+}

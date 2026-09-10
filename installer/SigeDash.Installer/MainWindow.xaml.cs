@@ -117,11 +117,12 @@ public partial class MainWindow : Window
         _saida.Clear();
 
         var empresa = (txtEmpresa.Text ?? "").Replace("\"", "").Trim();
+        var cnpj    = (txtCnpj.Text ?? "").Replace("\"", "").Trim();
         var token   = (txtToken.Text ?? "").Replace("\"", "").Trim();
         var fdb     = (txtFdb.Text ?? "").Replace("\"", "").Trim();
 
         var args = $"-NoProfile -ExecutionPolicy Bypass -File \"{script}\" " +
-                   $"-NomeCliente \"{empresa}\" -LimiteDispositivos {limite} " +
+                   $"-NomeCliente \"{empresa}\" -Cnpj \"{cnpj}\" -LimiteDispositivos {limite} " +
                    $"-TunnelToken \"{token}\" -FdbPath \"{fdb}\" -Force";
 
         var psi = new ProcessStartInfo

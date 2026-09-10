@@ -32,6 +32,7 @@
 #>
 param(
     [string]$NomeCliente       = "",
+    [string]$Cnpj              = "",
     [string]$FdbPath           = "C:\SIGECOM\SIGECOM.FDB",
 
     # Limite de dispositivos/usuarios do plano comercial (0 = ilimitado). -1 = perguntar ao instalador.
@@ -401,6 +402,22 @@ if (-not [string]::IsNullOrWhiteSpace($TunnelToken)) {
     Log "  1. Execute .\configurar-cf.ps1 na maquina de desenvolvimento"
     Log "  2. Gere novo pacote com build-deploy.ps1"
     Log "  OU informe -TunnelToken ao executar instalar-tudo.ps1"
+}
+
+# ============================================================
+Titulo "PASSO 5 - Registro na SigeDash Central"
+# ============================================================
+# Auto-registro no fim do install (uma vez, controlado). Idempotente e nao-fatal.
+if (-not [string]::IsNullOrWhiteSpace($NomeCliente)) {
+    $scriptCentral = Join-Path $SCRIPT_DIR "registrar-central.ps1"
+    if (Test-Path $scriptCentral) {
+        try { & $scriptCentral -Nome $NomeCliente -Cnpj $Cnpj -BackendDir "C:\SigeDash\Backend" -ScriptDir $SCRIPT_DIR }
+        catch { Log "AVISO: registro na Central falhou: $_ (nao impede a instalacao)." }
+    } else {
+        Log "registrar-central.ps1 ausente - telemetria nao configurada (adicione central.json ao pacote)."
+    }
+} else {
+    Log "NomeCliente vazio - pulando registro na Central."
 }
 
 # ============================================================

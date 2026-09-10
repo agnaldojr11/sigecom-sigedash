@@ -87,7 +87,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapGet("/health", () => Results.Ok(new { ok = true, servico = "sigedash-central" }));
-app.MapTelemetria();
+app.MapTelemetria(app.Configuration);
 app.MapPainel(app.Configuration);
 app.MapVersoes();
 app.MapAdminCentral(app.Configuration);
