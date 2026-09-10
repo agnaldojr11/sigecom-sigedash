@@ -100,3 +100,35 @@ tbody tr:last-child td { border-bottom: none; }
 .ind:last-child { border-bottom: none; }
 .ind .h { font-family: var(--mono); font-size: .85rem; }
 .ind .t { color: var(--dim); font-size: .75rem; }
+
+/* TABS (Frota / Versões) */
+.tabs { display: flex; gap: 4px; }
+.tab { background: transparent; color: var(--muted); border: 1px solid transparent;
+  border-radius: 9px; padding: 7px 16px; font-size: .9rem; font-weight: 600; }
+.tab:hover { color: var(--text); }
+.tab.ativo { color: var(--text); background: var(--surface2); border-color: var(--border); }
+#view-frota[hidden], #view-versoes[hidden] { display: none; }
+.sec-hint { font-size: .78rem; font-weight: 400; color: var(--dim); margin-left: 8px; }
+
+/* VERSÕES */
+#versoes-lista { display: flex; flex-direction: column; gap: 14px; }
+.ver-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; }
+.ver-card.liberada { border-color: rgba(52,211,153,.4); }
+.ver-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.ver-tag { font-family: var(--mono); font-weight: 700; font-size: 1.05rem; }
+.ver-data { color: var(--muted); font-size: .8rem; margin-top: 3px; }
+.ver-hint { color: var(--dim); font-size: .78rem; margin-top: 8px; }
+.lib-btn { flex: none; background: var(--surface2); color: var(--muted); border: 1px solid var(--border);
+  border-radius: 9px; padding: 8px 14px; font-size: .82rem; font-weight: 600; }
+.lib-btn:hover { color: var(--text); }
+.lib-btn.on { color: var(--ok); background: var(--ok-bg); border-color: rgba(52,211,153,.4); }
+.lib-btn:disabled { opacity: .5; cursor: default; }
+.ver-assets { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.asset-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: 10px; padding: 9px 13px; font-size: .85rem; font-family: var(--mono); }
+.asset-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.asset-btn:disabled { opacity: .45; cursor: default; }
+.asset-btn .dl { color: var(--accent); font-family: var(--f); }
+.asset-btn .sz { color: var(--dim); font-size: .78rem; }
+.ver-notas { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border);
+  color: var(--muted); font-size: .85rem; max-height: 160px; overflow-y: auto; white-space: normal; }

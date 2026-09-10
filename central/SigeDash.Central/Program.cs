@@ -38,6 +38,11 @@ builder.Services.AddRateLimiter(o =>
 
 builder.Services.AddResponseCompression();
 
+// Menu VERSÕES: cataloga o GitHub Releases (a Central não hospeda binários).
+builder.Services.AddHttpClient("github");
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<SigeDash.Central.Servicos.GithubReleases>();
+
 // Retenção/expurgo (LGPD) do histórico de heartbeats.
 builder.Services.AddHostedService<SigeDash.Central.Servicos.RetencaoHostedService>();
 
@@ -84,6 +89,7 @@ app.UseAuthorization();
 app.MapGet("/health", () => Results.Ok(new { ok = true, servico = "sigedash-central" }));
 app.MapTelemetria();
 app.MapPainel(app.Configuration);
+app.MapVersoes();
 app.MapAdminCentral(app.Configuration);
 
 app.MapFallbackToFile("index.html");

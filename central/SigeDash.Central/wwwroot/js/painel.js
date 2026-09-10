@@ -146,7 +146,95 @@
   }
   function item(l, v) { return '<div class="item"><div class="l">' + l + '</div><div class="v">' + v + '</div></div>'; }
 
+  // ── Navegação entre views ──
+  function trocarView(nome) {
+    $("view-frota").hidden = nome !== "frota";
+    $("view-versoes").hidden = nome !== "versoes";
+    Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (t) {
+      t.classList.toggle("ativo", t.getAttribute("data-view") === nome);
+    });
+    if (nome === "versoes") carregarVersoes();
+  }
+
+  // ── Versões (catálogo do GitHub) ──
+  function tamMB(bytes) {
+    if (!bytes) return "—";
+    return (bytes / 1048576).toFixed(1).replace(".", ",") + " MB";
+  }
+  function dataBR(iso) {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  }
+
+  async function carregarVersoes() {
+    var msg = $("versoes-msg"), lista = $("versoes-lista");
+    msg.hidden = true; lista.innerHTML = '<div class="vazio">Carregando…</div>';
+    try {
+      var vers = await api("/painel/versoes");
+      if (!vers.length) { lista.innerHTML = ""; msg.hidden = false; msg.textContent = "Nenhuma release encontrada no GitHub."; return; }
+      lista.innerHTML = vers.map(renderVersao).join("");
+    } catch (e) {
+      lista.innerHTML = "";
+      msg.hidden = false;
+      msg.textContent = e.message;
+    }
+  }
+
+  function renderVersao(v) {
+    var libBtn = '<button class="lib-btn ' + (v.liberada ? "on" : "") + '" data-tag="' + esc(v.tag) + '" data-lib="' + (v.liberada ? "1" : "0") + '">' +
+      (v.liberada ? "✓ Liberada" : "Liberar") + '</button>';
+    var pre = v.prerelease ? '<span class="pill warn">pré-release</span>' : '';
+    var assets = (v.assets || []).map(function (a) {
+      var dis = v.liberada ? "" : "disabled";
+      return '<button class="asset-btn" ' + dis + ' data-tag="' + esc(v.tag) + '" data-id="' + a.id + '" data-nome="' + esc(a.name) + '">' +
+        '<span class="dl">⬇</span> ' + esc(a.name) + ' <span class="sz">' + tamMB(a.size) + '</span></button>';
+    }).join("");
+    if (!assets) assets = '<span class="vazio">Sem arquivos nesta release.</span>';
+    var notas = v.notas ? '<div class="ver-notas">' + esc(v.notas).replace(/\n/g, "<br>") + '</div>' : '';
+    var hint = v.liberada ? '' : '<div class="ver-hint">Libere a versão para o suporte poder baixar.</div>';
+    return '<div class="ver-card' + (v.liberada ? " liberada" : "") + '">' +
+      '<div class="ver-head">' +
+        '<div><span class="ver-tag">' + esc(v.tag) + '</span> ' + pre +
+          '<div class="ver-data">' + esc(v.nome) + ' · publicado em ' + dataBR(v.publicadoEm) + '</div></div>' +
+        libBtn +
+      '</div>' + hint +
+      '<div class="ver-assets">' + assets + '</div>' + notas +
+    '</div>';
+  }
+
+  async function toggleLiberar(tag, liberar, btn) {
+    btn.disabled = true;
+    try {
+      await api("/painel/versoes/" + encodeURIComponent(tag) + "/liberar", {
+        method: "POST", body: JSON.stringify({ liberada: liberar })
+      });
+      carregarVersoes();
+    } catch (e) { alert(e.message); btn.disabled = false; }
+  }
+
+  async function baixarAsset(tag, assetId, nome, btn) {
+    var txt = btn.innerHTML; btn.disabled = true; btn.innerHTML = "Gerando link…";
+    try {
+      var r = await api("/painel/versoes/" + encodeURIComponent(tag) + "/asset/" + assetId + "/link");
+      var a = document.createElement("a");
+      a.href = r.url; a.download = nome || ""; document.body.appendChild(a); a.click(); a.remove();
+      btn.innerHTML = "Baixando…";
+      setTimeout(function () { btn.innerHTML = txt; btn.disabled = false; }, 2500);
+    } catch (e) { alert(e.message); btn.innerHTML = txt; btn.disabled = false; }
+  }
+
+  // Delegação de eventos na lista de versões (botões gerados dinamicamente).
+  $("versoes-lista").addEventListener("click", function (e) {
+    var lib = e.target.closest(".lib-btn");
+    if (lib) { toggleLiberar(lib.getAttribute("data-tag"), lib.getAttribute("data-lib") !== "1", lib); return; }
+    var as = e.target.closest(".asset-btn");
+    if (as && !as.disabled) { baixarAsset(as.getAttribute("data-tag"), as.getAttribute("data-id"), as.getAttribute("data-nome"), as); }
+  });
+
   // ── Eventos ──
+  Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (t) {
+    t.addEventListener("click", function () { trocarView(t.getAttribute("data-view")); });
+  });
   $("btn-entrar").addEventListener("click", entrar);
   $("in-senha").addEventListener("keydown", function (e) { if (e.key === "Enter") entrar(); });
   $("btn-sair").addEventListener("click", sair);

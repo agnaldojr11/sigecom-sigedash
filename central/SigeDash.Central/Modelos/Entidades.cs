@@ -55,6 +55,17 @@ public class IndicadorSaude
     public DateTime AtualizadoEm { get; set; }
 }
 
+/// <summary>Curadoria do menu VERSÕES: marca quais releases do GitHub estão liberadas para o
+/// suporte/implementação ver e baixar. A Central NÃO hospeda binários — cataloga o GitHub Releases
+/// (onde os pacotes já estão assinados) e guarda apenas o estado de liberação por tag.</summary>
+public class VersaoLiberada
+{
+    public string Tag { get; set; } = "";              // ex.: v1.0.42 (chave)
+    public bool Liberada { get; set; }
+    public DateTime AtualizadoEm { get; set; } = DateTime.UtcNow;
+    public string? AtualizadoPor { get; set; }
+}
+
 /// <summary>Usuário do painel interno da SistemasBr.</summary>
 public class UsuarioPainel
 {

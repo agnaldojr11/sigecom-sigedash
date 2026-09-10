@@ -12,6 +12,7 @@ public class CentralDbContext : DbContext
     public DbSet<HeartbeatHistorico> HeartbeatHistorico => Set<HeartbeatHistorico>();
     public DbSet<IndicadorSaude> IndicadoresSaude => Set<IndicadorSaude>();
     public DbSet<UsuarioPainel> UsuariosPainel => Set<UsuarioPainel>();
+    public DbSet<VersaoLiberada> VersoesLiberadas => Set<VersaoLiberada>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -30,5 +31,7 @@ public class CentralDbContext : DbContext
         b.Entity<HeartbeatHistorico>(e => e.HasIndex(x => new { x.ClienteId, x.Ts }));
 
         b.Entity<UsuarioPainel>(e => e.HasIndex(x => x.Login).IsUnique());
+
+        b.Entity<VersaoLiberada>(e => e.HasKey(x => x.Tag));
     }
 }

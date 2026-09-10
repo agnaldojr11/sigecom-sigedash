@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0d1526">
   <title>SigeDash Central</title>
-  <link rel="stylesheet" href="css/painel.css?v=1">
+  <link rel="stylesheet" href="css/painel.css?v=2">
 </head>
 <body>
 
@@ -27,6 +27,10 @@
   <div id="app" hidden>
     <header class="topbar">
       <div class="brand"><span class="dot"></span> SigeDash Central</div>
+      <nav class="tabs">
+        <button class="tab ativo" data-view="frota">Frota</button>
+        <button class="tab" data-view="versoes">Versões</button>
+      </nav>
       <div class="top-actions">
         <span id="atualizado" class="atualizado"></span>
         <button id="btn-refresh" title="Atualizar">↻</button>
@@ -35,21 +39,34 @@
     </header>
 
     <main class="wrap">
-      <section id="resumo" class="cards"></section>
+      <!-- VIEW: FROTA -->
+      <section id="view-frota">
+        <section id="resumo" class="cards"></section>
 
-      <div class="sec-titulo">Clientes</div>
-      <div class="tbl-wrap">
-        <table id="tbl-frota">
-          <thead>
-            <tr>
-              <th>Cliente</th><th>Status</th><th>Versão</th>
-              <th>Dispositivos</th><th>Indicadores</th><th>Último sinal</th>
-            </tr>
-          </thead>
-          <tbody id="frota-body"></tbody>
-        </table>
-      </div>
-      <p id="frota-vazio" class="vazio" hidden>Nenhum cliente registrado ainda. Registre pelo endpoint <code>/admin/clientes</code>.</p>
+        <div class="sec-titulo">Clientes</div>
+        <div class="tbl-wrap">
+          <table id="tbl-frota">
+            <thead>
+              <tr>
+                <th>Cliente</th><th>Status</th><th>Versão</th>
+                <th>Dispositivos</th><th>Indicadores</th><th>Último sinal</th>
+              </tr>
+            </thead>
+            <tbody id="frota-body"></tbody>
+          </table>
+        </div>
+        <p id="frota-vazio" class="vazio" hidden>Nenhum cliente registrado ainda. Registre pelo endpoint <code>/admin/clientes</code>.</p>
+      </section>
+
+      <!-- VIEW: VERSÕES -->
+      <section id="view-versoes" hidden>
+        <div class="sec-titulo">
+          Versões liberadas
+          <span class="sec-hint">catálogo do GitHub · para o suporte/implementação</span>
+        </div>
+        <div id="versoes-lista"></div>
+        <p id="versoes-msg" class="vazio" hidden></p>
+      </section>
     </main>
   </div>
 
@@ -67,6 +84,6 @@
     </div>
   </div>
 
-  <script src="js/painel.js?v=1"></script>
+  <script src="js/painel.js?v=2"></script>
 </body>
 </html>
