@@ -35,7 +35,7 @@ public static class AuthEndpoints
             return Results.Ok(lista);
         });
 
-        app.MapPost("/auth/login", async (LoginRequest r, AppDbContext db) =>
+        app.MapPost("/auth/login", async (LoginRequest r, AppDbContext db, Servicos.EstadoAssinaturaService assinatura) =>
         {
             var invalido = Results.Json(new { erro = "Usuario ou senha invalidos." }, statusCode: StatusCodes.Status401Unauthorized);
 
@@ -72,6 +72,12 @@ public static class AuthEndpoints
                 await db.SaveChangesAsync();
                 return invalido;
             }
+
+            // Kill-switch: se a Central suspendeu/cancelou a assinatura, ninguem entra (nem admin).
+            // Checado APOS a senha conferir, para so o usuario legitimo ver o motivo.
+            if (assinatura.Bloqueado)
+                return Results.Json(new { erro = assinatura.Mensagem, bloqueado = true },
+                    statusCode: StatusCodes.Status403Forbidden);
 
             // Sucesso: zera contadores, registra acesso e abre sessao unica (novo sid).
             user.TentativasFalhas = 0;

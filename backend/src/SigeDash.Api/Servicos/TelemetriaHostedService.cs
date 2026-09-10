@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SigeDash.Api.Data;
 
@@ -15,12 +16,13 @@ public class TelemetriaHostedService : BackgroundService
     private readonly IHttpClientFactory _http;
     private readonly IConfiguration _cfg;
     private readonly ILogger<TelemetriaHostedService> _log;
+    private readonly EstadoAssinaturaService _estado;
     private static readonly DateTime _iniciadoEm = DateTime.UtcNow;
 
     public TelemetriaHostedService(IServiceScopeFactory scopes, IHttpClientFactory http,
-        IConfiguration cfg, ILogger<TelemetriaHostedService> log)
+        IConfiguration cfg, ILogger<TelemetriaHostedService> log, EstadoAssinaturaService estado)
     {
-        _scopes = scopes; _http = http; _cfg = cfg; _log = log;
+        _scopes = scopes; _http = http; _cfg = cfg; _log = log; _estado = estado;
     }
 
     protected override async Task ExecuteAsync(CancellationToken ct)
@@ -94,7 +96,23 @@ public class TelemetriaHostedService : BackgroundService
         req.Headers.Add("X-Telemetria-Key", chave);
         using var resp = await http.SendAsync(req, ct);
         if (!resp.IsSuccessStatusCode)
+        {
             _log.LogWarning("Heartbeat recusado pelo Central: HTTP {code}", (int)resp.StatusCode);
+            return; // perda de contato/erro NÃO altera o estado local (fail-open)
+        }
+
+        // Aplica o estado de assinatura vindo na resposta (kill-switch por PULL).
+        try
+        {
+            var doc = await resp.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
+            if (doc.ValueKind == JsonValueKind.Object && doc.TryGetProperty("assinatura", out var ass))
+            {
+                var bloqueado = ass.TryGetProperty("bloqueado", out var b) && b.ValueKind == JsonValueKind.True;
+                string? msg = ass.TryGetProperty("mensagem", out var m) && m.ValueKind == JsonValueKind.String ? m.GetString() : null;
+                _estado.Atualizar(bloqueado, msg);
+            }
+        }
+        catch (Exception ex) { _log.LogWarning("Telemetria: falha ao ler resposta do heartbeat: {m}", ex.Message); }
     }
 
     private static string VersaoInstalada()

@@ -10,8 +10,14 @@ public static class DashboardEndpoints
     public static void MapDashboards(this IEndpointRouteBuilder app)
     {
         // lista o indicador mais recente de cada handle
-        app.MapGet("/dash/{codigoEmpresa:int}", async (int codigoEmpresa, ClaimsPrincipal user, AppDbContext db) =>
+        app.MapGet("/dash/{codigoEmpresa:int}", async (int codigoEmpresa, ClaimsPrincipal user, AppDbContext db,
+            Servicos.EstadoAssinaturaService assinatura) =>
         {
+            // Kill-switch: assinatura suspensa/cancelada derruba tambem quem ja estava logado.
+            if (assinatura.Bloqueado)
+                return Results.Json(new { erro = assinatura.Mensagem, bloqueado = true },
+                    statusCode: StatusCodes.Status403Forbidden);
+
             var clienteId = int.Parse(user.FindFirstValue("cliente_id")!);
             var usuarioId = int.Parse(user.FindFirstValue("usuario_id")!);
 

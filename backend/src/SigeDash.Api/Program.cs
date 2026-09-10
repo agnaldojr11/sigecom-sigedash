@@ -76,6 +76,8 @@ builder.Services.AddHttpClient("ia");
 
 // Telemetria phone-home para o SigeDash Central (no-op se Central:Url/ChaveTelemetria vazios).
 builder.Services.AddHttpClient("central");
+// Estado local da assinatura (kill-switch) — alimentado pela resposta do heartbeat, lido no login/dash.
+builder.Services.AddSingleton<SigeDash.Api.Servicos.EstadoAssinaturaService>();
 builder.Services.AddHostedService<SigeDash.Api.Servicos.TelemetriaHostedService>();
 
 // Retenção/expurgo (LGPD): mantém só o snapshot mais recente por indicador.

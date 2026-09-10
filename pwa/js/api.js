@@ -133,6 +133,10 @@ const API = (() => {
       headers: { "Authorization": `Bearer ${token}` }
     });
     if (r.status === 401) throw _erro401(r);
+    if (r.status === 403) {
+      const d = await r.json().catch(() => ({}));
+      if (d.bloqueado) throw _erroBloqueio(d.erro);
+    }
     return r.json();
   }
 
@@ -203,6 +207,15 @@ const API = (() => {
       : "Sua sessão expirou. Entre novamente.");
     e.sessaoEncerrada = true;
     e.superada = superada;
+    return e;
+  }
+
+  // Assinatura suspensa/cancelada pela Central (kill-switch): desloga e mostra o motivo.
+  function _erroBloqueio(msg) {
+    sair();
+    var e = new Error(msg || "Assinatura suspensa. Entre em contato com a SistemasBr.");
+    e.sessaoEncerrada = true;
+    e.bloqueado = true;
     return e;
   }
 
