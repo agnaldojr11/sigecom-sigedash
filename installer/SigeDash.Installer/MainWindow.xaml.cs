@@ -191,7 +191,11 @@ public partial class MainWindow : Window
             return m.Success ? m.Groups[1].Value.Trim() : null;
         }
 
-        var empresa  = !string.IsNullOrWhiteSpace(empresaDigitada) ? empresaDigitada : P(@"Empresa\s*:\s*(.+)");
+        // Quando a Empresa foi deixada em branco (auto-detect), prioriza a linha do proprio install
+        // "Nome detectado automaticamente: <nome>" (nome limpo) antes de cair em "Empresa : ...".
+        var empresa  = !string.IsNullOrWhiteSpace(empresaDigitada)
+            ? empresaDigitada
+            : (P(@"Nome detectado automaticamente:\s*(.+)") ?? P(@"Empresa\s+:\s*(.+)"));
         var url      = Regex.Match(txt, @"https://[\w\-\.]+\.sigedash\.com\.br", RegexOptions.IgnoreCase).Value;
         var adminKey = P(@"AdminKey\s*:\s*(\S+)");
 
@@ -219,7 +223,7 @@ public partial class MainWindow : Window
     private void AddCred(string rotulo, string valor)
     {
         var row = new Grid { Margin = new Thickness(0, 6, 0, 6) };
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
@@ -234,6 +238,7 @@ public partial class MainWindow : Window
             Background = Brushes.Transparent, FontSize = 13.5, FontWeight = FontWeights.SemiBold,
             Foreground = new SolidColorBrush(Color.FromRgb(0xE2, 0xE8, 0xF0)),
             VerticalContentAlignment = VerticalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(0, 0, 8, 0),
             FontFamily = new FontFamily("Consolas"), TextWrapping = TextWrapping.NoWrap
         };
         Grid.SetColumn(val, 1);
@@ -241,10 +246,14 @@ public partial class MainWindow : Window
         row.Children.Add(val);
 
         // Ícone de copiar (📋) — clique copia a linha e vira ✓ por 1,5s.
+        // Padding zerado + conteúdo centralizado para o emoji não ser cortado dentro do botão.
         var btn = new Button
         {
-            Content = "\U0001F4CB", ToolTip = "Copiar", Width = 34,
+            Content = "\U0001F4CB", ToolTip = "Copiar", Width = 34, Height = 30,
             Style = (Style)FindResource("BtnCopy"), VerticalAlignment = VerticalAlignment.Center,
+            Padding = new Thickness(0),
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            VerticalContentAlignment = VerticalAlignment.Center,
             FontFamily = new FontFamily("Segoe UI Emoji, Segoe UI Symbol"), FontSize = 14
         };
         btn.Click += (_, __) =>

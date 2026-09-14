@@ -260,7 +260,7 @@
                             </StackPanel>
                         </StackPanel>
 
-                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="12" Margin="0,20,0,0" Padding="18,14">
+                        <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="12" Margin="0,20,0,0" Padding="18,14,14,14">
                             <StackPanel x:Name="finishCreds">
                                 <!-- linhas preenchidas em código -->
                             </StackPanel>
