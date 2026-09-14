@@ -211,7 +211,7 @@
 
                         <TextBlock Text="CNPJ" Style="{StaticResource Label}" Margin="2,16,0,6"/>
                         <TextBox x:Name="txtCnpj" Style="{StaticResource Input}"/>
-                        <TextBlock Text="Identifica o cliente na SigeDash Central (evita duplicar). Recomendado." Style="{StaticResource Hint}"/>
+                        <TextBlock Text="Deixe em branco para detectar automaticamente pelo banco do SIGECOM. Identifica o cliente na Central." Style="{StaticResource Hint}"/>
 
                         <Grid Margin="0,16,0,0">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="140"/></Grid.ColumnDefinitions>

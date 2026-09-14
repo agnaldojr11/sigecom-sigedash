@@ -192,7 +192,9 @@ function CriarTunnelCloudflare($nomeCliente, $scriptDir) {
     }
 }
 
-function BuscarNomeFantasia($fdbPath) {
+# Le um campo da tabela EMPRESA (CODIGOEMPRESA=1) do Firebird via isql. Usado para auto-detectar
+# NOMEFANTASIA e CNPJ quando nao informados no install.
+function BuscarCampoEmpresa($fdbPath, $campo) {
     $candidatos = @(
         "C:\Program Files\Firebird\Firebird_2_5\bin\isql.exe",
         "C:\Program Files (x86)\Firebird\Firebird_2_5\bin\isql.exe",
@@ -201,29 +203,30 @@ function BuscarNomeFantasia($fdbPath) {
     )
     $isql = $candidatos | Where-Object { Test-Path $_ } | Select-Object -First 1
     if (-not $isql) {
-        Log "AVISO: isql.exe nao encontrado - informe -NomeCliente manualmente."
+        Log "AVISO: isql.exe nao encontrado - informe os dados manualmente."
         return $null
     }
     $sqlFile = Join-Path $env:TEMP "sigedash_query.sql"
-    @("SELECT NOMEFANTASIA FROM EMPRESA WHERE CODIGOEMPRESA = 1;", "EXIT;") |
+    @("SELECT $campo FROM EMPRESA WHERE CODIGOEMPRESA = 1;", "EXIT;") |
         Out-File $sqlFile -Encoding ASCII
     try {
         $saida = & $isql -user SYSDBA -password masterkey $fdbPath -q -i $sqlFile 2>&1
-        $nome  = $saida | Where-Object {
+        $val  = $saida | Where-Object {
             $_ -and
             $_ -notmatch '^\s*$' -and
-            $_ -notmatch '^NOMEFANTASIA' -and
+            $_ -notmatch ('^\s*' + [regex]::Escape($campo)) -and
             $_ -notmatch '^[= ]+$' -and
             $_ -notmatch '^Database:'
         } | Select-Object -First 1
-        return ($nome -as [string]).Trim()
+        return ($val -as [string]).Trim()
     } catch {
-        Log "AVISO: erro ao consultar Firebird: $_"
+        Log "AVISO: erro ao consultar Firebird ($campo): $_"
         return $null
     } finally {
         Remove-Item $sqlFile -ErrorAction SilentlyContinue
     }
 }
+function BuscarNomeFantasia($fdbPath) { return BuscarCampoEmpresa $fdbPath "NOMEFANTASIA" }
 
 # Verifica privilegio de admin
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
@@ -240,6 +243,13 @@ if ([string]::IsNullOrWhiteSpace($NomeCliente)) {
         Falha "Nao foi possivel detectar o nome do cliente. Informe -NomeCliente manualmente."
     }
     Log "Nome detectado automaticamente: $NomeCliente"
+}
+
+# Auto-detecta o CNPJ via Firebird se nao informado (identidade forte na Central; nao-fatal se faltar)
+if ([string]::IsNullOrWhiteSpace($Cnpj)) {
+    $Cnpj = BuscarCampoEmpresa $FdbPath "CNPJ"
+    if (-not [string]::IsNullOrWhiteSpace($Cnpj)) { Log "CNPJ detectado automaticamente: $Cnpj" }
+    else { Log "CNPJ nao detectado - registro na Central usara so o nome." }
 }
 
 # ============================================================
