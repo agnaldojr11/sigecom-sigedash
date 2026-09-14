@@ -176,19 +176,34 @@ if ($jaInstalado) {
     # Executa instalacao silenciosa
     # Aspas no datadir evitam quebra de argumento em "C:\Program Files\..."
     Log "Instalando PostgreSQL $PG_VERSION (modo silencioso)..."
+    # --install_runtimes 1: em maquina limpa o cluster nao inicializa sem o Visual C++
+    # Redistributable (initcluster falha -> instalador "completa" mas sai com codigo 1).
     $installerArgs = "--mode unattended " +
         "--superpassword `"$SuperSenha`" " +
         "--servicename $PG_SVC " +
         "--servicepassword `"$SuperSenha`" " +
         "--serverport 5432 " +
         "--datadir `"$PG_INSTALLDIR\data`" " +
-        "--install_runtimes 0"
+        "--install_runtimes 1"
 
     $proc = Start-Process -FilePath $InstallerExe -ArgumentList $installerArgs -Wait -PassThru
-    if ($proc.ExitCode -ne 0) {
-        Log "ERRO: instalador retornou codigo $($proc.ExitCode)."
-        Log "Verifique os logs em %TEMP%\postgresql_installer_*.log"
-        exit 1
+    $exitPg = $proc.ExitCode
+
+    # O instalador EDB as vezes retorna != 0 mesmo instalando OK (falha em script pos-install).
+    # Nao abortamos so pelo codigo: verificamos se o PostgreSQL ficou REALMENTE funcional.
+    if ($exitPg -ne 0) {
+        Log "AVISO: instalador retornou codigo $exitPg. Verificando se o PostgreSQL ficou funcional..."
+        Start-Sleep -Seconds 5
+        $svcPos  = Get-Service | Where-Object { $_.Name -match "^postgresql" } | Select-Object -First 1
+        $tcpPos  = TestaTCP 5432
+        $psqlPos = Test-Path "$PG_INSTALLDIR\bin\psql.exe"
+        if (-not ($psqlPos -and ($svcPos -or $tcpPos))) {
+            Log "ERRO: instalador retornou $exitPg e o PostgreSQL NAO ficou funcional (servico/porta/psql ausentes)."
+            Log "Logs do instalador: %TEMP%\install-postgresql.log e %TEMP%\bitrock_installer*.log"
+            Log "Causa comum: Visual C++ Redistributable ausente. Instale o vc_redist.x64 e rode novamente."
+            exit 1
+        }
+        Log "PostgreSQL ficou funcional apesar do codigo $exitPg - prosseguindo."
     }
     Log "PostgreSQL instalado com sucesso."
 
