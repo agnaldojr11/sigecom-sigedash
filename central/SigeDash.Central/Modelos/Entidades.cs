@@ -18,6 +18,7 @@ public class ClienteCentral
     public string? MotivoBloqueio { get; set; }                    // mensagem opcional exibida ao cliente
     public DateTime? EstadoAtualizadoEm { get; set; }
     public string? EstadoPor { get; set; }
+    public DateTime? SincronizadoSuperlogicaEm { get; set; }   // última verificação no Superlógica (polling)
 
     public Heartbeat? Heartbeat { get; set; }          // estado atual (1:1)
     public List<IndicadorSaude> Indicadores { get; set; } = new();

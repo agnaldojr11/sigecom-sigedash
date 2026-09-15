@@ -43,6 +43,11 @@ builder.Services.AddHttpClient("github");
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<SigeDash.Central.Servicos.GithubReleases>();
 
+// Integração Superlógica (polling diário → kill-switch automático por CNPJ). No-op se não configurado.
+builder.Services.AddHttpClient("superlogica");
+builder.Services.AddSingleton<SigeDash.Central.Servicos.SuperlogicaClient>();
+builder.Services.AddHostedService<SigeDash.Central.Servicos.SuperlogicaSyncHostedService>();
+
 // Retenção/expurgo (LGPD) do histórico de heartbeats.
 builder.Services.AddHostedService<SigeDash.Central.Servicos.RetencaoHostedService>();
 
