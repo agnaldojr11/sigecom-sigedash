@@ -682,6 +682,17 @@ function _planoBloco() {
         '<span class="pv-badge ' + (cheio ? 'desatualizado' : 'atualizado') + '">' +
         (cheio ? 'limite atingido' : (p.disponivel + ' vaga(s) livre(s)')) + '</span>';
     }
+    // Aviso ao admin quando a Central alterou o limite (mostra uma vez por mudança).
+    try {
+      if (p.limiteAtualizadoEm && localStorage.getItem('sd_limite_visto') !== p.limiteAtualizadoEm) {
+        var aviso = document.createElement('div');
+        aviso.className = 'pv-aviso';
+        aviso.textContent = '✔ Seu limite de dispositivos foi atualizado para ' +
+          (p.ilimitado ? 'ilimitado' : p.limiteDispositivos) + '.';
+        wrap.appendChild(aviso);
+        localStorage.setItem('sd_limite_visto', p.limiteAtualizadoEm);
+      }
+    } catch (e) { /* localStorage indisponível: ignora */ }
   }).catch(function() { valor.textContent = '—'; });
   return wrap;
 }

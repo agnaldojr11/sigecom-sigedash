@@ -111,6 +111,25 @@ public class TelemetriaHostedService : BackgroundService
                 string? msg = ass.TryGetProperty("mensagem", out var m) && m.ValueKind == JsonValueKind.String ? m.GetString() : null;
                 _estado.Atualizar(bloqueado, msg);
             }
+
+            // Limite de dispositivos gerenciado pela Central (liberação/ajuste de acessos). Aplica no
+            // banco local (a trava de criação de usuários lê Cliente.LimiteDispositivos) e registra o
+            // aviso para o admin ver no app. Só age quando 'gerenciado' — senão o cliente segue com o seu.
+            if (doc.TryGetProperty("limite", out var lim) && lim.ValueKind == JsonValueKind.Object
+                && lim.TryGetProperty("gerenciado", out var g) && g.ValueKind == JsonValueKind.True
+                && lim.TryGetProperty("valor", out var v) && v.TryGetInt32(out var novoLimite) && novoLimite >= 0)
+            {
+                var cli = await db.Clientes.OrderBy(c => c.Id).FirstOrDefaultAsync(ct);
+                if (cli != null && cli.LimiteDispositivos != novoLimite)
+                {
+                    cli.LimiteDispositivos = novoLimite;
+                    await db.SaveChangesAsync(ct);
+                    DateTime at = lim.TryGetProperty("atualizadoEm", out var a) && a.ValueKind == JsonValueKind.String
+                        && a.TryGetDateTime(out var dt) ? dt : DateTime.UtcNow;
+                    _estado.RegistrarLimite(novoLimite, at);
+                    _log.LogInformation("Limite de dispositivos atualizado pela Central para {n}.", novoLimite);
+                }
+            }
         }
         catch (Exception ex) { _log.LogWarning("Telemetria: falha ao ler resposta do heartbeat: {m}", ex.Message); }
     }

@@ -170,6 +170,23 @@
           '<div style="text-align:right"><span class="pill ' + cls + '">' + esc(i.status || "—") + '</span>' +
           '<div class="t">' + quando + '</div></div></div>';
       }).join("");
+
+      // Limite de dispositivos (liberação/ajuste de acessos pela Central).
+      var lim = (c.limiteDispositivos === 0) ? "ilimitado" : c.limiteDispositivos;
+      var emUso = c.usuariosAtivos || 0;
+      body += '<div class="ind-titulo">Dispositivos</div>' +
+        '<div class="lim-box">' +
+          '<div class="lim-info">Em uso: <b>' + emUso + '</b> · Limite: <b>' + esc(String(lim)) + '</b> ' +
+            (c.limiteGerenciadoCentral ? '<span class="pill acc">gerenciado pela Central</span>' : '<span class="pill neutro">do install</span>') + '</div>' +
+          (c.limitePor ? '<div class="t">alterado por ' + esc(c.limitePor) + (c.limiteAtualizadoEm ? ' em ' + dataHora(c.limiteAtualizadoEm) : '') + '</div>' : '') +
+          '<div class="lim-acao">' +
+            '<input id="lim-input" class="ass-input" type="number" min="0" value="' + (c.limiteDispositivos || 0) + '">' +
+            '<button id="btn-limite" class="btn-pri">Salvar limite</button>' +
+          '</div>' +
+          '<div class="t">0 = ilimitado. Não pode ficar abaixo do que já está em uso. O cliente aplica no próximo contato (~3 min).</div>' +
+          '<div id="lim-erro" class="ass-erro" hidden></div>' +
+        '</div>';
+
       // Histórico das mudanças de assinatura (motivos registrados).
       var aud = (c.auditoria || []);
       body += '<div class="ind-titulo">Histórico da assinatura (' + aud.length + ')</div>';
@@ -212,6 +229,22 @@
       ov.addEventListener("click", onBg);
       document.addEventListener("keydown", onKey);
     });
+  }
+
+  async function salvarLimite() {
+    if (!clienteAberto) return;
+    var inp = $("lim-input"), erro = $("lim-erro");
+    var v = parseInt((inp && inp.value) || "", 10);
+    if (isNaN(v) || v < 0) { erro.textContent = "Informe um número válido (0 = ilimitado)."; erro.hidden = false; return; }
+    erro.hidden = true;
+    var ok = await confirmar("Alterar limite de dispositivos",
+      'Definir o limite de "' + clienteAberto.nome + '" para ' + (v === 0 ? "ilimitado" : v) + '? O cliente aplica no próximo contato (~3 min).');
+    if (!ok) return;
+    try {
+      await api("/painel/clientes/" + clienteAberto.id + "/limite", { method: "POST", body: JSON.stringify({ limite: v }) });
+      await abrirDetalhe(clienteAberto.id);   // recarrega o modal
+      carregar();                             // atualiza a frota
+    } catch (e) { erro.textContent = e.message; erro.hidden = false; }
   }
 
   async function mudarEstado(estado) {
@@ -377,7 +410,8 @@
   $("btn-refresh").addEventListener("click", carregar);
   $("det-body").addEventListener("click", function (e) {
     var b = e.target.closest(".est-btn");
-    if (b) mudarEstado(b.getAttribute("data-estado"));
+    if (b) { mudarEstado(b.getAttribute("data-estado")); return; }
+    if (e.target.closest("#btn-limite")) salvarLimite();
   });
   $("btn-fechar").addEventListener("click", function () { $("overlay").hidden = true; });
   $("overlay").addEventListener("click", function (e) { if (e.target === $("overlay")) $("overlay").hidden = true; });

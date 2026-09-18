@@ -173,7 +173,7 @@ public static class PermissoesEndpoints
 
         // Plano do cliente: limite de dispositivos (seats) e quantos usuarios ativos ha.
         // O admin do cliente SO visualiza (nao altera o limite — isso e da SistemasBr).
-        app.MapGet("/admin/plano", async (ClaimsPrincipal user, AppDbContext db) =>
+        app.MapGet("/admin/plano", async (ClaimsPrincipal user, AppDbContext db, Servicos.EstadoAssinaturaService assinatura) =>
         {
             if (!await EhAdminAtual(user, db)) return Results.Forbid();
             var clienteId = ClienteId(user);
@@ -184,7 +184,9 @@ public static class PermissoesEndpoints
                 limiteDispositivos = limite,
                 usuariosAtivos     = ativos,
                 ilimitado          = limite <= 0,
-                disponivel         = limite <= 0 ? (int?)null : Math.Max(0, limite - ativos)
+                disponivel         = limite <= 0 ? (int?)null : Math.Max(0, limite - ativos),
+                // Quando a Central altera o limite, o app avisa o admin (compara com o último visto).
+                limiteAtualizadoEm = assinatura.LimiteAtualizadoEm
             });
         }).RequireAuthorization();
     }

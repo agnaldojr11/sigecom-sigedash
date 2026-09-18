@@ -78,8 +78,11 @@ public static class TelemetriaEndpoints
             hb.Ip                = ip;
             if (cliente.Heartbeat is null) db.Heartbeats.Add(hb);
 
-            // Espelha o limite no cadastro (informativo)
-            cliente.LimiteDispositivos = dto.LimiteDispositivos;
+            // Espelha o limite reportado pelo cliente APENAS enquanto a Central não gerencia. Depois que
+            // a SistemasBr libera acessos pelo painel (LimiteGerenciadoCentral), a Central é a fonte e o
+            // valor dela prevalece (não sobrescreve com o que o cliente manda).
+            if (!cliente.LimiteGerenciadoCentral)
+                cliente.LimiteDispositivos = dto.LimiteDispositivos;
 
             // Histórico enxuto
             db.HeartbeatHistorico.Add(new HeartbeatHistorico
@@ -126,7 +129,15 @@ public static class TelemetriaEndpoints
                         ? (cliente.MotivoBloqueio ?? "Acesso suspenso. Entre em contato com a SistemasBr.")
                         : null,
                     expiraEm = cliente.ExpiraEm
-                }
+                },
+                // Limite de dispositivos: só quando a Central gerencia (senão o cliente segue com o seu).
+                // 'atualizadoEm' deixa o cliente detectar a mudança e avisar o admin.
+                limite = cliente.LimiteGerenciadoCentral ? new
+                {
+                    gerenciado = true,
+                    valor = cliente.LimiteDispositivos,
+                    atualizadoEm = cliente.LimiteAtualizadoEm
+                } : null
             });
         }).RequireRateLimiting("telemetria");
     }

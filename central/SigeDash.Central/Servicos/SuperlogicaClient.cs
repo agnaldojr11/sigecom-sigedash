@@ -46,6 +46,7 @@ public sealed class SuperlogicaClient
         var req = new HttpRequestMessage(HttpMethod.Get, url);
         req.Headers.Add("app_token", _appToken);
         req.Headers.Add("access_token", _accessToken);
+        req.Headers.Add("Accept", "application/json");
 
         try
         {

@@ -1164,6 +1164,8 @@ input, button { -webkit-appearance: none; appearance: none; }
 .pv-badge { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
 .pv-badge.atualizado    { background: rgba(52,211,153,.15); color: var(--c-success); }
 .pv-badge.desatualizado { background: rgba(251,191,36,.15); color: var(--c-warning); }
+.pv-aviso { margin-top: 8px; padding: 8px 11px; border-radius: 8px; background: rgba(52,211,153,.14);
+  color: var(--c-success); font-size: 12.5px; font-weight: 600; }
 .pv-btn {
   align-self: flex-start; background: var(--c-primary); color: #fff; border: none; border-radius: 8px;
   padding: 7px 14px; font-size: 13px; font-weight: 700; cursor: pointer;

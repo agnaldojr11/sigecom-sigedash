@@ -7,7 +7,13 @@ public class ClienteCentral
     public string Nome { get; set; } = "";
     public string? Cnpj { get; set; }
     public string ChaveTelemetria { get; set; } = "";
-    public int LimiteDispositivos { get; set; }        // espelho do plano (informativo)
+    public int LimiteDispositivos { get; set; }        // limite de dispositivos (seats) do cliente
+    // Quando true, a CENTRAL é a fonte do limite (liberação de mais acessos pela SistemasBr): o heartbeat
+    // responde o limite ao cliente e NÃO espelha mais o valor reportado por ele. Default false = espelha
+    // o limite do install (comportamento antigo), até a SistemasBr definir pelo painel.
+    public bool LimiteGerenciadoCentral { get; set; }
+    public DateTime? LimiteAtualizadoEm { get; set; }
+    public string? LimitePor { get; set; }
     public bool Ativo { get; set; } = true;            // registro válido (aceita telemetria) — NÃO é a assinatura
     public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
     public string? Observacao { get; set; }

@@ -3,14 +3,11 @@ using System.Text.Json;
 namespace SigeDash.Api.Servicos;
 
 /// <summary>
-/// Estado local da assinatura do cliente (kill-switch). É alimentado pela RESPOSTA do heartbeat
-/// (TelemetriaHostedService) e consultado no login e no /dash. Persistido em arquivo para valer já
-/// no boot (antes do 1º heartbeat).
+/// Estado que o cliente recebe da SigeDash Central pela RESPOSTA do heartbeat, persistido em arquivo
+/// (vale já no boot). Guarda: (a) o kill-switch da assinatura (bloqueado/mensagem) e (b) o aviso de
+/// mudança de limite de dispositivos (para o app avisar o admin).
 ///
-/// FAIL-OPEN / com carência: só bloqueia por COMANDO EXPLÍCITO da Central ("bloqueado": true).
-/// Perda de contato com a Central NÃO bloqueia — mantém o último estado conhecido (um cliente nunca
-/// contatado, ou sem telemetria, fica liberado). Assim uma queda da Central/internet não derruba
-/// clientes legítimos; e um bloqueio já comandado persiste mesmo offline até a reativação chegar.
+/// FAIL-OPEN: só bloqueia por COMANDO EXPLÍCITO da Central; perda de contato não bloqueia.
 /// </summary>
 public class EstadoAssinaturaService
 {
@@ -22,6 +19,10 @@ public class EstadoAssinaturaService
     public string Mensagem { get; private set; } = "Assinatura suspensa. Entre em contato com a SistemasBr.";
     public DateTime? AtualizadoEm { get; private set; }
 
+    // Limite de dispositivos definido pela Central — para o app avisar o admin quando muda.
+    public int LimiteValor { get; private set; }
+    public DateTime? LimiteAtualizadoEm { get; private set; }
+
     public EstadoAssinaturaService(ILogger<EstadoAssinaturaService> log)
     {
         _log = log;
@@ -29,7 +30,14 @@ public class EstadoAssinaturaService
         Carregar();
     }
 
-    private sealed record Persistido(bool Bloqueado, string Mensagem, DateTime AtualizadoEm);
+    private sealed class Persistido
+    {
+        public bool Bloqueado { get; set; }
+        public string Mensagem { get; set; } = "";
+        public DateTime? AtualizadoEm { get; set; }
+        public int LimiteValor { get; set; }
+        public DateTime? LimiteAtualizadoEm { get; set; }
+    }
 
     private void Carregar()
     {
@@ -37,30 +45,53 @@ public class EstadoAssinaturaService
         {
             if (!File.Exists(_arquivo)) return;
             var p = JsonSerializer.Deserialize<Persistido>(File.ReadAllText(_arquivo));
-            if (p is not null)
-            {
-                Bloqueado = p.Bloqueado;
-                if (!string.IsNullOrWhiteSpace(p.Mensagem)) Mensagem = p.Mensagem;
-                AtualizadoEm = p.AtualizadoEm;
-            }
+            if (p is null) return;
+            Bloqueado = p.Bloqueado;
+            if (!string.IsNullOrWhiteSpace(p.Mensagem)) Mensagem = p.Mensagem;
+            AtualizadoEm = p.AtualizadoEm;
+            LimiteValor = p.LimiteValor;
+            LimiteAtualizadoEm = p.LimiteAtualizadoEm;
         }
         catch (Exception ex) { _log.LogWarning("Falha ao carregar estado de assinatura: {m}", ex.Message); }
     }
 
-    /// <summary>Aplica o estado vindo da Central (na resposta do heartbeat). Só grava em disco quando muda.</summary>
+    private void Salvar()
+    {
+        try
+        {
+            var p = new Persistido
+            {
+                Bloqueado = Bloqueado, Mensagem = Mensagem, AtualizadoEm = AtualizadoEm,
+                LimiteValor = LimiteValor, LimiteAtualizadoEm = LimiteAtualizadoEm
+            };
+            File.WriteAllText(_arquivo, JsonSerializer.Serialize(p));
+        }
+        catch (Exception ex) { _log.LogWarning("Falha ao salvar estado de assinatura: {m}", ex.Message); }
+    }
+
+    /// <summary>Aplica o estado do kill-switch vindo do heartbeat. Só grava em disco quando muda.</summary>
     public void Atualizar(bool bloqueado, string? mensagem)
     {
         lock (_lock)
         {
             var msg = string.IsNullOrWhiteSpace(mensagem) ? Mensagem : mensagem!.Trim();
             AtualizadoEm = DateTime.UtcNow;
-            if (bloqueado == Bloqueado && msg == Mensagem) return;   // sem mudança → não regrava
-
+            if (bloqueado == Bloqueado && msg == Mensagem) return;
             Bloqueado = bloqueado;
             Mensagem = msg;
-            try { File.WriteAllText(_arquivo, JsonSerializer.Serialize(new Persistido(Bloqueado, Mensagem, AtualizadoEm.Value))); }
-            catch (Exception ex) { _log.LogWarning("Falha ao salvar estado de assinatura: {m}", ex.Message); }
+            Salvar();
             _log.LogInformation("Estado de assinatura mudou: bloqueado={b}", bloqueado);
+        }
+    }
+
+    /// <summary>Registra o novo limite definido pela Central (para o app avisar o admin).</summary>
+    public void RegistrarLimite(int valor, DateTime atualizadoEm)
+    {
+        lock (_lock)
+        {
+            LimiteValor = valor;
+            LimiteAtualizadoEm = atualizadoEm;
+            Salvar();
         }
     }
 }

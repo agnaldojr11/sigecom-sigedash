@@ -8,6 +8,7 @@ namespace SigeDash.Central.Endpoints;
 
 public record LoginDto(string Login, string Senha);
 public record EstadoDto(string Estado, string? Motivo, DateTime? ExpiraEm);
+public record LimiteDto(int Limite);
 
 /// <summary>API do painel interno (SistemasBr). Login por JWT; leitura da frota.</summary>
 public static class PainelEndpoints
@@ -120,9 +121,9 @@ public static class PainelEndpoints
             var agora = DateTime.UtcNow;
             var online = c.Heartbeat != null && (agora - c.Heartbeat.RecebidoEm) <= LimiteOnline;
 
-            // Histórico das ações de assinatura (motivos), para consulta posterior.
+            // Histórico das ações (assinatura + limite de dispositivos), para consulta posterior.
             var auditoria = await db.LogsAuditoria
-                .Where(l => l.ClienteId == id && l.Acao == "estado_assinatura")
+                .Where(l => l.ClienteId == id && (l.Acao == "estado_assinatura" || l.Acao == "limite_dispositivos"))
                 .OrderByDescending(l => l.Ts).Take(50)
                 .Select(l => new { l.Ts, l.Usuario, l.Detalhe })
                 .ToListAsync();
@@ -132,11 +133,49 @@ public static class PainelEndpoints
                 c.Id, c.Nome, c.Cnpj, c.LimiteDispositivos, c.CriadoEm, c.Observacao,
                 online,
                 c.Estado, c.ExpiraEm, c.MotivoBloqueio, c.EstadoAtualizadoEm, c.EstadoPor,
+                c.LimiteGerenciadoCentral, c.LimiteAtualizadoEm, c.LimitePor,
+                usuariosAtivos = c.Heartbeat?.UsuariosAtivos ?? 0,
                 heartbeat = c.Heartbeat,
                 indicadores = c.Indicadores.OrderBy(i => i.Handle),
                 historico = hist,
                 auditoria
             });
+        }).RequireAuthorization();
+
+        // Define o limite de dispositivos (libera/ajusta acessos). A Central vira a fonte do limite
+        // e o cliente aplica no próximo heartbeat — só para ESTE cliente (heartbeat é por ChaveTelemetria).
+        app.MapPost("/painel/clientes/{id:int}/limite", async (
+            int id, LimiteDto dto, ClaimsPrincipal user, CentralDbContext db) =>
+        {
+            if (dto.Limite < 0)
+                return Results.BadRequest(new { erro = "Limite inválido (use 0 para ilimitado)." });
+
+            var c = await db.Clientes.Include(x => x.Heartbeat).FirstOrDefaultAsync(x => x.Id == id);
+            if (c is null) return Results.NotFound();
+
+            // Nunca abaixo dos dispositivos já em uso (0 = ilimitado é sempre permitido).
+            var emUso = c.Heartbeat?.UsuariosAtivos ?? 0;
+            if (dto.Limite != 0 && dto.Limite < emUso)
+                return Results.BadRequest(new { erro = $"O cliente já usa {emUso} dispositivo(s). Defina 0 (ilimitado) ou um valor ≥ {emUso}." });
+
+            var quem = user.FindFirstValue("login") ?? user.Identity?.Name ?? "?";
+            var anterior = c.LimiteDispositivos;
+
+            c.LimiteDispositivos = dto.Limite;
+            c.LimiteGerenciadoCentral = true;
+            c.LimiteAtualizadoEm = DateTime.UtcNow;
+            c.LimitePor = quem;
+
+            db.LogsAuditoria.Add(new LogAuditoria
+            {
+                Usuario = quem,
+                Acao = "limite_dispositivos",
+                ClienteId = c.Id,
+                Detalhe = $"{c.Nome}: limite {anterior} → {dto.Limite}"
+            });
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new { c.Id, c.LimiteDispositivos, c.LimiteGerenciadoCentral, c.LimiteAtualizadoEm, c.LimitePor });
         }).RequireAuthorization();
 
         // Muda o estado da assinatura (kill-switch). O cliente aplica no próximo heartbeat.
