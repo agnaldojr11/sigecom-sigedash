@@ -41,11 +41,15 @@ public static class PainelEndpoints
                 return Results.Json(new { erro = "Usuário ou senha inválidos." }, statusCode: 401);
             }
 
+            // Acesso desativado pelo admin: senha até confere, mas não deixa entrar.
+            if (!u.Ativo)
+                return Results.Json(new { erro = "Acesso desativado. Fale com um administrador." }, statusCode: 403);
+
             u.TentativasFalhas = 0;
             u.BloqueadoAte = null;
             u.UltimoLoginEm = DateTime.UtcNow;
             await db.SaveChangesAsync();
-            return Results.Ok(new { token = Auth.GerarToken(jwtSecret, u.Login), login = u.Login });
+            return Results.Ok(new { token = Auth.GerarToken(jwtSecret, u.Login), login = u.Login, papel = u.Papel });
         }).RequireRateLimiting("login");
 
         // Resumo da frota (dashboard)

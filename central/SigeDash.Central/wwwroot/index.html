@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0d1526">
   <title>SigeDash Central</title>
-  <link rel="stylesheet" href="css/painel.css?v=7">
+  <link rel="stylesheet" href="css/painel.css?v=8">
 </head>
 <body>
 
@@ -30,6 +30,7 @@
       <nav class="tabs">
         <button class="tab ativo" data-view="frota">Frota</button>
         <button class="tab" data-view="versoes">Versões</button>
+        <button class="tab" data-view="equipe" id="tab-equipe" hidden>Equipe</button>
       </nav>
       <div class="top-actions">
         <span id="atualizado" class="atualizado"></span>
@@ -68,6 +69,50 @@
         <div id="versoes-pag" class="pag" hidden></div>
         <p id="versoes-msg" class="vazio" hidden></p>
       </section>
+
+      <!-- VIEW: EQUIPE (só admin) -->
+      <section id="view-equipe" hidden>
+        <div class="sec-titulo">
+          Equipe
+          <span class="sec-hint">quem tem acesso à Central</span>
+        </div>
+
+        <div class="novo-usuario">
+          <div class="nu-titulo">Criar acesso</div>
+          <div class="nu-form">
+            <div class="nu-campo">
+              <label for="nu-login">Login</label>
+              <input id="nu-login" type="text" autocomplete="off" placeholder="ex.: joao.silva">
+            </div>
+            <div class="nu-campo">
+              <label for="nu-senha">Senha</label>
+              <input id="nu-senha" type="password" autocomplete="new-password" placeholder="mín. 8 caracteres">
+            </div>
+            <div class="nu-campo">
+              <label for="nu-papel">Papel</label>
+              <select id="nu-papel">
+                <option value="operador">Operador (usa a Central)</option>
+                <option value="admin">Administrador (gerencia a equipe)</option>
+              </select>
+            </div>
+            <button id="btn-criar-usuario" class="btn-pri" type="button">Criar acesso</button>
+          </div>
+          <div id="nu-erro" class="ass-erro" hidden></div>
+          <div id="nu-ok" class="nu-ok" hidden></div>
+        </div>
+
+        <div class="tbl-wrap">
+          <table id="tbl-equipe">
+            <thead>
+              <tr>
+                <th>Usuário</th><th>Papel</th><th>Status</th><th>Último acesso</th><th class="col-acoes">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="equipe-body"></tbody>
+          </table>
+        </div>
+        <p id="equipe-msg" class="vazio" hidden></p>
+      </section>
     </main>
   </div>
 
@@ -97,6 +142,20 @@
     </div>
   </div>
 
-  <script src="js/painel.js?v=7"></script>
+  <!-- REDEFINIR SENHA (equipe) -->
+  <div id="senha-overlay" hidden>
+    <div class="confirm-box">
+      <div class="confirm-titulo">Redefinir senha</div>
+      <div id="senha-alvo" class="confirm-msg"></div>
+      <input id="senha-nova" type="password" class="ass-input" autocomplete="new-password" placeholder="Nova senha (mín. 8)">
+      <div id="senha-erro" class="ass-erro" hidden></div>
+      <div class="confirm-acoes">
+        <button id="senha-cancelar" class="btn-sec">Cancelar</button>
+        <button id="senha-ok" class="btn-pri">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/painel.js?v=8"></script>
 </body>
 </html>

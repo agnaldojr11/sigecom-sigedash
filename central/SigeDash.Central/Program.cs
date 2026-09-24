@@ -94,6 +94,7 @@ app.UseAuthorization();
 app.MapGet("/health", () => Results.Ok(new { ok = true, servico = "sigedash-central" }));
 app.MapTelemetria(app.Configuration);
 app.MapPainel(app.Configuration);
+app.MapUsuariosPainel();
 app.MapVersoes();
 app.MapAdminCentral(app.Configuration);
 
@@ -151,14 +152,21 @@ static void SemearAdmin(CentralDbContext db, IConfiguration cfg, ILogger logger)
     var existente = db.UsuariosPainel.FirstOrDefault(u => u.Login == login);
     if (existente is null)
     {
-        db.UsuariosPainel.Add(new UsuarioPainel { Login = login, SenhaHash = Auth.HashSenha(senha) });
+        db.UsuariosPainel.Add(new UsuarioPainel
+        {
+            Login = login, SenhaHash = Auth.HashSenha(senha),
+            Papel = PapelPainel.Admin, Ativo = true, CriadoPor = "sistema"
+        });
         db.SaveChanges();
-        logger.LogInformation("Usuário do painel '{login}' criado.", login);
+        logger.LogInformation("Usuário do painel '{login}' criado (admin).", login);
     }
     else
     {
-        // Mantém a senha em dia com a variável de ambiente (permite reset trocando a env).
+        // Mantém a senha em dia com a variável de ambiente (permite reset trocando a env) e
+        // garante que o admin semeado nunca fique sem poder de gestão nem desativado.
         existente.SenhaHash = Auth.HashSenha(senha);
+        existente.Papel = PapelPainel.Admin;
+        existente.Ativo = true;
         db.SaveChanges();
     }
 }

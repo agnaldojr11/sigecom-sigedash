@@ -2,6 +2,8 @@
 (function () {
   var token = sessionStorage.getItem("sgc_token") || null;
   var timer = null;
+  var souAdmin = false;
+  var meuLogin = null;
 
   var $ = function (id) { return document.getElementById(id); };
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
@@ -36,6 +38,8 @@
 
   function sair() {
     token = null; sessionStorage.removeItem("sgc_token");
+    souAdmin = false; meuLogin = null;
+    $("tab-equipe").hidden = true;
     if (timer) clearInterval(timer);
     $("app").hidden = true; $("tela-login").style.display = "flex";
   }
@@ -43,9 +47,20 @@
   function mostrarApp() {
     $("tela-login").style.display = "none";
     $("app").hidden = false;
+    carregarEu();
     carregar();
     if (timer) clearInterval(timer);
     timer = setInterval(carregar, 30000); // atualiza a cada 30s
+  }
+
+  // Quem sou eu (define se o menu Equipe aparece).
+  async function carregarEu() {
+    try {
+      var eu = await api("/painel/eu");
+      souAdmin = !!eu.admin;
+      meuLogin = eu.login;
+    } catch (e) { souAdmin = false; }
+    $("tab-equipe").hidden = !souAdmin;
   }
 
   // ── Frota ──
@@ -279,12 +294,130 @@
 
   // ── Navegação entre views ──
   function trocarView(nome) {
+    if (nome === "equipe" && !souAdmin) nome = "frota";   // guarda no front (o back também barra)
     $("view-frota").hidden = nome !== "frota";
     $("view-versoes").hidden = nome !== "versoes";
+    $("view-equipe").hidden = nome !== "equipe";
     Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (t) {
       t.classList.toggle("ativo", t.getAttribute("data-view") === nome);
     });
     if (nome === "versoes") carregarVersoes();
+    if (nome === "equipe") carregarEquipe();
+  }
+
+  // ── Equipe (usuários do painel) ──
+  var PAPEL_LBL = { admin: "Administrador", operador: "Operador" };
+
+  async function carregarEquipe() {
+    var body = $("equipe-body"), msg = $("equipe-msg");
+    msg.hidden = true;
+    body.innerHTML = '<tr><td colspan="5" class="vazio">Carregando…</td></tr>';
+    try {
+      var us = await api("/painel/usuarios");
+      if (!us.length) { body.innerHTML = ""; msg.hidden = false; msg.textContent = "Nenhum usuário."; return; }
+      body.innerHTML = us.map(function (u) {
+        var papel = (u.papel || "operador").toLowerCase();
+        var papelPill = '<span class="pill ' + (papel === "admin" ? "acc" : "neutro") + '">' + esc(PAPEL_LBL[papel] || papel) + '</span>';
+        var status = u.ativo
+          ? (u.bloqueado ? '<span class="pill warn">bloqueado</span>' : '<span class="pill ok">ativo</span>')
+          : '<span class="pill crit">desativado</span>';
+        var eu = u.ehEu ? ' <span class="tag-eu">você</span>' : '';
+        var acoes =
+          '<button class="mini" data-acao="senha" data-id="' + u.id + '" data-login="' + esc(u.login) + '">Senha</button>' +
+          (u.ehEu ? '' :
+            '<button class="mini" data-acao="ativo" data-id="' + u.id + '" data-ativo="' + (u.ativo ? "1" : "0") + '" data-login="' + esc(u.login) + '">' + (u.ativo ? "Desativar" : "Reativar") + '</button>' +
+            '<button class="mini perigo" data-acao="excluir" data-id="' + u.id + '" data-login="' + esc(u.login) + '">Excluir</button>');
+        return '<tr>' +
+          '<td><div class="cli-nome">' + esc(u.login) + eu + '</div>' +
+            (u.criadoPor ? '<div class="cli-cnpj">criado por ' + esc(u.criadoPor) + '</div>' : '') + '</td>' +
+          '<td>' + papelPill + '</td>' +
+          '<td>' + status + '</td>' +
+          '<td class="mono">' + (u.ultimoLoginEm ? dataHora(u.ultimoLoginEm) : "nunca") + '</td>' +
+          '<td class="col-acoes">' + acoes + '</td>' +
+          '</tr>';
+      }).join("");
+    } catch (e) {
+      body.innerHTML = ""; msg.hidden = false; msg.textContent = e.message;
+    }
+  }
+
+  async function criarUsuario() {
+    var erro = $("nu-erro"), ok = $("nu-ok");
+    erro.hidden = true; ok.hidden = true;
+    var login = $("nu-login").value.trim();
+    var senha = $("nu-senha").value;
+    var papel = $("nu-papel").value;
+    if (login.length < 3) { erro.textContent = "Login inválido (mín. 3 caracteres)."; erro.hidden = false; return; }
+    if (senha.length < 8) { erro.textContent = "Senha muito curta (mín. 8 caracteres)."; erro.hidden = false; return; }
+    var btn = $("btn-criar-usuario"); btn.disabled = true;
+    try {
+      await api("/painel/usuarios", { method: "POST", body: JSON.stringify({ login: login, senha: senha, papel: papel }) });
+      $("nu-login").value = ""; $("nu-senha").value = ""; $("nu-papel").value = "operador";
+      ok.textContent = 'Acesso de "' + login + '" criado.'; ok.hidden = false;
+      carregarEquipe();
+    } catch (e) { erro.textContent = e.message; erro.hidden = false; }
+    finally { btn.disabled = false; }
+  }
+
+  // Modal de nova senha → Promise<string|null>.
+  function pedirSenha(login) {
+    return new Promise(function (resolve) {
+      var ov = $("senha-overlay"), inp = $("senha-nova"), erro = $("senha-erro");
+      $("senha-alvo").textContent = 'Definir uma nova senha para "' + login + '".';
+      inp.value = ""; erro.hidden = true; ov.hidden = false; inp.focus();
+      var ok = $("senha-ok"), cancel = $("senha-cancelar");
+      function limpar(v) {
+        ov.hidden = true;
+        ok.removeEventListener("click", onOk);
+        cancel.removeEventListener("click", onCancel);
+        ov.removeEventListener("click", onBg);
+        document.removeEventListener("keydown", onKey);
+        resolve(v);
+      }
+      function onOk() {
+        if ((inp.value || "").length < 8) { erro.textContent = "Mín. 8 caracteres."; erro.hidden = false; inp.focus(); return; }
+        limpar(inp.value);
+      }
+      function onCancel() { limpar(null); }
+      function onBg(e) { if (e.target === ov) limpar(null); }
+      function onKey(e) { if (e.key === "Escape") limpar(null); else if (e.key === "Enter") onOk(); }
+      ok.addEventListener("click", onOk);
+      cancel.addEventListener("click", onCancel);
+      ov.addEventListener("click", onBg);
+      document.addEventListener("keydown", onKey);
+    });
+  }
+
+  async function resetarSenha(id, login) {
+    var nova = await pedirSenha(login);
+    if (nova == null) return;
+    try {
+      await api("/painel/usuarios/" + id + "/senha", { method: "POST", body: JSON.stringify({ senha: nova }) });
+      alert('Senha de "' + login + '" redefinida.');
+    } catch (e) { alert(e.message); }
+  }
+
+  async function alternarAtivo(id, login, ativoAtual) {
+    var vaiAtivar = ativoAtual !== "1";
+    var ok = await confirmar(
+      (vaiAtivar ? "Reativar" : "Desativar") + " acesso",
+      (vaiAtivar ? "Reativar" : "Desativar") + ' o acesso de "' + login + '"?' +
+        (vaiAtivar ? "" : " Ele não conseguirá mais entrar na Central."),
+      !vaiAtivar);
+    if (!ok) return;
+    try {
+      await api("/painel/usuarios/" + id + "/ativo", { method: "POST", body: JSON.stringify({ ativo: vaiAtivar }) });
+      carregarEquipe();
+    } catch (e) { alert(e.message); }
+  }
+
+  async function excluirUsuario(id, login) {
+    var ok = await confirmar("Excluir usuário", 'Excluir definitivamente o acesso de "' + login + '"? Esta ação não pode ser desfeita.', true);
+    if (!ok) return;
+    try {
+      await api("/painel/usuarios/" + id, { method: "DELETE" });
+      carregarEquipe();
+    } catch (e) { alert(e.message); }
   }
 
   // ── Versões (catálogo do GitHub) ──
@@ -415,6 +548,18 @@
   });
   $("btn-fechar").addEventListener("click", function () { $("overlay").hidden = true; });
   $("overlay").addEventListener("click", function (e) { if (e.target === $("overlay")) $("overlay").hidden = true; });
+
+  // Equipe
+  $("btn-criar-usuario").addEventListener("click", criarUsuario);
+  $("nu-senha").addEventListener("keydown", function (e) { if (e.key === "Enter") criarUsuario(); });
+  $("equipe-body").addEventListener("click", function (e) {
+    var b = e.target.closest(".mini");
+    if (!b) return;
+    var id = b.getAttribute("data-id"), login = b.getAttribute("data-login"), acao = b.getAttribute("data-acao");
+    if (acao === "senha") resetarSenha(id, login);
+    else if (acao === "ativo") alternarAtivo(id, login, b.getAttribute("data-ativo"));
+    else if (acao === "excluir") excluirUsuario(id, login);
+  });
 
   if (token) mostrarApp();
 })();

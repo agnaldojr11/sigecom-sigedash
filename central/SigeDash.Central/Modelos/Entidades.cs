@@ -113,9 +113,25 @@ public class UsuarioPainel
     public string SenhaHash { get; set; } = "";
     public DateTime? UltimoLoginEm { get; set; }
 
+    // Papel: admin (gerencia a equipe) ou operador (usa a Central, mas não gerencia usuários).
+    public string Papel { get; set; } = PapelPainel.Operador;
+    public bool Ativo { get; set; } = true;                 // desativado = não consegue logar
+    public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
+    public string? CriadoPor { get; set; }
+
     // Lockout por tentativas (defesa contra brute force, além do rate limit por IP).
     public int TentativasFalhas { get; set; }
     public DateTime? BloqueadoAte { get; set; }
+}
+
+/// <summary>Papéis do usuário do painel.</summary>
+public static class PapelPainel
+{
+    public const string Admin = "admin";        // gerencia a equipe (criar/remover usuários)
+    public const string Operador = "operador";  // usa a Central (frota, versões, kill-switch, limite)
+
+    public static readonly string[] Todos = { Admin, Operador };
+    public static bool EhAdmin(string? papel) => string.Equals(papel, Admin, StringComparison.OrdinalIgnoreCase);
 }
 
 // ── DTOs de telemetria (payload que o cliente envia) ────────────────────────

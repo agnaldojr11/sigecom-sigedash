@@ -107,7 +107,7 @@ tbody tr:last-child td { border-bottom: none; }
   border-radius: 9px; padding: 7px 16px; font-size: .9rem; font-weight: 600; }
 .tab:hover { color: var(--text); }
 .tab.ativo { color: var(--text); background: var(--surface2); border-color: var(--border); }
-#view-frota[hidden], #view-versoes[hidden] { display: none; }
+#view-frota[hidden], #view-versoes[hidden], #view-equipe[hidden] { display: none; }
 .sec-hint { font-size: .78rem; font-weight: 400; color: var(--dim); margin-left: 8px; }
 
 /* VERSÕES */
@@ -185,6 +185,34 @@ tbody tr:last-child td { border-bottom: none; }
 .btn-pri:hover { background: var(--accent); }
 .btn-pri.perigo { background: var(--crit); }
 .btn-pri.perigo:hover { background: #ef4444; }
+
+/* SENHA-OVERLAY (mesma moldura do confirm) */
+#senha-overlay { position: fixed; inset: 0; background: rgba(5,10,20,.7); display: flex; align-items: center;
+  justify-content: center; padding: 20px; z-index: 40; }
+#senha-overlay[hidden] { display: none; }
+#senha-nova { margin-top: 16px; }
+
+/* EQUIPE (usuários do painel) */
+.novo-usuario { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 20px; }
+.nu-titulo { font-weight: 700; font-size: .95rem; margin-bottom: 12px; }
+.nu-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+.nu-campo { display: flex; flex-direction: column; gap: 5px; flex: 1 1 180px; }
+.nu-campo label { font-size: .74rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.nu-campo input, .nu-campo select { height: 40px; padding: 0 12px; background: var(--bg); border: 1.5px solid var(--border);
+  border-radius: 9px; color: var(--text); font-size: .9rem; font-family: var(--f); }
+.nu-campo input:focus, .nu-campo select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--acc-bg); }
+.novo-usuario .btn-pri { height: 40px; flex: none; }
+.nu-ok { color: var(--ok); font-size: .84rem; margin-top: 10px; }
+
+#tbl-equipe tbody tr { cursor: default; }
+#tbl-equipe tbody tr:hover { background: transparent; }
+.col-acoes { white-space: nowrap; text-align: right; }
+.mini { background: var(--surface2); color: var(--muted); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 11px; font-size: .78rem; font-weight: 600; margin-left: 6px; }
+.mini:hover { color: var(--text); border-color: var(--accent); }
+.mini.perigo:hover { color: var(--crit); border-color: var(--crit); }
+.tag-eu { font-size: .68rem; font-weight: 600; color: var(--accent); background: var(--acc-bg);
+  padding: 1px 7px; border-radius: 999px; margin-left: 6px; vertical-align: middle; }
 
 /* HISTÓRICO DE ASSINATURA (auditoria no detalhe) */
 .aud-item { display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
