@@ -20,7 +20,7 @@ public static class UsuariosPainelEndpoints
         // Quem sou eu (login + papel) — o front usa para mostrar/esconder o menu Equipe.
         app.MapGet("/painel/eu", async (ClaimsPrincipal user, CentralDbContext db) =>
         {
-            var u = await Atual(user, db);
+            var u = await AutorizacaoPainel.AtualAsync(user, db);
             if (u is null) return Results.Unauthorized();
             return Results.Ok(new { u.Login, u.Papel, admin = PapelPainel.EhAdmin(u.Papel) });
         }).RequireAuthorization();
@@ -28,7 +28,7 @@ public static class UsuariosPainelEndpoints
         // Lista a equipe (só admin).
         app.MapGet("/painel/usuarios", async (ClaimsPrincipal user, CentralDbContext db) =>
         {
-            var (eu, erro) = await ExigeAdmin(user, db);
+            var (eu, erro) = await AutorizacaoPainel.ExigeAdminAsync(user, db);
             if (erro is not null) return erro;
 
             var lista = await db.UsuariosPainel
@@ -47,7 +47,7 @@ public static class UsuariosPainelEndpoints
         // Cria um acesso para um membro da equipe (só admin).
         app.MapPost("/painel/usuarios", async (NovoUsuarioDto dto, ClaimsPrincipal user, CentralDbContext db) =>
         {
-            var (eu, erro) = await ExigeAdmin(user, db);
+            var (eu, erro) = await AutorizacaoPainel.ExigeAdminAsync(user, db);
             if (erro is not null) return erro;
 
             var login = (dto.Login ?? "").Trim();
@@ -87,7 +87,7 @@ public static class UsuariosPainelEndpoints
         app.MapPost("/painel/usuarios/{id:int}/senha", async (
             int id, TrocarSenhaDto dto, ClaimsPrincipal user, CentralDbContext db) =>
         {
-            var (eu, erro) = await ExigeAdmin(user, db);
+            var (eu, erro) = await AutorizacaoPainel.ExigeAdminAsync(user, db);
             if (erro is not null) return erro;
             if ((dto.Senha ?? "").Length < SenhaMin)
                 return Results.BadRequest(new { erro = $"Senha muito curta (mín. {SenhaMin} caracteres)." });
@@ -111,7 +111,7 @@ public static class UsuariosPainelEndpoints
         app.MapPost("/painel/usuarios/{id:int}/ativo", async (
             int id, AtivoDto dto, ClaimsPrincipal user, CentralDbContext db) =>
         {
-            var (eu, erro) = await ExigeAdmin(user, db);
+            var (eu, erro) = await AutorizacaoPainel.ExigeAdminAsync(user, db);
             if (erro is not null) return erro;
 
             var alvo = await db.UsuariosPainel.FirstOrDefaultAsync(x => x.Id == id);
@@ -141,7 +141,7 @@ public static class UsuariosPainelEndpoints
         app.MapDelete("/painel/usuarios/{id:int}", async (
             int id, ClaimsPrincipal user, CentralDbContext db) =>
         {
-            var (eu, erro) = await ExigeAdmin(user, db);
+            var (eu, erro) = await AutorizacaoPainel.ExigeAdminAsync(user, db);
             if (erro is not null) return erro;
 
             var alvo = await db.UsuariosPainel.FirstOrDefaultAsync(x => x.Id == id);
@@ -165,22 +165,5 @@ public static class UsuariosPainelEndpoints
             await db.SaveChangesAsync();
             return Results.Ok(new { ok = true });
         }).RequireAuthorization();
-    }
-
-    private static async Task<UsuarioPainel?> Atual(ClaimsPrincipal user, CentralDbContext db)
-    {
-        var login = user.FindFirstValue("login") ?? user.Identity?.Name;
-        if (string.IsNullOrEmpty(login)) return null;
-        return await db.UsuariosPainel.FirstOrDefaultAsync(u => u.Login == login);
-    }
-
-    /// <summary>Retorna o usuário atual se for admin ativo; senão devolve o IResult de erro (401/403).</summary>
-    private static async Task<(UsuarioPainel? eu, IResult? erro)> ExigeAdmin(ClaimsPrincipal user, CentralDbContext db)
-    {
-        var eu = await Atual(user, db);
-        if (eu is null || !eu.Ativo) return (null, Results.Unauthorized());
-        if (!PapelPainel.EhAdmin(eu.Papel))
-            return (null, Results.Json(new { erro = "Apenas administradores podem gerenciar a equipe." }, statusCode: 403));
-        return (eu, null);
     }
 }

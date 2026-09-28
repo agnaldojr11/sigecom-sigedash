@@ -219,6 +219,35 @@ public static class PainelEndpoints
 
             return Results.Ok(new { c.Id, c.Estado, c.MotivoBloqueio, c.ExpiraEm, c.EstadoPor, c.EstadoAtualizadoEm });
         }).RequireAuthorization();
+
+        // Exclui um cliente da Central (só admin). Serve para limpar cadastros de teste antes da
+        // instalação real — NÃO afeta o servidor do cliente, só o registro/telemetria na Central.
+        // Remove heartbeat + indicadores (cascade) e o histórico (sem cascade); registra na auditoria.
+        app.MapDelete("/painel/clientes/{id:int}", async (
+            int id, ClaimsPrincipal user, CentralDbContext db) =>
+        {
+            var (eu, erro) = await AutorizacaoPainel.ExigeAdminAsync(user, db);
+            if (erro is not null) return erro;
+
+            var c = await db.Clientes.FirstOrDefaultAsync(x => x.Id == id);
+            if (c is null) return Results.NotFound();
+
+            var nome = c.Nome;
+            var cnpj = c.Cnpj;
+
+            // HeartbeatHistorico não tem FK em cascata — limpa explicitamente.
+            await db.HeartbeatHistorico.Where(h => h.ClienteId == id).ExecuteDeleteAsync();
+            db.Clientes.Remove(c);   // cascade: Heartbeat + IndicadoresSaude
+            db.LogsAuditoria.Add(new LogAuditoria
+            {
+                Usuario = eu!.Login,
+                Acao = "cliente_excluido",
+                Detalhe = $"excluiu o cliente '{nome}' (id {id}, CNPJ {cnpj ?? "—"})"
+            });
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new { ok = true, nome });
+        }).RequireAuthorization();
     }
 
     private static Version ParseVersao(string? v)

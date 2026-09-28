@@ -213,6 +213,16 @@
           '<div class="aud-meta">' + esc(a.usuario || "?") + ' · ' + dataHora(a.ts) + '</div></div>';
       }).join("");
 
+      // Zona de perigo (excluir cliente da Central) — só admin.
+      if (souAdmin) {
+        body += '<div class="ind-titulo">Zona de perigo</div>' +
+          '<div class="perigo-box">' +
+            '<div class="t">Excluir remove este cliente e o histórico dele da Central (útil para limpar cadastros de teste antes da instalação real). ' +
+            '<b>Não afeta o servidor do cliente</b> — se ele voltar a enviar telemetria, será recriado.</div>' +
+            '<button id="btn-excluir-cliente" class="btn-pri perigo">Excluir cliente da Central</button>' +
+          '</div>';
+      }
+
       $("det-body").innerHTML = body;
       $("overlay").hidden = false;
     } catch (e) { alert(e.message); }
@@ -290,6 +300,21 @@
     } catch (e) {
       erro.textContent = e.message; erro.hidden = false;
     }
+  }
+
+  async function excluirClienteAberto() {
+    if (!clienteAberto) return;
+    var nome = clienteAberto.nome;
+    var ok = await confirmar("Excluir cliente da Central",
+      'Excluir "' + nome + '" e todo o histórico dele na Central? Esta ação não pode ser desfeita. ' +
+      'Não afeta o servidor do cliente.', true);
+    if (!ok) return;
+    try {
+      await api("/painel/clientes/" + clienteAberto.id, { method: "DELETE" });
+      $("overlay").hidden = true;
+      clienteAberto = null;
+      carregar();
+    } catch (e) { alert(e.message); }
   }
 
   // ── Navegação entre views ──
@@ -544,7 +569,8 @@
   $("det-body").addEventListener("click", function (e) {
     var b = e.target.closest(".est-btn");
     if (b) { mudarEstado(b.getAttribute("data-estado")); return; }
-    if (e.target.closest("#btn-limite")) salvarLimite();
+    if (e.target.closest("#btn-limite")) { salvarLimite(); return; }
+    if (e.target.closest("#btn-excluir-cliente")) excluirClienteAberto();
   });
   $("btn-fechar").addEventListener("click", function () { $("overlay").hidden = true; });
   $("overlay").addEventListener("click", function (e) { if (e.target === $("overlay")) $("overlay").hidden = true; });

@@ -214,6 +214,10 @@ tbody tr:last-child td { border-bottom: none; }
 .tag-eu { font-size: .68rem; font-weight: 600; color: var(--accent); background: var(--acc-bg);
   padding: 1px 7px; border-radius: 999px; margin-left: 6px; vertical-align: middle; }
 
+/* ZONA DE PERIGO (excluir cliente no detalhe) */
+.perigo-box { background: var(--crit-bg); border: 1px solid rgba(248,113,113,.4); border-radius: 12px; padding: 16px; }
+.perigo-box .t { color: var(--muted); font-size: .84rem; margin-bottom: 12px; line-height: 1.55; }
+
 /* HISTÓRICO DE ASSINATURA (auditoria no detalhe) */
 .aud-item { display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
   padding: 9px 0; border-bottom: 1px solid var(--border); }
