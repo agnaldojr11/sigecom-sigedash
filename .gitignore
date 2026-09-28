@@ -18,8 +18,8 @@ deploy/central.json
 key-railway.txt
 *.railway.txt
 *-secrets.txt
-seguranca.md
-seguranca/
+/seguranca.md
+/seguranca/
 # Credenciais de teste/dev — nunca versionar (higiene + nao dar mapa a atacante)
 CREDENCIAIS-TESTE.md
 *CREDENCIAIS*
