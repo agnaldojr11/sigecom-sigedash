@@ -153,6 +153,9 @@ public partial class MainWindow : Window
             barProg.IsIndeterminate = false;
             barProg.Value = 100;
 
+            // Salva o log completo em arquivo (para o suporte), tanto no sucesso quanto na falha.
+            var logSalvo = SalvarLog();
+
             if (code == 0) { MontarConclusao(empresa); IrPara(4); }
             else
             {
@@ -160,7 +163,13 @@ public partial class MainWindow : Window
                 barProg.Foreground = new SolidColorBrush(Color.FromRgb(0xF8, 0x71, 0x71));
                 btnCancelar.Content = "Fechar";
                 Log("");
-                Log($">>> Código de saída: {code}. Revise o log acima ou tente novamente.");
+                Log($">>> Código de saída: {code}.");
+                if (logSalvo != null) Log($">>> Log completo salvo em: {logSalvo}  (envie ao suporte)");
+                Log("");
+                Log(">>> COMO RESOLVER:");
+                Log($"    1) Diagnostico: powershell -ExecutionPolicy Bypass -File \"{Path.Combine(dir, "diagnostico.ps1")}\"");
+                Log($"    2) Limpar e tentar de novo: powershell -ExecutionPolicy Bypass -File \"{Path.Combine(dir, "desinstalar-tudo.ps1")}\"");
+                Log("       (depois rode este instalador novamente - a mesma URL e reaproveitada)");
             }
         }
         catch (Exception ex)
@@ -179,6 +188,20 @@ public partial class MainWindow : Window
             txtLog.AppendText(linha + "\n");
             txtLog.ScrollToEnd();
         });
+    }
+
+    // Salva o log capturado da instalacao em C:\SigeDash para o suporte. Retorna o caminho ou null.
+    private string? SalvarLog()
+    {
+        try
+        {
+            var dir = @"C:\SigeDash";
+            Directory.CreateDirectory(dir);
+            var path = Path.Combine(dir, $"instalador-{DateTime.Now:yyyyMMdd-HHmmss}.log");
+            File.WriteAllText(path, _saida.ToString(), Encoding.UTF8);
+            return path;
+        }
+        catch { return null; }
     }
 
     // ── Conclusão: extrai credenciais do log e monta a tela ────────────────────

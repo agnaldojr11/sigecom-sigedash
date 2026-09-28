@@ -78,6 +78,32 @@ function Sucesso($msg) {
 function Falha($msg) {
     Write-Host "[ERRO] $msg" -ForegroundColor Red
     Log "[ERRO] $msg"
+
+    # Junta os logs das etapas em um lugar so, para facilitar o suporte.
+    $pgLog = "$env:TEMP\sigedash-postgres-install.log"
+    if (Test-Path $pgLog) { try { Copy-Item $pgLog "C:\SigeDash\postgres-install.log" -Force } catch {} }
+
+    Write-Host ""
+    Write-Host ("=" * 60) -ForegroundColor Red
+    Write-Host "  A INSTALACAO FALHOU" -ForegroundColor Red
+    Write-Host ("=" * 60) -ForegroundColor Red
+    Write-Host "  Motivo: $msg" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  COMO RESOLVER:" -ForegroundColor Cyan
+    Write-Host "   1) Rode o diagnostico (mostra a causa de cada componente):"
+    Write-Host "        powershell -ExecutionPolicy Bypass -File `"$SCRIPT_DIR\diagnostico.ps1`""
+    Write-Host "   2) Para tentar de novo do zero, limpe tudo e reinstale:"
+    Write-Host "        powershell -ExecutionPolicy Bypass -File `"$SCRIPT_DIR\desinstalar-tudo.ps1`""
+    Write-Host "        (depois rode este instalador novamente)"
+    Write-Host ""
+    Write-Host "  LOGS PARA O SUPORTE:" -ForegroundColor Cyan
+    Write-Host "   - Geral    : $LOG_GERAL"
+    Write-Host "   - PostgreSQL: C:\SigeDash\postgres-install.log (copiado agora, se existia)"
+    Write-Host "   - Backend  : C:\SigeDash\Backend\install.log"
+    Write-Host "   - Tunnel   : C:\SigeDash\Tunnel\tunnel-install.log"
+    Write-Host "   - Event Viewer -> Logs de Aplicativos (erros do .NET/servico)"
+    Write-Host ("=" * 60) -ForegroundColor Red
+    Log "Instalacao abortada. Ver diagnostico.ps1 / desinstalar-tudo.ps1."
     exit 1
 }
 

@@ -170,6 +170,8 @@ $SCRIPTS = @(
     "deploy\backend\definir-limite.ps1",
     "deploy\backend\registrar-central.ps1",
     "deploy\backend\sincronizar-central.ps1",
+    "deploy\backend\diagnostico.ps1",
+    "deploy\backend\desinstalar-tudo.ps1",
     "deploy\agente\configurar-cliente.ps1"
 )
 
@@ -339,7 +341,16 @@ CONTEUDO DESTA PASTA
 - configurar-cliente.ps1    Registra o cliente no backend e grava o config do agente
 - instalar-tunnel.ps1       Passo 4: instala Cloudflare Tunnel
 - atualizar.ps1             Atualizacao automatica (agendado toda segunda 03h)
+- diagnostico.ps1           Verifica cada componente e aponta a causa/solucao de falhas
+- desinstalar-tudo.ps1      Remove TUDO do servidor (para reinstalar do zero)
 - agente/                   Binarios do agente (.NET 4.8) instalados pelo instalar-agente.ps1
+
+SE A INSTALACAO FALHAR
+----------------------
+1) Rode: powershell -ExecutionPolicy Bypass -File diagnostico.ps1
+   (mostra o que falhou e como resolver; salva um relatorio em C:\SigeDash)
+2) Para tentar do zero: powershell -ExecutionPolicy Bypass -File desinstalar-tudo.ps1
+   (depois rode instalar-tudo.ps1 de novo - a mesma URL do tunnel e reaproveitada)
 
 SERVICOS INSTALADOS NO SERVIDOR DO CLIENTE
 ------------------------------------------
