@@ -42,7 +42,12 @@ param(
     [string]$SigeDashSenha     = "",
 
     # Prossegue mesmo se o cliente ja existir no Cloudflare (por padrao, aborta para evitar duplicidade).
-    [switch]$Force
+    [switch]$Force,
+
+    # REINSTALACAO: cliente ja existe no Cloudflare e queremos REUTILIZAR o mesmo tunnel/DNS (mesma URL),
+    # tipico quando o servidor foi trocado. Reaproveita em vez de duplicar. Sem isto, um cliente ja
+    # existente ABORTA a instalacao (a menos que -Force).
+    [switch]$Reinstalar
 )
 
 $ErrorActionPreference = "Stop"
@@ -123,28 +128,43 @@ function CriarTunnelCloudflare($nomeCliente, $scriptDir) {
     $tunnelName = "sigedash-$slug"
     $hostname   = "$slug.$($cf.dominio)"
 
-    Log "Criando tunnel Cloudflare: $tunnelName ..."
-
-    # Cria o tunnel (segredo via CSPRNG, nao Get-Random)
-    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
-    $secretBytes = New-Object byte[] 32; $rng.GetBytes($secretBytes)
-    $body = @{
-        name          = $tunnelName
-        tunnel_secret = [Convert]::ToBase64String($secretBytes)
-    } | ConvertTo-Json
-
+    # 1) Idempotente: se ja existe um tunnel com esse nome, REUTILIZA (reinstalacao = mesma URL, sem
+    #    duplicar). So cria um novo quando nao existe.
+    $tunnelId = $null
+    $reused   = $false
     try {
-        $resp     = Invoke-RestMethod `
-            "https://api.cloudflare.com/client/v4/accounts/$($cf.accountId)/cfd_tunnel" `
-            -Method POST -Headers $headers -Body $body
-        $tunnelId = $resp.result.id
-        Log "Tunnel criado: $tunnelId"
-    } catch {
-        Log "AVISO: erro ao criar tunnel Cloudflare: $_"
-        return $null
+        $rt = Invoke-RestMethod `
+            "https://api.cloudflare.com/client/v4/accounts/$($cf.accountId)/cfd_tunnel?name=$tunnelName&is_deleted=false" `
+            -Headers $headers -Method GET
+        if ($rt.result -and @($rt.result).Count -gt 0) {
+            $tunnelId = $rt.result[0].id
+            $reused   = $true
+            Log "Tunnel '$tunnelName' ja existe ($tunnelId) - REUTILIZANDO (reinstalacao, mesma URL)."
+        }
+    } catch { Log "AVISO: nao foi possivel consultar tuneis existentes: $_" }
+
+    if (-not $tunnelId) {
+        Log "Criando tunnel Cloudflare: $tunnelName ..."
+        # Cria o tunnel (segredo via CSPRNG, nao Get-Random)
+        $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+        $secretBytes = New-Object byte[] 32; $rng.GetBytes($secretBytes)
+        $body = @{
+            name          = $tunnelName
+            tunnel_secret = [Convert]::ToBase64String($secretBytes)
+        } | ConvertTo-Json
+        try {
+            $resp     = Invoke-RestMethod `
+                "https://api.cloudflare.com/client/v4/accounts/$($cf.accountId)/cfd_tunnel" `
+                -Method POST -Headers $headers -Body $body
+            $tunnelId = $resp.result.id
+            Log "Tunnel criado: $tunnelId"
+        } catch {
+            Log "AVISO: erro ao criar tunnel Cloudflare: $_"
+            return $null
+        }
     }
 
-    # Configura ingress (hostname -> localhost:5000)
+    # 2) Configura ingress (hostname -> localhost:5000). Idempotente: PUT reaplica sempre.
     $ingressBody = @{
         config = @{
             ingress = @(
@@ -162,30 +182,39 @@ function CriarTunnelCloudflare($nomeCliente, $scriptDir) {
         Log "AVISO: erro ao configurar ingress: $_"
     }
 
-    # Cria DNS CNAME
-    $dnsBody = @{
-        type    = "CNAME"
-        name    = $slug
-        content = "$tunnelId.cfargotunnel.com"
-        proxied = $true
-        ttl     = 1
-    } | ConvertTo-Json
+    # 3) DNS CNAME (upsert): atualiza se ja existir apontando para o tunnel, senao cria.
+    $dnsContent = "$tunnelId.cfargotunnel.com"
+    $dnsBody = @{ type = "CNAME"; name = $slug; content = $dnsContent; proxied = $true; ttl = 1 } | ConvertTo-Json
+    $dnsId = $null
     try {
-        Invoke-RestMethod `
-            "https://api.cloudflare.com/client/v4/zones/$($cf.zoneId)/dns_records" `
-            -Method POST -Headers $headers -Body $dnsBody | Out-Null
-        Log "DNS criado: https://$hostname"
+        $rd = Invoke-RestMethod `
+            "https://api.cloudflare.com/client/v4/zones/$($cf.zoneId)/dns_records?name=$hostname" `
+            -Headers $headers -Method GET
+        if ($rd.result -and @($rd.result).Count -gt 0) { $dnsId = $rd.result[0].id }
+    } catch { Log "AVISO: nao foi possivel consultar DNS existente: $_" }
+    try {
+        if ($dnsId) {
+            Invoke-RestMethod `
+                "https://api.cloudflare.com/client/v4/zones/$($cf.zoneId)/dns_records/$dnsId" `
+                -Method PUT -Headers $headers -Body $dnsBody | Out-Null
+            Log "DNS atualizado: https://$hostname -> $dnsContent"
+        } else {
+            Invoke-RestMethod `
+                "https://api.cloudflare.com/client/v4/zones/$($cf.zoneId)/dns_records" `
+                -Method POST -Headers $headers -Body $dnsBody | Out-Null
+            Log "DNS criado: https://$hostname"
+        }
     } catch {
-        Log "AVISO: erro ao criar DNS (pode ja existir): $_"
+        Log "AVISO: erro ao configurar DNS: $_"
     }
 
-    # Obtem token do tunnel
+    # 4) Obtem o token do tunnel (funciona tanto para tunnel novo quanto reutilizado)
     try {
         $tokenResp = Invoke-RestMethod `
             "https://api.cloudflare.com/client/v4/accounts/$($cf.accountId)/cfd_tunnel/$tunnelId/token" `
             -Headers $headers
         Log "Token do tunnel obtido com sucesso."
-        return @{ Token = $tokenResp.result; Url = "https://$hostname" }
+        return @{ Token = $tokenResp.result; Url = "https://$hostname"; Reused = $reused }
     } catch {
         Log "AVISO: erro ao obter token do tunnel: $_"
         return $null
@@ -259,16 +288,26 @@ if ([string]::IsNullOrWhiteSpace($TunnelToken)) {
     $cfCheck = VerificarClienteCloudflare $NomeCliente $SCRIPT_DIR
     if ($cfCheck -and ($cfCheck.TunnelExiste -or $cfCheck.DnsExiste)) {
         Write-Host ""
-        Write-Host ("!" * 62) -ForegroundColor Red
-        Write-Host "  ATENCAO: o cliente '$NomeCliente' JA EXISTE no Cloudflare!" -ForegroundColor Red
+        Write-Host ("!" * 62) -ForegroundColor Yellow
+        Write-Host "  ATENCAO: o cliente '$NomeCliente' JA EXISTE no Cloudflare." -ForegroundColor Yellow
         if ($cfCheck.TunnelExiste) { Write-Host "    - Tunnel: $($cfCheck.TunnelName)  (id $($cfCheck.TunnelId))" -ForegroundColor Yellow }
         if ($cfCheck.DnsExiste)    { Write-Host "    - DNS   : $($cfCheck.Hostname)" -ForegroundColor Yellow }
-        Write-Host ("!" * 62) -ForegroundColor Red
+        Write-Host ("!" * 62) -ForegroundColor Yellow
         Log "Cliente '$NomeCliente' ja existe no Cloudflare (tunnel=$($cfCheck.TunnelExiste) dns=$($cfCheck.DnsExiste))."
-        if (-not $Force) {
-            Falha "Instalacao ABORTADA para evitar duplicidade. Se for uma REINSTALACAO deste mesmo servidor e voce quer prosseguir, rode de novo com -Force (pode gerar tunnel duplicado - avalie remover o antigo no painel Cloudflare)."
+
+        if ($Reinstalar -or $Force) {
+            Log "Modo REINSTALACAO: o tunnel/DNS existente sera REUTILIZADO (mesma URL), sem duplicar."
+        } else {
+            # Tenta confirmar interativamente; em execucao nao-interativa, aborta com instrucao clara.
+            $resp = $null
+            try { $resp = Read-Host "  E uma REINSTALACAO deste mesmo cliente (trocou de servidor)? Reutilizar o tunnel/URL existente? (S/N)" } catch { $resp = $null }
+            if ($resp -match '^[SsYy]') {
+                $Reinstalar = $true
+                Log "Reinstalacao confirmada pelo operador - reutilizando o tunnel/URL existente."
+            } else {
+                Falha "Instalacao ABORTADA para evitar duplicidade. Se for REINSTALACAO deste mesmo cliente (mesma URL), rode com -Reinstalar. Se for um cliente diferente, use outro nome."
+            }
         }
-        Log "AVISO: -Force informado - prosseguindo mesmo com o cliente ja existente no Cloudflare."
     }
 }
 
@@ -393,7 +432,8 @@ if ([string]::IsNullOrWhiteSpace($TunnelToken)) {
     if ($cfResult) {
         $TunnelToken = $cfResult.Token
         $TunnelUrl   = $cfResult.Url
-        Sucesso "Tunnel Cloudflare criado: $TunnelUrl"
+        if ($cfResult.Reused) { Sucesso "Tunnel Cloudflare REUTILIZADO (mesma URL): $TunnelUrl" }
+        else { Sucesso "Tunnel Cloudflare criado: $TunnelUrl" }
     }
 }
 
