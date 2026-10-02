@@ -553,6 +553,33 @@ try {
     }
 } catch {}
 
+# Verifica o ACESSO EXTERNO (DNS + tunnel) de ponta a ponta. So quando sabemos a URL (tunnel
+# auto-criado). Pega o caso em que o DNS/hostname nao foi criado no Cloudflare: o cliente veria
+# "nao e possivel acessar o site" (ERR_NAME_NOT_RESOLVED) ou Error 1033 (tunnel fora).
+if (-not [string]::IsNullOrWhiteSpace($TunnelUrl)) {
+    Log "Verificando o acesso externo em $TunnelUrl (DNS + tunnel)..."
+    $pubOk = $false
+    for ($k = 0; $k -lt 12; $k++) {   # ate ~60s (o DNS do Cloudflare costuma propagar em segundos)
+        try { Invoke-WebRequest "$TunnelUrl/health" -UseBasicParsing -TimeoutSec 8 -ErrorAction Stop | Out-Null; $pubOk = $true; break }
+        catch { Start-Sleep -Seconds 5 }
+    }
+    if ($pubOk) {
+        Sucesso "Acesso externo OK: $TunnelUrl"
+    } else {
+        Write-Host ""
+        Write-Host ("!" * 60) -ForegroundColor Yellow
+        Write-Host "  [ATENCAO] O acesso externo NAO respondeu: $TunnelUrl" -ForegroundColor Yellow
+        Write-Host "  O cliente veria 'nao e possivel acessar o site' (DNS) ou Error 1033 (tunnel)." -ForegroundColor Yellow
+        Write-Host "  Verifique no painel Cloudflare se o DNS/Public Hostname do tunnel foi criado e se" -ForegroundColor Yellow
+        Write-Host "  o servico cloudflared esta rodando. Rode diagnostico.ps1 para o detalhe." -ForegroundColor Yellow
+        Write-Host "  Entregue ao cliente a URL EXATA (com '.br'): $TunnelUrl" -ForegroundColor Yellow
+        Write-Host ("!" * 60) -ForegroundColor Yellow
+        Log "AVISO: acesso externo nao verificado ($TunnelUrl) - possivel DNS/hostname nao criado ou tunnel fora."
+    }
+} else {
+    Log "AVISO: URL do tunnel desconhecida (token manual) - verifique o acesso externo e o DNS/Public Hostname no painel Cloudflare."
+}
+
 # ============================================================
 Titulo "INSTALACAO CONCLUIDA"
 # ============================================================

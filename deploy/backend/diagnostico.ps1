@@ -7,9 +7,12 @@
     relatorio em C:\SigeDash\diagnostico-<data>.txt (envie ao suporte se precisar).
 .PARAMETER FdbPath
     Caminho do banco Firebird do Sigecom. Padrao: C:\SIGECOM\SIGECOM.FDB
+.PARAMETER Dominio
+    Dominio raiz dos clientes (para montar a URL publica e testar o DNS/tunnel). Padrao: sigedash.com.br
 #>
 param(
-    [string]$FdbPath = "C:\SIGECOM\SIGECOM.FDB"
+    [string]$FdbPath = "C:\SIGECOM\SIGECOM.FDB",
+    [string]$Dominio = "sigedash.com.br"
 )
 
 $ErrorActionPreference = "Continue"
@@ -171,6 +174,41 @@ $cfLog = "C:\SigeDash\Tunnel\tunnel-install.log"
 if (Test-Path $cfLog -ErrorAction SilentlyContinue) {
     $ultimas = Get-Content $cfLog -Tail 3 -ErrorAction SilentlyContinue
     if ($ultimas) { INFO "Ultimas linhas do tunnel-install.log:"; $ultimas | ForEach-Object { INFO ("   " + $_) } }
+}
+
+# --- URL publica (DNS + acesso externo de ponta a ponta) ---
+# Deriva o slug do nome da empresa (mesmo algoritmo do instalador) e testa a URL publica.
+# Pega o DNS NAO criado (ERR_NAME_NOT_RESOLVED no cliente) e o tunnel fora (Error 1033).
+Sec "URL publica (DNS + tunnel ponta-a-ponta)"
+$nomeEmp = $null
+try {
+    $emp = Invoke-RestMethod "http://localhost:5000/auth/empresas" -TimeoutSec 8
+    $nomeEmp = ($emp | Select-Object -First 1).nome
+} catch {}
+if ([string]::IsNullOrWhiteSpace($nomeEmp)) {
+    AVISO "Nao foi possivel obter a empresa para montar a URL publica." "Resolva os itens do Backend/empresa acima primeiro."
+} else {
+    $slug = ($nomeEmp -replace '[^a-zA-Z0-9]', '').ToLower()
+    if ($slug.Length -gt 20) { $slug = $slug.Substring(0, 20) }
+    $hostPub = "$slug.$Dominio"
+    $urlPub  = "https://$hostPub"
+    INFO "URL publica esperada: $urlPub"
+    # 1) DNS resolve?
+    $resolve = $false
+    try { [System.Net.Dns]::GetHostEntry($hostPub) | Out-Null; $resolve = $true } catch { $resolve = $false }
+    if (-not $resolve) {
+        FALHA "O DNS de $hostPub NAO resolve (registro nao existe)." "No celular isso aparece como ERR_NAME_NOT_RESOLVED. Crie o 'Public Hostname'/DNS do tunnel no painel Cloudflare (ou reinstale com auto-criacao do tunnel: deixe o token em branco). Confira tambem se o nome do cliente bate com o slug."
+    } else {
+        OK "DNS de $hostPub resolve."
+        # 2) Responde de fora (via Cloudflare)?
+        try {
+            $hp = Invoke-WebRequest "$urlPub/health" -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
+            OK "URL publica respondeu (HTTP $($hp.StatusCode)) - acesso externo OK."
+        } catch {
+            FALHA "O DNS resolve mas $urlPub NAO respondeu (provavel tunnel fora - Cloudflare Error 1033)." "Verifique o servico cloudflared (rodando?) e o token do tunnel; veja tunnel-install.log."
+        }
+    }
+    INFO "ATENCAO: use a URL COM '$Dominio' (nao esqueca o '.br' se for .com.br)."
 }
 
 # --- Central ---
