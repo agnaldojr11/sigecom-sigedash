@@ -155,6 +155,17 @@ if ($svc.Status -ne "Running") {
 Set-Service $SVC_NAME -StartupType Automatic | Out-Null
 Log "Startup automatico configurado."
 
+# Auto-restart em falha: se o cloudflared cair (processo morre), o Windows reinicia o servico.
+# Evita que o acesso externo fique fora do ar (Cloudflare Error 1033) ate alguem reiniciar a maquina.
+# reset= 86400 (zera a contagem a cada 24h); restart apos 5s, 15s e depois 60s.
+$prevEAP = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+& sc.exe failure $SVC_NAME reset= 86400 actions= restart/5000/restart/15000/restart/60000 | Out-Null
+# Dispara as acoes de recuperacao tambem quando o servico PARA com erro (nao so quando "crasha").
+& sc.exe failureflag $SVC_NAME 1 | Out-Null
+$ErrorActionPreference = $prevEAP
+Log "Auto-restart em falha configurado (recuperacao do tunnel)."
+
 # Resumo
 Log ""
 Log "=== Cloudflare Tunnel instalado! ==="

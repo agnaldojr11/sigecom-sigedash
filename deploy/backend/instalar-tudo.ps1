@@ -497,6 +497,63 @@ if (-not [string]::IsNullOrWhiteSpace($NomeCliente)) {
 }
 
 # ============================================================
+Titulo "PASSO 6 - Verificacao final"
+# ============================================================
+# O install so pode dizer "sucesso" se o cliente estiver REALMENTE usavel: a empresa precisa
+# aparecer no backend, senao o PWA mostra "Nenhuma empresa cadastrada" e o banco nao carrega.
+function EmpresaRegistrada($nome) {
+    try {
+        $emp = Invoke-RestMethod "http://localhost:5000/auth/empresas" -TimeoutSec 10
+        return [bool]($emp | Where-Object { $_.nome -eq $nome })
+    } catch { return $false }
+}
+
+# Espera o backend responder (ate ~30s) antes de verificar.
+$backendUp = $false
+for ($i = 0; $i -lt 10; $i++) {
+    try { Invoke-RestMethod "http://localhost:5000/auth/empresas" -TimeoutSec 5 | Out-Null; $backendUp = $true; break }
+    catch { Start-Sleep -Seconds 3 }
+}
+if (-not $backendUp) {
+    Falha "O backend nao respondeu em http://localhost:5000 apos a instalacao. O app nao vai funcionar. Rode diagnostico.ps1 para ver a causa (servico/porta/banco)."
+}
+
+$clienteOk = EmpresaRegistrada $NomeCliente
+if (-not $clienteOk) {
+    Log "A empresa '$NomeCliente' NAO aparece no backend - tentando registrar novamente..."
+    $scriptConf = Join-Path $SCRIPT_DIR "configurar-cliente.ps1"
+    if (Test-Path $scriptConf) {
+        try {
+            & $scriptConf -BackendUrl "http://localhost:5000" -AdminKey $AdminKey `
+                -ClienteNome $NomeCliente -FdbPath $FdbPath -LimiteDispositivos $LimiteDispositivos `
+                -ConfigDir "C:\Program Files\SistemasBr\SigeDash\Config"
+        } catch { Log "AVISO: nova tentativa de registro falhou: $_" }
+        Start-Sleep -Seconds 2
+        $clienteOk = EmpresaRegistrada $NomeCliente
+    } else {
+        Log "AVISO: configurar-cliente.ps1 nao encontrado em $SCRIPT_DIR."
+    }
+}
+
+if ($clienteOk) {
+    Sucesso "Empresa '$NomeCliente' cadastrada e visivel no login."
+} else {
+    Falha ("A empresa '$NomeCliente' NAO foi cadastrada no backend - o app mostraria 'Nenhuma empresa cadastrada'. " +
+           "Causas comuns: o banco Firebird nao foi encontrado em '$FdbPath', ou o backend/registro falhou. " +
+           "Rode diagnostico.ps1 para confirmar; se o .FDB estiver em outro caminho, reinstale com -FdbPath correto.")
+}
+
+# Aviso NAO-fatal se a telemetria/Central nao ficou configurada (o cliente funciona mesmo assim).
+try {
+    $appJsonVerif = "C:\SigeDash\Backend\appsettings.Production.json"
+    if (Test-Path $appJsonVerif) {
+        $jVerif = Get-Content $appJsonVerif -Raw | ConvertFrom-Json
+        if ($jVerif.Central -and $jVerif.Central.Url) { Sucesso "Registrado na SigeDash Central (telemetria ativa)." }
+        else { Log "AVISO: cliente NAO registrado na Central (telemetria off). Rode registrar-central.ps1 quando houver internet + central.json." }
+    }
+} catch {}
+
+# ============================================================
 Titulo "INSTALACAO CONCLUIDA"
 # ============================================================
 Log ""
