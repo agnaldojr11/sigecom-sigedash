@@ -290,6 +290,19 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     exit 1
 }
 
+# Pre-requisito do AGENTE: .NET Framework 4.8 (Release >= 528040). Em Windows Server 2016/2012R2 pode
+# faltar. O backend e self-contained (nao precisa de runtime), mas o agente e framework-dependent -
+# sem 4.8 o servico SigeDashAgente nao inicia (os dados nao sincronizam). Aviso NAO-fatal.
+try {
+    $ndp = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full" -ErrorAction Stop
+    if ([int]$ndp.Release -lt 528040) {
+        Log "AVISO: .NET Framework 4.8 ausente (Release=$($ndp.Release)). O AGENTE pode nao iniciar."
+        Log "       Instale o .NET Framework 4.8 (https://dotnet.microsoft.com/download/dotnet-framework/net48) e rode de novo, ou o agente so sincronizara apos instalar o 4.8."
+    }
+} catch {
+    Log "AVISO: nao foi possivel confirmar o .NET Framework 4.8 - se o agente nao iniciar, instale o 4.8."
+}
+
 # Auto-detecta nome do cliente via Firebird se nao informado
 if ([string]::IsNullOrWhiteSpace($NomeCliente)) {
     Log "NomeCliente nao informado — buscando NOMEFANTASIA no banco Firebird..."

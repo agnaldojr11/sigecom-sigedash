@@ -30,6 +30,12 @@ param(
 $SIGNER_ESPERADO = "SISTEMASBR"
 
 $ErrorActionPreference = "Stop"
+
+# Windows Server antigo (2012R2/2016) usa TLS 1.0/1.1 por padrao no .NET, e o GitHub exige TLS 1.2+.
+# Sem isto a consulta/download da release falha com "Could not create SSL/TLS secure channel".
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch {}
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls13 } catch {}
+
 $SVC_NAME   = "SigeDashBackend"
 $SVC_AGENTE = "SigeDashAgente"
 $VERSION_TXT = Join-Path $InstallDir "version.txt"

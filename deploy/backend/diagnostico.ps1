@@ -66,6 +66,14 @@ try {
     }
 } catch {}
 
+# .NET Framework 4.8 (necessario para o AGENTE; o backend e self-contained e nao precisa de runtime).
+try {
+    $ndp = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full" -ErrorAction Stop
+    if ([int]$ndp.Release -ge 528040) { OK ".NET Framework 4.8 presente (Release $($ndp.Release))." }
+    else { AVISO ".NET Framework 4.8 ausente (Release $($ndp.Release))." "O agente nao inicia sem 4.8. Instale: dotnet.microsoft.com/download/dotnet-framework/net48" }
+} catch {
+    AVISO "Nao foi possivel confirmar o .NET Framework 4.8." "Se o servico SigeDashAgente nao iniciar, instale o .NET Framework 4.8." }
+
 # --- PostgreSQL ---
 Sec "PostgreSQL"
 $svcPg = Get-Service | Where-Object { $_.Name -match "^postgresql" } | Select-Object -First 1

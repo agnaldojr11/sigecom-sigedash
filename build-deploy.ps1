@@ -172,6 +172,7 @@ $SCRIPTS = @(
     "deploy\backend\sincronizar-central.ps1",
     "deploy\backend\diagnostico.ps1",
     "deploy\backend\desinstalar-tudo.ps1",
+    "deploy\backend\REQUISITOS-SERVIDOR.txt",
     "deploy\agente\configurar-cliente.ps1"
 )
 

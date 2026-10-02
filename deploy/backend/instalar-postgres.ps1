@@ -24,6 +24,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Windows Server antigo (2012R2/2016) usa TLS 1.0/1.1 por padrao no .NET, e EDB/GitHub exigem TLS 1.2+.
+# Sem isto o download falha com "Could not create SSL/TLS secure channel". Habilita TLS 1.2 (e 1.3 se houver).
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch {}
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls13 } catch {}
+
 $PG_VERSION    = "16"
 $PG_INSTALLDIR = "C:\Program Files\PostgreSQL\$PG_VERSION"
 $PG_SVC        = "postgresql-x64-$PG_VERSION"

@@ -42,6 +42,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Windows Server antigo (2012R2/2016) usa TLS 1.0/1.1 por padrao no .NET, e o GitHub exige TLS 1.2+.
+# Sem isto o download do cloudflared falha com "Could not create SSL/TLS secure channel".
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch {}
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls13 } catch {}
+
 $SVC_NAME      = "cloudflared"
 $CLOUDFLARED   = Join-Path $InstallDir "cloudflared.exe"
 $DOWNLOAD_URL  = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
