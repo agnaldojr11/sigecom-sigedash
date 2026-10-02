@@ -15,6 +15,16 @@ public static class UsuariosPainelEndpoints
 {
     private const int SenhaMin = 8;
 
+    // Valida a senha do usuario do painel: comprimento minimo + letras E numeros. [Auditoria M3]
+    private static string? ValidarSenha(string? senha)
+    {
+        senha ??= "";
+        if (senha.Length < SenhaMin) return $"Senha muito curta (mín. {SenhaMin} caracteres).";
+        if (!senha.Any(char.IsLetter) || !senha.Any(char.IsDigit))
+            return "A senha deve conter letras e números.";
+        return null;
+    }
+
     public static void MapUsuariosPainel(this IEndpointRouteBuilder app)
     {
         // Quem sou eu (login + papel) — o front usa para mostrar/esconder o menu Equipe.
@@ -53,8 +63,8 @@ public static class UsuariosPainelEndpoints
             var login = (dto.Login ?? "").Trim();
             if (login.Length < 3)
                 return Results.BadRequest(new { erro = "Login inválido (mín. 3 caracteres)." });
-            if ((dto.Senha ?? "").Length < SenhaMin)
-                return Results.BadRequest(new { erro = $"Senha muito curta (mín. {SenhaMin} caracteres)." });
+            var erroSenha = ValidarSenha(dto.Senha);
+            if (erroSenha is not null) return Results.BadRequest(new { erro = erroSenha });
 
             var papel = (dto.Papel ?? PapelPainel.Operador).Trim().ToLowerInvariant();
             if (!PapelPainel.Todos.Contains(papel))
@@ -89,8 +99,8 @@ public static class UsuariosPainelEndpoints
         {
             var (eu, erro) = await AutorizacaoPainel.ExigeAdminAsync(user, db);
             if (erro is not null) return erro;
-            if ((dto.Senha ?? "").Length < SenhaMin)
-                return Results.BadRequest(new { erro = $"Senha muito curta (mín. {SenhaMin} caracteres)." });
+            var erroSenha = ValidarSenha(dto.Senha);
+            if (erroSenha is not null) return Results.BadRequest(new { erro = erroSenha });
 
             var alvo = await db.UsuariosPainel.FirstOrDefaultAsync(x => x.Id == id);
             if (alvo is null) return Results.NotFound();

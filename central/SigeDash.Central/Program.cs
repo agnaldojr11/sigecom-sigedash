@@ -23,7 +23,25 @@ if (string.IsNullOrWhiteSpace(jwtSecret) || jwtSecret.Length < 32)
     throw new InvalidOperationException(
         "Jwt:SecretKey ausente ou fraca (mínimo 32 caracteres). Defina a variável Jwt__SecretKey no Railway.");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(o => o.TokenValidationParameters = Auth.ValidationParams(jwtSecret));
+    .AddJwtBearer(o =>
+    {
+        o.TokenValidationParameters = Auth.ValidationParams(jwtSecret);
+        // Revalida o usuario no banco a cada requisicao: desativar/excluir um usuario do painel
+        // passa a ter efeito IMEDIATO (senao o token valeria ate expirar ~8h, inclusive para
+        // kill-switch/limite/versoes nas rotas nao-admin). [Auditoria A1]
+        o.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async ctx =>
+            {
+                var login = ctx.Principal?.FindFirst("login")?.Value;
+                if (string.IsNullOrEmpty(login)) { ctx.Fail("token sem login"); return; }
+                var db = ctx.HttpContext.RequestServices.GetRequiredService<CentralDbContext>();
+                var ativo = await db.UsuariosPainel.AsNoTracking()
+                    .AnyAsync(u => u.Login == login && u.Ativo);
+                if (!ativo) ctx.Fail("usuario do painel inativo ou inexistente");
+            }
+        };
+    });
 builder.Services.AddAuthorization();
 
 // Rate limiting por IP (defesa contra brute force/credential stuffing). Particiona pelo IP real
