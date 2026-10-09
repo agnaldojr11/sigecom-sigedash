@@ -39,11 +39,13 @@ if ([string]::IsNullOrWhiteSpace($adminKey)) { Write-Error "AdminKey ausente no 
 
 $body = @{ limite = $Limite }
 if ($Cliente) { $body["cliente"] = $Cliente }
-$json = $body | ConvertTo-Json
+$json = $body | ConvertTo-Json -Compress
+# UTF-8 explicito (nomes com acento quebram com 400 no PowerShell 5.1 - envia Latin1).
+$jsonBytes = [System.Text.Encoding]::UTF8.GetBytes($json)
 
 try {
     $resp = Invoke-RestMethod -Uri "$BackendUrl/admin/limite-dispositivos" -Method POST `
-        -Headers @{ "X-Admin-Key" = $adminKey; "Content-Type" = "application/json" } -Body $json
+        -Headers @{ "X-Admin-Key" = $adminKey } -ContentType "application/json; charset=utf-8" -Body $jsonBytes
 } catch {
     $msg = $_.Exception.Message
     if ($_.ErrorDetails -and $_.ErrorDetails.Message) { $msg = $_.ErrorDetails.Message }

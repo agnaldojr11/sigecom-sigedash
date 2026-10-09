@@ -48,9 +48,12 @@ if ([string]::IsNullOrWhiteSpace($url) -or [string]::IsNullOrWhiteSpace($bootstr
 # 1) Registra na Central (idempotente)
 LogC "Registrando '$Nome' na Central..."
 $body = @{ nome = $Nome; cnpj = $Cnpj } | ConvertTo-Json -Compress
-$headers = @{ "X-Bootstrap-Key" = $bootstrap; "Content-Type" = "application/json" }
+# UTF-8 EXPLICITO: nomes com acento quebravam com 400 (PowerShell 5.1 envia o corpo em Latin1 e o
+# backend/Central rejeitam como UTF-8 invalido). Bytes UTF-8 + charset garante JSON valido.
+$bodyBytes = [System.Text.Encoding]::UTF8.GetBytes($body)
+$headers = @{ "X-Bootstrap-Key" = $bootstrap }
 try {
-    $resp = Invoke-RestMethod "$url/telemetria/registrar" -Method POST -Headers $headers -Body $body -TimeoutSec 30
+    $resp = Invoke-RestMethod "$url/telemetria/registrar" -Method POST -Headers $headers -ContentType "application/json; charset=utf-8" -Body $bodyBytes -TimeoutSec 30
 } catch {
     LogC "AVISO: falha ao registrar na Central: $_"
     LogC "A telemetria pode ser ligada depois rodando este script novamente."

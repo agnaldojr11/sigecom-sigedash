@@ -32,14 +32,19 @@ try {
         codigoEmpresa      = 1
         nomeLoja           = "Matriz"
         limiteDispositivos = $LimiteDispositivos
-    } | ConvertTo-Json
+    } | ConvertTo-Json -Compress
     Log ("Limite de dispositivos do plano: " + $(if ($LimiteDispositivos -gt 0) { $LimiteDispositivos } else { 'ilimitado' }))
 
+    # UTF-8 EXPLICITO: nomes com acento (ex.: "Implementacao") quebravam com 400 no PowerShell 5.1,
+    # que envia o corpo em Latin1 e o backend (System.Text.Json) rejeita como UTF-8 invalido.
+    # Enviar bytes UTF-8 + charset garante JSON valido no servidor.
+    $bytesCliente = [System.Text.Encoding]::UTF8.GetBytes($bodyCliente)
     $respCliente = Invoke-RestMethod `
-        -Uri     "$BackendUrl/admin/clientes" `
-        -Method  POST `
-        -Headers @{ "X-Admin-Key" = $AdminKey; "Content-Type" = "application/json" } `
-        -Body    $bodyCliente
+        -Uri         "$BackendUrl/admin/clientes" `
+        -Method      POST `
+        -Headers     @{ "X-Admin-Key" = $AdminKey } `
+        -ContentType "application/json; charset=utf-8" `
+        -Body        $bytesCliente
 
     $chaveApi = $respCliente.chaveApi
     Log "Cliente registrado."
