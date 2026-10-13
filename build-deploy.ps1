@@ -167,6 +167,7 @@ $SCRIPTS = @(
     "deploy\backend\atualizar.ps1",
     "deploy\backend\rotacionar-segredos.ps1",
     "deploy\backend\resetar-senha.ps1",
+    "deploy\backend\Resetar-Senha.cmd",
     "deploy\backend\definir-limite.ps1",
     "deploy\backend\registrar-central.ps1",
     "deploy\backend\sincronizar-central.ps1",
@@ -344,6 +345,7 @@ CONTEUDO DESTA PASTA
 - atualizar.ps1             Atualizacao automatica (agendado toda segunda 03h)
 - diagnostico.ps1           Verifica cada componente e aponta a causa/solucao de falhas
 - desinstalar-tudo.ps1      Remove TUDO do servidor (para reinstalar do zero)
+- Resetar-Senha.cmd         Clique duplo: redefine a senha de um usuario (ex.: admin) neste servidor
 - agente/                   Binarios do agente (.NET 4.8) instalados pelo instalar-agente.ps1
 
 SE A INSTALACAO FALHAR
