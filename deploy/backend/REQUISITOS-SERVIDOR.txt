@@ -21,8 +21,11 @@ Garanta tudo abaixo ANTES de rodar o instalador.
    - github.com e objects.githubusercontent.com  (cloudflared + releases)
    - get.enterprisedb.com                         (instalador do PostgreSQL)
    - api.cloudflare.com                           (criacao do tunnel/DNS)
-   - *.cfargotunnel.com e o tunnel do Cloudflare  (443 TCP e 7844 TCP/UDP;
-     se o 7844 estiver bloqueado o cloudflared cai para 443 automaticamente)
+   - *.cfargotunnel.com e o tunnel do Cloudflare
+     IMPORTANTE: o instalador fixa o cloudflared em HTTP/2 (TCP 443), entao
+     basta liberar a SAIDA em TCP 443. (Sem isso, o modo padrao QUIC usa
+     UDP 7844 - bloqueado em muitas redes - e o tunnel fica "Degraded" ou da
+     Error 1033.)
    NAO e preciso abrir portas de ENTRADA: o acesso externo e pelo tunnel
    (saida), e o backend/PostgreSQL ficam apenas em localhost.
 

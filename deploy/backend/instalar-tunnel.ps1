@@ -37,7 +37,12 @@ param(
     [Parameter(Mandatory)]
     [string]$TunnelToken,
 
-    [string]$InstallDir = "C:\SigeDash\Tunnel"
+    [string]$InstallDir = "C:\SigeDash\Tunnel",
+
+    # Transporte do tunnel. "http2" (TCP 443) e o mais compativel com firewall de cliente; o padrao
+    # "quic" (UDP 7844) e bloqueado/limitado em muitas redes -> tunnel "Degraded" ou Error 1033.
+    # Use "" para deixar o cloudflared decidir (auto). Padrao: http2.
+    [string]$Protocolo = "http2"
 )
 
 $ErrorActionPreference = "Stop"
@@ -140,6 +145,28 @@ $svc = Get-Service $SVC_NAME -ErrorAction SilentlyContinue
 if (-not $svc) {
     Log "ERRO: servico $SVC_NAME nao foi criado. Verifique o token e tente novamente."
     exit 1
+}
+
+# Forca o transporte do tunnel (HTTP/2 em TCP 443 por padrao) ANTES de iniciar o servico.
+# Muitos firewalls de cliente bloqueiam/limitam o QUIC (UDP 7844), causando tunnel "Degraded"
+# (nem todas as 4 conexoes sobem) ou Error 1033 (nenhuma sobe). Injetamos "--protocol http2"
+# DIRETO no comando do servico (ImagePath) - garantido, sem depender de variavel de ambiente.
+if (-not [string]::IsNullOrWhiteSpace($Protocolo)) {
+    $regSvc = "HKLM:\SYSTEM\CurrentControlSet\Services\$SVC_NAME"
+    $prevEAP = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+    try {
+        $ip = (Get-ItemProperty -Path $regSvc -Name ImagePath -ErrorAction Stop).ImagePath
+        if ($ip -match '--protocol') {
+            Log "Servico ja define --protocol; mantido."
+        } elseif ($ip -match 'tunnel\s+run') {
+            $novo = [regex]::Replace($ip, '(tunnel\s+run)', "`$1 --protocol $Protocolo")
+            Set-ItemProperty -Path $regSvc -Name ImagePath -Value $novo
+            Log "Transporte do tunnel fixado em '$Protocolo' (TCP 443) no comando do servico."
+        } else {
+            Log "AVISO: 'tunnel run' nao encontrado no ImagePath - protocolo nao fixado."
+        }
+    } catch { Log "AVISO: nao consegui fixar o protocolo do tunnel ($_)." }
+    $ErrorActionPreference = $prevEAP
 }
 
 # Inicia o servico
