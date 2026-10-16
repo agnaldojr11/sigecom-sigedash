@@ -51,6 +51,14 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+# Windows Server antigo (2012/2012R2) usa TLS 1.0/1.1 por padrao no .NET; a API do Cloudflare e os
+# downloads exigem TLS 1.2+. Sem isto, as chamadas aqui (consulta de tunnel/DNS) falham com
+# "Nao foi possivel criar um canal seguro para SSL/TLS". Em Server 2012 pode ser preciso tambem
+# habilitar o TLS 1.2 no SO (ver REQUISITOS-SERVIDOR.txt / habilitar-tls12.ps1).
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch {}
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls13 } catch {}
+
 $LOG_GERAL = "C:\SigeDash\install.log"
 $SCRIPT_DIR = $PSScriptRoot
 
@@ -95,6 +103,9 @@ function Falha($msg) {
     Write-Host "   2) Para tentar de novo do zero, limpe tudo e reinstale:"
     Write-Host "        powershell -ExecutionPolicy Bypass -File `"$SCRIPT_DIR\desinstalar-tudo.ps1`""
     Write-Host "        (depois rode este instalador novamente)"
+    Write-Host "   3) Se o erro foi 'canal seguro para SSL/TLS' (Windows Server 2012/2012R2):"
+    Write-Host "        powershell -ExecutionPolicy Bypass -File `"$SCRIPT_DIR\habilitar-tls12.ps1`""
+    Write-Host "        e REINICIE o servidor; depois rode o instalador de novo."
     Write-Host ""
     Write-Host "  LOGS PARA O SUPORTE:" -ForegroundColor Cyan
     Write-Host "   - Geral    : $LOG_GERAL"

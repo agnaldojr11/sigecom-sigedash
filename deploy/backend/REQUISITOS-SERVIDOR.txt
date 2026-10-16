@@ -29,11 +29,13 @@ Garanta tudo abaixo ANTES de rodar o instalador.
    NAO e preciso abrir portas de ENTRADA: o acesso externo e pelo tunnel
    (saida), e o backend/PostgreSQL ficam apenas em localhost.
 
-4) TLS 1.2
-   - Os scripts ja forcam TLS 1.2/1.3. Em Server MUITO antigo (2012R2/2016),
-     se os downloads falharem com "Could not create SSL/TLS secure channel",
-     habilite o TLS 1.2 no sistema (Easy Fix da Microsoft / registro .NET
-     SchUseStrongCrypto) e tente de novo.
+4) TLS 1.2  (IMPORTANTE em Windows Server 2012 / 2012 R2)
+   - Os scripts ja forcam TLS 1.2 no codigo, mas em Server 2012/2012R2 o TLS 1.2
+     vem DESLIGADO no SO. Sintoma: downloads/instalacao falham com
+     "Nao foi possivel criar um canal seguro para SSL/TLS".
+   - CORRECAO: rode, como Administrador, e REINICIE o servidor:
+        powershell -ExecutionPolicy Bypass -File .\habilitar-tls12.ps1
+     Depois do reboot, rode o instalador de novo.
 
 5) .NET FRAMEWORK 4.8  (necessario para o AGENTE)
    - O backend e self-contained (NAO precisa de runtime .NET).

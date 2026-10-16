@@ -173,6 +173,7 @@ $SCRIPTS = @(
     "deploy\backend\sincronizar-central.ps1",
     "deploy\backend\diagnostico.ps1",
     "deploy\backend\desinstalar-tudo.ps1",
+    "deploy\backend\habilitar-tls12.ps1",
     "deploy\backend\REQUISITOS-SERVIDOR.txt",
     "deploy\agente\configurar-cliente.ps1"
 )
@@ -346,6 +347,8 @@ CONTEUDO DESTA PASTA
 - diagnostico.ps1           Verifica cada componente e aponta a causa/solucao de falhas
 - desinstalar-tudo.ps1      Remove TUDO do servidor (para reinstalar do zero)
 - Resetar-Senha.cmd         Clique duplo: redefine a senha de um usuario (ex.: admin) neste servidor
+- habilitar-tls12.ps1       Liga o TLS 1.2 no SO (Windows Server 2012/2012R2) - rode + reboot se o
+                            install falhar com 'canal seguro para SSL/TLS'
 - agente/                   Binarios do agente (.NET 4.8) instalados pelo instalar-agente.ps1
 
 SE A INSTALACAO FALHAR
