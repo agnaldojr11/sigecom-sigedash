@@ -113,7 +113,7 @@ if (Test-Path $evtKey) {
 
 # --- 2) Tarefas agendadas ---
 Passo "Removendo tarefas agendadas"
-foreach ($t in @("SigeDash-Atualizar", "SigeDash-Aplicar")) {
+foreach ($t in @("SigeDash-Atualizar", "SigeDash-Aplicar", "SigeDash-Watchdog")) {
     if (Get-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue) {
         Unregister-ScheduledTask -TaskName $t -Confirm:$false -ErrorAction SilentlyContinue
         if (Get-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue) { Erro "Tarefa '$t' nao removida." }

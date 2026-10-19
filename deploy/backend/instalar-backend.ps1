@@ -240,6 +240,18 @@ if (Test-Path $atualizarSrc) {
     Log "AVISO: atualizar.ps1 nao encontrado - agendamento ignorado."
 }
 
+# --- Watchdog: garante PostgreSQL+Backend+Tunnel no ar (boot + a cada 5 min) ---
+# Corrige 502 Bad Gateway quando o backend nao sobe sozinho apos reiniciar a maquina.
+$wdInst = Join-Path $InstallDir "instalar-watchdog.ps1"
+if (Test-Path $wdInst) {
+    try {
+        & powershell -NonInteractive -NoProfile -ExecutionPolicy Bypass -File $wdInst -InstallDir $InstallDir | Out-Null
+        Log "Watchdog registrado (tarefa SigeDash-Watchdog)."
+    } catch { Log "AVISO: nao consegui registrar o watchdog: $_" }
+} else {
+    Log "AVISO: instalar-watchdog.ps1 nao encontrado - watchdog nao registrado."
+}
+
 # --- Endurece a ACL do diretorio ---
 # So Administrators (S-1-5-32-544) e SYSTEM (S-1-5-18). Evita que usuario nao-admin sobrescreva
 # binarios/atualizar.ps1 (que rodam como SYSTEM) - fecha escalonamento local de privilegio.

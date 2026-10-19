@@ -171,6 +171,8 @@ $SCRIPTS = @(
     "deploy\backend\definir-limite.ps1",
     "deploy\backend\registrar-central.ps1",
     "deploy\backend\sincronizar-central.ps1",
+    "deploy\backend\watchdog-sigedash.ps1",
+    "deploy\backend\instalar-watchdog.ps1",
     "deploy\backend\diagnostico.ps1",
     "deploy\backend\desinstalar-tudo.ps1",
     "deploy\backend\habilitar-tls12.ps1",
