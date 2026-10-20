@@ -55,3 +55,6 @@ assinatura/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Binarios de terceiros embutidos no pacote (baixados pelo build-deploy.ps1)
+/deploy/vendor/

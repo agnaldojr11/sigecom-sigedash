@@ -121,3 +121,7 @@ if ($svc) {
 Log "=== Configuração concluída! ==="
 Log "Backend: $BackendUrl | Empresa: $ClienteNome"
 Log "Usuarios do SigeDash sao NATIVOS: use o login/senha do ADM acima; o ADM cadastra os demais pelo app (troca obrigatoria no 1o acesso)."
+
+# Sucesso explicito: quem chama decide pelo $LASTEXITCODE, que senao seria o do ultimo comando
+# nativo rodado antes (ex.: sc.exe), gerando falso "falhou com codigo N".
+exit 0

@@ -54,7 +54,12 @@ try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::S
 
 $SVC_NAME      = "cloudflared"
 $CLOUDFLARED   = Join-Path $InstallDir "cloudflared.exe"
-$DOWNLOAD_URL  = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
+# Versao FIXADA (testada). Com "latest" cada instalacao pegava uma versao diferente (o cloudflared
+# lanca versao quase toda semana) e o comportamento mudava de um cliente para outro. O pacote ja traz
+# esta versao (cloudflared.exe); o download e so a reserva.
+$CLOUDFLARED_VERSAO = "2026.10.0"
+$DOWNLOAD_URL  = "https://github.com/cloudflare/cloudflared/releases/download/$CLOUDFLARED_VERSAO/cloudflared-windows-amd64.exe"
+$EMBUTIDO      = Join-Path $PSScriptRoot "cloudflared.exe"
 $LOG_FILE      = Join-Path $InstallDir "tunnel-install.log"
 
 function Log($msg) {
@@ -97,21 +102,40 @@ if (Test-Path $evtKey) {
     Log "Chave de EventLog remanescente do cloudflared removida."
 }
 
-# Baixa cloudflared.exe se necessario
-if (-not (Test-Path $CLOUDFLARED)) {
-    Log "Baixando cloudflared.exe..."
+# cloudflared.exe: o do pacote (versao fixada) substitui o existente; sem ele, baixa a mesma versao.
+Get-Process -Name "cloudflared" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+if (Test-Path -LiteralPath $EMBUTIDO) {
     try {
-        $wc = New-Object System.Net.WebClient
-        $wc.DownloadFile($DOWNLOAD_URL, $CLOUDFLARED)
-        Log "Download concluido: $CLOUDFLARED"
+        Copy-Item -LiteralPath $EMBUTIDO -Destination $CLOUDFLARED -Force
+        Log "cloudflared.exe $CLOUDFLARED_VERSAO copiado do pacote."
     } catch {
-        Log "ERRO ao baixar cloudflared: $_"
-        Log "Baixe manualmente em: https://github.com/cloudflare/cloudflared/releases/latest"
-        Log "Salve como: $CLOUDFLARED"
+        Log "AVISO: nao consegui copiar o cloudflared.exe do pacote ($_)."
+    }
+}
+if (-not (Test-Path -LiteralPath $CLOUDFLARED)) {
+    Log "Baixando cloudflared $CLOUDFLARED_VERSAO..."
+    $baixou = $false
+    for ($t = 1; $t -le 3 -and -not $baixou; $t++) {
+        try {
+            $wc = New-Object System.Net.WebClient
+            if ($wc.Proxy) { $wc.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials }
+            $wc.DownloadFile($DOWNLOAD_URL, $CLOUDFLARED)
+            $baixou = $true
+        } catch {
+            Log "Tentativa $t de 3 do download falhou: $($_.Exception.Message)"
+            try { [System.IO.File]::Delete($CLOUDFLARED) } catch {}
+            if ($t -lt 3) { Start-Sleep -Seconds (5 * $t) }
+        }
+    }
+    if (-not $baixou) {
+        Log "ERRO ao baixar o cloudflared (firewall/proxy bloqueando github.com?)."
+        Log "Baixe manualmente: $DOWNLOAD_URL"
+        Log "Salve como: $CLOUDFLARED e rode o instalador de novo."
         exit 1
     }
+    Log "Download concluido: $CLOUDFLARED"
 } else {
-    Log "cloudflared.exe ja existe em $CLOUDFLARED"
+    Log "cloudflared.exe pronto em $CLOUDFLARED"
 }
 
 # Verifica a assinatura Authenticode do binario baixado (integridade)

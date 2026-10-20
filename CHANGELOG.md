@@ -6,7 +6,28 @@ O processo está descrito em [`docs/PROCESSO-RELEASE.md`](docs/PROCESSO-RELEASE.
 
 ## [Não liberado] — Sprint 1 (versão 1.1.0)
 
-_Nada ainda._
+Instalador disponível antes, como **pré-release v1.0.54**, só para clientes novos. A frota não recebe.
+
+### Novo
+- **Pré-verificação do servidor (PASSO 0).** Antes de alterar qualquer coisa, o instalador confere tudo o que já derrubou instalações em campo e, se houver bloqueio, **não começa** e diz o que resolver. Também pode ser rodada sozinha antes de ir ao cliente: `verificar-ambiente.ps1`. O que ela confere:
+  - administrador, Windows 64 bits e versão, PowerShell, **.NET 4.8**, disco e reinício pendente;
+  - pacote completo e não corrompido;
+  - Firebird rodando em `localhost:3050`, `.FDB` local e leitura com SYSDBA;
+  - portas 5000/5432 livres (ou do próprio SigeDash/PostgreSQL);
+  - internet/TLS/proxy para Cloudflare, EnterpriseDB, GitHub e Central;
+  - **firewall do túnel (TCP 7844)**;
+  - token do Cloudflare do pacote válido;
+  - relógio do servidor.
+  - Correções seguras automáticas: desbloqueia os arquivos baixados, inicia o Firebird parado e liga o TLS 1.2 (pede reinício).
+- **Relatório de instalação na Central (aba Instalações).** Toda instalação (sucesso, avisos, falha ou bloqueada) e todo `diagnostico.ps1` mandam à Central a etapa onde parou, o motivo, a pré-verificação e o log com senhas, chaves e tokens mascarados. O suporte vê sem acessar o servidor. Os relatórios são guardados por 180 dias.
+
+### Corrigido
+- **Segunda tentativa falhava com "outro erro".** Restos de um PostgreSQL que falhou no meio (binários sem banco) eram tratados como "PostgreSQL já instalado". Agora são limpos automaticamente.
+- **Download do PostgreSQL (~370 MB):** 3 tentativas, BITS (retoma quedas), proxy com autenticação do Windows e cache em `C:\SigeDash\cache`. Também é possível instalar sem internet, colocando o `.exe` na pasta do instalador. O instalador do PostgreSQL agora tem limite de 30 min (antes podia travar para sempre).
+- **cloudflared com versão fixa (2026.10.0) e embutido no pacote.** Antes, cada instalação baixava a "latest" do GitHub, uma versão diferente por cliente.
+- **Detecção do nome/CNPJ** acha o `isql` do Firebird em qualquer versão ou pasta (antes, só 2.5/3.0 nos caminhos padrão).
+- `configurar-cliente.ps1` sem `exit 0` (risco de falso "falhou com código N").
+- `REQUISITOS-SERVIDOR.txt` dizia para liberar só a TCP 443. O túnel usa a **TCP 7844**.
 
 ---
 

@@ -4,7 +4,10 @@
 ========================================================================
 
 A maioria dos problemas de instalacao em Windows Server cai nestes pontos.
-Garanta tudo abaixo ANTES de rodar o instalador.
+O instalador confere TODOS eles sozinho no "PASSO 0 - Pre-verificacao" e,
+se algo impedir a instalacao, NAO comeca e diz exatamente o que resolver.
+Para conferir um servidor antes de ir instalar, rode (como Administrador):
+     powershell -ExecutionPolicy Bypass -File .\verificar-ambiente.ps1
 
 1) EXECUTAR COMO ADMINISTRADOR
    - O instalador (SigeDash-Installer.exe) e os scripts precisam de admin.
@@ -18,14 +21,19 @@ Garanta tudo abaixo ANTES de rodar o instalador.
      o Bypass e ignorado -> ajuste a GPO ou rode a partir do .exe.
 
 3) SAIDA DE INTERNET (OUTBOUND) - liberar no firewall/proxy:
-   - github.com e objects.githubusercontent.com  (cloudflared + releases)
-   - get.enterprisedb.com                         (instalador do PostgreSQL)
+   TCP 443 (HTTPS) para:
    - api.cloudflare.com                           (criacao do tunnel/DNS)
-   - *.cfargotunnel.com e o tunnel do Cloudflare
-     IMPORTANTE: o instalador fixa o cloudflared em HTTP/2 (TCP 443), entao
-     basta liberar a SAIDA em TCP 443. (Sem isso, o modo padrao QUIC usa
-     UDP 7844 - bloqueado em muitas redes - e o tunnel fica "Degraded" ou da
-     Error 1033.)
+   - get.enterprisedb.com                         (instalador do PostgreSQL)
+   - api.github.com, github.com e objects.githubusercontent.com
+                                                  (atualizacoes automaticas)
+   - a SigeDash Central                           (telemetria/relatorios)
+   TCP 7844 (e UDP 7844, se possivel) para:
+   - region1.v2.argotunnel.com e region2.v2.argotunnel.com
+     IMPORTANTE: e por aqui que o Cloudflare Tunnel conecta (acesso externo).
+     O instalador usa o modo HTTP/2, que vai em TCP 7844 - NAO e a porta 443.
+     Firewall que libera so a 443 deixa o acesso externo fora (Error 1033).
+   Proxy: o servidor precisa de saida DIRETA (proxy com autenticacao de
+   usuario/senha bloqueia o tunnel).
    NAO e preciso abrir portas de ENTRADA: o acesso externo e pelo tunnel
    (saida), e o backend/PostgreSQL ficam apenas em localhost.
 

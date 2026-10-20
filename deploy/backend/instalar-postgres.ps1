@@ -157,6 +157,42 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 
 Log "=== SigeDash - Instalacao do PostgreSQL $PG_VERSION ==="
 
+# --- Restos de uma tentativa anterior que falhou no meio ---
+# Sintoma: binarios em C:\Program Files\PostgreSQL\16 mas o banco nunca foi inicializado (sem
+# PG_VERSION) e nada escutando na 5432. Sem limpar, a deteccao abaixo achava que o PostgreSQL "ja
+# existe" (psql.exe presente) e a tentativa seguinte parava com OUTRO erro (sem acesso/sem servico).
+# So limpa quando nao ha banco inicializado em lugar nenhum (nao toca em PostgreSQL com dados).
+if (-not (TestaTCP 5432) -and (Test-Path -LiteralPath "$PG_INSTALLDIR\bin")) {
+    $ddSobra = DataDirPg
+    $temDados = (Test-Path -LiteralPath "$PG_INSTALLDIR\data\PG_VERSION") -or
+                ($ddSobra -and (Test-Path -LiteralPath (Join-Path $ddSobra "PG_VERSION")))
+    if (-not $temDados) {
+        Log "Encontrados restos de uma instalacao do PostgreSQL $PG_VERSION que nao terminou (sem banco inicializado) - limpando..."
+        $svcSobra = Get-Service $PG_SVC -ErrorAction SilentlyContinue
+        if ($svcSobra) {
+            Stop-Service $PG_SVC -Force -ErrorAction SilentlyContinue
+            $prevEAPs = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+            & sc.exe delete $PG_SVC | Out-Null
+            $ErrorActionPreference = $prevEAPs
+        }
+        $unins = Join-Path $PG_INSTALLDIR "uninstall-postgresql.exe"
+        if (Test-Path -LiteralPath $unins) {
+            try {
+                $pu = Start-Process -FilePath $unins -ArgumentList "--mode unattended" -PassThru
+                if (-not $pu.WaitForExit(300000)) { try { $pu.Kill() } catch {} }
+            } catch { Log "AVISO: desinstalador do PostgreSQL falhou: $_" }
+            Start-Sleep -Seconds 3
+        }
+        try { if (Test-Path -LiteralPath $PG_INSTALLDIR) { [System.IO.Directory]::Delete($PG_INSTALLDIR, $true) } } catch { Log "AVISO: nao consegui apagar $PG_INSTALLDIR ($_)." }
+        if (Test-Path -LiteralPath "$PG_INSTALLDIR\bin\psql.exe") {
+            Log "ERRO: nao consegui limpar a instalacao incompleta do PostgreSQL em $PG_INSTALLDIR."
+            Log "Solucao: reinicie o servidor (arquivos presos) e rode o instalador de novo."
+            exit 1
+        }
+        Log "Restos removidos - o PostgreSQL sera instalado do zero."
+    }
+}
+
 # --- Detecta PostgreSQL existente ---
 # Prioridade: TCP porta 5432 (mais confiavel), depois servico Windows, depois exe
 $portaEmUso  = TestaTCP 5432
@@ -216,34 +252,71 @@ if ($jaInstalado) {
         Log "SuperSenha do postgres gerada automaticamente."
     }
 
-    # Baixa o installer se necessario
+    # Instalador do PostgreSQL (~370 MB). Ordem: -InstallerExe > arquivo junto do pacote (instalacao
+    # sem internet: basta colocar o .exe na pasta do instalador) > cache de tentativa anterior >
+    # download. O cache evita baixar tudo de novo quando a instalacao e repetida.
+    $downloadUrl = "https://get.enterprisedb.com/postgresql/postgresql-16.9-1-windows-x64.exe"
+    $nomeExe     = "postgresql-16-windows-x64.exe"
+    $cacheDir    = "C:\SigeDash\cache"
+    $cacheExe    = Join-Path $cacheDir $nomeExe
+
     if ([string]::IsNullOrWhiteSpace($InstallerExe) -or -not (Test-Path -LiteralPath $InstallerExe)) {
-        $downloadUrl  = "https://get.enterprisedb.com/postgresql/postgresql-16.9-1-windows-x64.exe"
-        $InstallerExe = Join-Path $TMP_SEG "postgresql-16-windows-x64.exe"
+        $InstallerExe = $null
+        foreach ($c in @((Join-Path $PSScriptRoot $nomeExe), $cacheExe)) {
+            if (-not (Test-Path -LiteralPath $c)) { continue }
+            $sigC = Get-AuthenticodeSignature -LiteralPath $c -ErrorAction SilentlyContinue
+            if ($sigC -and $sigC.Status -eq 'Valid') { $InstallerExe = $c; Log "Usando instalador ja disponivel: $c"; break }
+            Log "Descartando $c (assinatura: $($sigC.Status) - download incompleto?)."
+            try { if ($c -eq $cacheExe) { [System.IO.File]::Delete($c) } } catch {}
+        }
+    }
 
-        Log "Baixando PostgreSQL $PG_VERSION..."
-        Log "(Isso pode levar alguns minutos)"
-
-        try {
-            $wc = New-Object System.Net.WebClient
-            $wc.DownloadFile($downloadUrl, $InstallerExe)
-            Log "Download concluido: $InstallerExe"
-            # Verifica a assinatura Authenticode do instalador (integridade)
-            $sigPg = Get-AuthenticodeSignature -LiteralPath $InstallerExe
-            if ($sigPg.Status -eq 'Valid') {
-                Log "Assinatura do instalador verificada: $($sigPg.SignerCertificate.Subject)"
-            } elseif ($sigPg.Status -eq 'NotSigned' -or $sigPg.Status -eq 'HashMismatch') {
-                Log "ERRO: assinatura invalida no instalador do PostgreSQL ($($sigPg.Status)) - abortando."
-                exit 1
-            } else {
-                Log "AVISO: nao foi possivel validar totalmente a assinatura do instalador PG ($($sigPg.Status)) - prosseguindo."
+    if (-not $InstallerExe) {
+        New-Item -ItemType Directory -Path $cacheDir -Force | Out-Null
+        $parcial = "$cacheExe.parcial"
+        Log "Baixando PostgreSQL $PG_VERSION (~370 MB, pode levar varios minutos)..."
+        $baixou = $false
+        for ($t = 1; $t -le 3 -and -not $baixou; $t++) {
+            try {
+                try { if (Test-Path -LiteralPath $parcial) { [System.IO.File]::Delete($parcial) } } catch {}
+                $viaBits = $false
+                if (Get-Command Start-BitsTransfer -ErrorAction SilentlyContinue) {
+                    # BITS retoma quedas de conexao e usa o proxy do Windows. Falha em sessao sem
+                    # usuario logado (ex.: tarefa agendada) -> cai no download direto.
+                    try { Start-BitsTransfer -Source $downloadUrl -Destination $parcial -ErrorAction Stop; $viaBits = $true }
+                    catch { Log "BITS indisponivel ($($_.Exception.Message)) - usando download direto." }
+                }
+                if (-not $viaBits) {
+                    $wc = New-Object System.Net.WebClient
+                    # Proxy corporativo com autenticacao do Windows (NTLM): usa a conta atual.
+                    if ($wc.Proxy) { $wc.Proxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials }
+                    $wc.DownloadFile($downloadUrl, $parcial)
+                }
+                Move-Item -LiteralPath $parcial -Destination $cacheExe -Force
+                $baixou = $true
+            } catch {
+                Log "Tentativa $t de 3 do download falhou: $($_.Exception.Message)"
+                if ($t -lt 3) { Start-Sleep -Seconds (10 * $t) }
             }
-        } catch {
-            Log "ERRO ao baixar: $_"
-            Log "Baixe manualmente em: https://www.enterprisedb.com/downloads/postgres-postgresql-downloads"
-            Log "Escolha: PostgreSQL $PG_VERSION -> Windows x86-64"
-            Log "Depois execute: .\instalar-postgres.ps1 -SigeDashSenha '...' -InstallerExe 'C:\caminho\installer.exe'"
+        }
+        if (-not $baixou) {
+            Log "ERRO: nao consegui baixar o instalador do PostgreSQL."
+            Log "Causas comuns: firewall/proxy bloqueando get.enterprisedb.com, TLS 1.2 desligado (rode habilitar-tls12.ps1 e reinicie) ou internet instavel."
+            Log "Alternativa sem internet: baixe '$downloadUrl' em outro computador, salve como '$nomeExe' na pasta do instalador e rode de novo."
             exit 1
+        }
+        $InstallerExe = $cacheExe
+        Log "Download concluido: $InstallerExe"
+        # Verifica a assinatura Authenticode do instalador (integridade)
+        $sigPg = Get-AuthenticodeSignature -LiteralPath $InstallerExe
+        if ($sigPg.Status -eq 'Valid') {
+            Log "Assinatura do instalador verificada: $($sigPg.SignerCertificate.Subject)"
+        } elseif ($sigPg.Status -eq 'NotSigned' -or $sigPg.Status -eq 'HashMismatch') {
+            Log "ERRO: assinatura invalida no instalador do PostgreSQL ($($sigPg.Status)) - download corrompido. Rode o instalador de novo."
+            try { [System.IO.File]::Delete($InstallerExe) } catch {}
+            exit 1
+        } else {
+            Log "AVISO: nao foi possivel validar totalmente a assinatura do instalador PG ($($sigPg.Status)) - prosseguindo."
         }
     } else {
         Log "Usando installer: $InstallerExe"
@@ -262,7 +335,16 @@ if ($jaInstalado) {
         "--datadir `"$PG_INSTALLDIR\data`" " +
         "--install_runtimes 1"
 
-    $proc = Start-Process -FilePath $InstallerExe -ArgumentList $installerArgs -Wait -PassThru
+    # Espera com limite: um instalador travado (antivirus segurando arquivo, janela invisivel) deixava
+    # a instalacao parada para sempre no wizard.
+    $proc = Start-Process -FilePath $InstallerExe -ArgumentList $installerArgs -PassThru
+    $null = $proc.Handle   # sem ler o handle logo, o ExitCode pode vir vazio apos WaitForExit
+    if (-not $proc.WaitForExit(1800000)) {
+        try { $proc.Kill() } catch {}
+        Log "ERRO: o instalador do PostgreSQL nao terminou em 30 minutos e foi interrompido."
+        Log "Causas comuns: antivirus bloqueando a instalacao ou reinicio pendente do Windows. Reinicie o servidor e rode de novo."
+        exit 1
+    }
     $exitPg = $proc.ExitCode
 
     # O instalador EDB as vezes retorna != 0 mesmo instalando OK (falha em script pos-install).

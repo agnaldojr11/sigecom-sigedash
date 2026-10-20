@@ -64,7 +64,7 @@ O `atualizar.ps1` e o botão "Atualizar agora" consultam **apenas a release norm
 
 ## Checklist de release (antes de marcar como latest)
 
-1. **Instalação limpa** em VM Windows Server 2019/2022: o PASSO 6 passa (empresa cadastrada + acesso externo OK).
+1. **Instalação limpa** em VM Windows Server 2019/2022: o PASSO 0 (pré-verificação) e o PASSO 6 passam (empresa cadastrada + acesso externo OK), e o relatório aparece como "sucesso" na aba Instalações da Central.
 2. **Windows Server 2012 R2** (se ainda houver clientes nele): instalação após rodar `habilitar-tls12.ps1`.
 3. **Atualização a partir da versão que a frota está usando hoje** (o teste mais importante). Pelo botão "Atualizar agora", conferir:
    - os serviços `SigeDashBackend`, `SigeDashAgente` e `cloudflared` estão **Running**;
@@ -73,6 +73,21 @@ O `atualizar.ps1` e o botão "Atualizar agora" consultam **apenas a release norm
 5. **Assinatura:** `SigeDash.Api.exe`, `SigeDash.Agente.exe` e o instalador com status **Valid** e signatário **SISTEMASBR**.
 6. **Notas da release** montadas a partir do `CHANGELOG.md`.
 7. **Depois de publicar:** acompanhar a Central por 24h (versão de cada cliente, online/offline, indicadores com erro ou atrasados).
+
+---
+
+## Instalar um cliente novo
+
+1. **Antes de ir ao cliente** (ou logo no início do acesso remoto), rode a pré-verificação no servidor dele, como Administrador:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .\verificar-ambiente.ps1
+   ```
+   Ela não altera nada importante e lista cada `[BLOQUEIO]` com a solução (firewall TCP 7844, .NET 4.8, Firebird, TLS…). Peça ao TI do cliente para resolver **antes** do dia da instalação.
+2. Rode o `Instalar-SigeDash.exe`. O PASSO 0 repete a pré-verificação e só começa se estiver tudo certo.
+3. Confira o resultado na Central, na aba **Instalações**. Se falhar, a etapa, o motivo e o log estão lá, sem precisar pedir arquivo ao cliente.
+4. Entregue ao cliente a URL **exata** que o instalador mostra (com `.br`).
+
+> O instalador mais novo pode estar numa **pré-release** (menu Versões da Central). Isso é normal: a pré-release serve só para clientes novos e não chega à frota.
 
 ---
 
@@ -87,6 +102,6 @@ O `atualizar.ps1` e o botão "Atualizar agora" consultam **apenas a release norm
    ```powershell
    powershell -ExecutionPolicy Bypass -File "C:\SigeDash\Backend\diagnostico.ps1"
    ```
-3. Envie ao suporte as últimas linhas de `C:\SigeDash\Backend\atualizar.log` e o relatório do diagnóstico.
+3. O diagnóstico envia o resultado à Central (aba **Instalações**, marcado como "diagnóstico"). Se precisar de mais detalhe, peça as últimas linhas de `C:\SigeDash\Backend\atualizar.log`.
 
 > A partir da versão com o watchdog cobrindo o agente, ele é religado sozinho em até 5 minutos.

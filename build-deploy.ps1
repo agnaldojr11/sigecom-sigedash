@@ -173,6 +173,7 @@ $SCRIPTS = @(
     "deploy\backend\sincronizar-central.ps1",
     "deploy\backend\watchdog-sigedash.ps1",
     "deploy\backend\instalar-watchdog.ps1",
+    "deploy\backend\verificar-ambiente.ps1",
     "deploy\backend\diagnostico.ps1",
     "deploy\backend\desinstalar-tudo.ps1",
     "deploy\backend\habilitar-tls12.ps1",
@@ -189,6 +190,24 @@ foreach ($s in $SCRIPTS) {
         Write-Host "  AVISO: $s nao encontrado" -ForegroundColor Yellow
     }
 }
+
+# 3a. cloudflared.exe com versao FIXADA embutido no pacote: o cliente nao depende do download do
+#     GitHub e todo cliente roda a mesma versao testada. Manter igual a $CLOUDFLARED_VERSAO do
+#     instalar-tunnel.ps1. Cache local em deploy\vendor (ignorado pelo git).
+Titulo "3a" "Embutindo cloudflared (versao fixada)..."
+$CLOUDFLARED_VERSAO = "2026.10.0"
+$vendorDir = Join-Path $ROOT "deploy\vendor"
+$cfVendor  = Join-Path $vendorDir "cloudflared-$CLOUDFLARED_VERSAO.exe"
+New-Item -ItemType Directory -Path $vendorDir -Force | Out-Null
+if (-not (Test-Path $cfVendor)) {
+    try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch {}
+    (New-Object System.Net.WebClient).DownloadFile(
+        "https://github.com/cloudflare/cloudflared/releases/download/$CLOUDFLARED_VERSAO/cloudflared-windows-amd64.exe", $cfVendor)
+}
+$sigCf = Get-AuthenticodeSignature -LiteralPath $cfVendor
+if ($sigCf.Status -ne "Valid") { [System.IO.File]::Delete($cfVendor); throw "cloudflared $CLOUDFLARED_VERSAO com assinatura invalida ($($sigCf.Status))." }
+Copy-Item -LiteralPath $cfVendor -Destination (Join-Path $PKG_DIR "cloudflared.exe") -Force
+Log "  + cloudflared.exe $CLOUDFLARED_VERSAO ($($sigCf.SignerCertificate.Subject.Split(',')[0]))"
 
 # 3b. Re-salva scripts com UTF-8 BOM para evitar parse errors no PS 5.1 do cliente
 Titulo "3b" "Gravando UTF-8 BOM nos scripts..."
@@ -330,16 +349,20 @@ INSTRUCOES RAPIDAS
 
 PRE-REQUISITOS NO SERVIDOR
 --------------------------
-- Windows 10/11 ou Windows Server 2016+
+- Windows 10/11 ou Windows Server 2012 R2+ (64 bits), .NET Framework 4.8
 - Acesso de Administrador
-- Sigecom + Firebird 2.5 ja instalados e funcionando
-- Internet ativa (para download do PostgreSQL e Cloudflare)
+- Sigecom + Firebird ja instalados e funcionando NESTE servidor
+- Internet: saida TCP 443 + TCP 7844 (detalhes em REQUISITOS-SERVIDOR.txt)
+- O instalador confere tudo isso sozinho antes de comecar (PASSO 0). Para conferir antes
+  de ir ao cliente: powershell -ExecutionPolicy Bypass -File verificar-ambiente.ps1
 
 CONTEUDO DESTA PASTA
 --------------------
 - SigeDash.Api.exe          Backend + PWA (registrado como Windows Service)
 - wwwroot/                  Arquivos do app web (servidos pelo backend)
 - instalar-tudo.ps1         Script principal - execute este
+- verificar-ambiente.ps1    Passo 0: confere o servidor antes de instalar (nao altera nada)
+- cloudflared.exe           Conector do Cloudflare Tunnel (versao fixada)
 - instalar-postgres.ps1     Passo 1: instala PostgreSQL 16
 - instalar-backend.ps1      Passo 2: registra backend como Windows Service
 - instalar-agente.ps1       Passo 3: instala o agente (binarios + servico)
@@ -384,8 +407,8 @@ Titulo "6" "Compactando (enxuto p/ update + completo p/ instalar)..."
 $INSTALADOR_EXE = "Instalar-SigeDash.exe"
 $INSTZIP_OUT    = Join-Path $DIST "SigeDash-Instalador-v$Versao.zip"
 
-# 6a. ZIP enxuto: tudo, MENOS o instalador grafico.
-$updItems = @(Get-ChildItem $PKG_DIR | Where-Object { $_.Name -ne $INSTALADOR_EXE } | Select-Object -ExpandProperty FullName)
+# 6a. ZIP enxuto: tudo, MENOS o instalador grafico e o cloudflared (~55 MB, so usado na instalacao).
+$updItems = @(Get-ChildItem $PKG_DIR | Where-Object { $_.Name -ne $INSTALADOR_EXE -and $_.Name -ne "cloudflared.exe" } | Select-Object -ExpandProperty FullName)
 Compress-Archive -Path $updItems -DestinationPath $ZIP_OUT -CompressionLevel Optimal -Force
 $zipSizeMB = [math]::Round((Get-Item $ZIP_OUT).Length / 1MB, 1)
 Log "ZIP enxuto (auto-update): $ZIP_OUT ($zipSizeMB MB)"

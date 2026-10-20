@@ -12,7 +12,9 @@
 #>
 param(
     [string]$FdbPath = "C:\SIGECOM\SIGECOM.FDB",
-    [string]$Dominio = "sigedash.com.br"
+    [string]$Dominio = "sigedash.com.br",
+    # Por padrao o resultado tambem vai para a SigeDash Central (aba Instalacoes). -NaoEnviar desliga.
+    [switch]$NaoEnviar
 )
 
 $ErrorActionPreference = "Continue"
@@ -260,5 +262,39 @@ try {
     Write-Host ("Relatorio salvo em: " + $rel) -ForegroundColor Cyan
     Write-Host "Envie este arquivo ao suporte se precisar de ajuda." -ForegroundColor Cyan
 } catch { Write-Host "AVISO: nao consegui salvar o relatorio em $rel" -ForegroundColor Yellow }
+
+# --- Envia o relatorio a SigeDash Central (aba Instalacoes) ---
+# O suporte ve o resultado no painel sem precisar pedir o arquivo .txt ao cliente. Nao-fatal.
+if (-not $NaoEnviar -and $cj) {
+    try {
+        $cfgC = Get-Content -LiteralPath $cj -Raw | ConvertFrom-Json
+        $urlC = ("" + $cfgC.Url).TrimEnd('/'); $chaveC = "" + $cfgC.ChaveBootstrap
+        if ($urlC -and $chaveC) {
+            $txtRel = ($linhas -join "`n")
+            $txtRel = [regex]::Replace($txtRel, '(?i)(password=)[^;"\s]+', '$1***')
+            $txtRel = [regex]::Replace($txtRel, 'eyJ[A-Za-z0-9_\-\.=]{20,}', '***')
+            $txtRel = [regex]::Replace($txtRel, '[A-Za-z0-9+/_]{32,}={0,2}', '***')
+            $primeiraFalha = ($linhas | Where-Object { $_ -match '\[FALHA\]' } | Select-Object -First 3 | ForEach-Object { $_.Trim() }) -join " | "
+            $verDiag = ""
+            try { $verDiag = ("" + (Get-Content -LiteralPath (Join-Path $appDir "version.txt") -ErrorAction Stop | Select-Object -First 1)).Trim() } catch {}
+            $osDiag = ""
+            try { $o = Get-WmiObject Win32_OperatingSystem -ErrorAction Stop; $osDiag = "$($o.Caption) (build $($o.BuildNumber))" } catch {}
+            $corpo = [ordered]@{
+                tipo     = "diagnostico"
+                nome     = $(if ($nomeEmp) { $nomeEmp } else { "(nao identificado) $env:COMPUTERNAME" })
+                versao   = $verDiag
+                os       = $osDiag
+                maquina  = $env:COMPUTERNAME
+                status   = $(if ($falhas -gt 0) { "falha" } elseif ($avisos -gt 0) { "sucesso_avisos" } else { "sucesso" })
+                etapa    = "Diagnostico: FALHA=$falhas AVISO=$avisos"
+                mensagem = $primeiraFalha
+                log      = $txtRel
+            } | ConvertTo-Json -Depth 3 -Compress
+            Invoke-RestMethod "$urlC/telemetria/instalacao" -Method POST -Headers @{ "X-Bootstrap-Key" = $chaveC } `
+                -ContentType "application/json; charset=utf-8" -Body ([System.Text.Encoding]::UTF8.GetBytes($corpo)) -TimeoutSec 30 | Out-Null
+            Write-Host "Relatorio enviado a SigeDash Central (aba Instalacoes)." -ForegroundColor Cyan
+        }
+    } catch { Write-Host "AVISO: nao consegui enviar o relatorio a Central ($($_.Exception.Message))." -ForegroundColor Yellow }
+}
 
 if ($falhas -gt 0) { exit 1 } else { exit 0 }

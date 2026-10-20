@@ -64,6 +64,13 @@ $SCRIPT_DIR = $PSScriptRoot
 # Trava de manutencao: enquanto existir, o watchdog (a cada 5 min) nao religa servicos no meio
 # da (re)instalacao. Removida ao final (sucesso ou falha); expira sozinha em 2h.
 $LOCK_FILE = "C:\SigeDash\manutencao.lock"
+$PREVERIFICACAO = "C:\SigeDash\preverificacao.json"
+
+$script:Etapa  = "inicio"
+$script:Avisos = New-Object System.Collections.Generic.List[string]
+$script:Inicio = Get-Date
+$script:Transcript = $null
+$script:RelatorioEnviado = $false
 
 function Log($msg) {
     $ts   = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -71,9 +78,11 @@ function Log($msg) {
     Write-Host $line
     New-Item -ItemType Directory -Path "C:\SigeDash" -Force | Out-Null
     Add-Content $LOG_GERAL $line -Encoding UTF8 -ErrorAction SilentlyContinue
+    if ("$msg" -match '^\s*AVISO') { $script:Avisos.Add("$msg") }
 }
 
 function Titulo($msg) {
+    $script:Etapa = $msg
     Write-Host ""
     Write-Host ("=" * 60) -ForegroundColor Cyan
     Write-Host "  $msg" -ForegroundColor Cyan
@@ -86,7 +95,95 @@ function Sucesso($msg) {
     Log "[OK] $msg"
 }
 
-function Falha($msg) {
+# ---------------------------------------------------------------------------------------------
+# Relatorio da instalacao para a SigeDash Central (sucesso OU falha): o suporte ve o que aconteceu
+# em cada cliente pela aba "Instalacoes" do painel, sem precisar acessar o servidor. Nunca derruba
+# a instalacao. Senhas, chaves e tokens sao mascarados ANTES do envio.
+# ---------------------------------------------------------------------------------------------
+function Mascarar([string]$t) {
+    if (-not $t) { return "" }
+    $t = [regex]::Replace($t, '(?i)(password=)[^;"\s]+', '$1***')
+    $t = [regex]::Replace($t, '(?im)((senha|password|adminkey|chaveapi|chave|token|secret)[^:=\r\n]{0,40}[:=][ \t]*)\S.*$', '$1***')
+    $t = [regex]::Replace($t, 'eyJ[A-Za-z0-9_\-\.=]{20,}', '***')
+    $t = [regex]::Replace($t, '[A-Za-z0-9+/_]{32,}={0,2}', '***')
+    return $t
+}
+
+function LerLogParaRelatorio() {
+    $txt = ""
+    if ($script:Transcript) {
+        try { Stop-Transcript | Out-Null } catch {}
+        try { $txt = [System.IO.File]::ReadAllText($script:Transcript) } catch {}
+        try { [System.IO.File]::Delete($script:Transcript) } catch {}   # tem segredos: nao fica em disco
+        $script:Transcript = $null
+    }
+    if (-not $txt) {
+        foreach ($f in @($LOG_GERAL, "C:\Windows\Temp\sigedash-postgres-install.log", "C:\SigeDash\Backend\install.log", "C:\SigeDash\Tunnel\tunnel-install.log")) {
+            if (Test-Path -LiteralPath $f) { try { $txt += "`n===== $f =====`n" + [System.IO.File]::ReadAllText($f) } catch {} }
+        }
+    }
+    # Cabecalho do transcript tem usuario do Windows e a linha de comando completa: fora do relatorio.
+    $txt = (($txt -split "`r?`n") | Where-Object { $_ -notmatch '^(Username|RunAs User|Host Application)\s*:' }) -join "`n"
+    $txt = Mascarar $txt
+    if ($txt.Length -gt 60000) { $txt = "[... inicio cortado ...]`n" + $txt.Substring($txt.Length - 60000) }
+    return $txt
+}
+
+function EnviarRelatorioCentral($status, $mensagem) {
+    if ($script:RelatorioEnviado) { return }
+    $script:RelatorioEnviado = $true
+    try {
+        $cj = Join-Path $SCRIPT_DIR "central.json"
+        if (-not (Test-Path -LiteralPath $cj)) { return }
+        $cfgC  = Get-Content -LiteralPath $cj -Raw | ConvertFrom-Json
+        $urlC  = ("" + $cfgC.Url).TrimEnd('/')
+        $chaveC = "" + $cfgC.ChaveBootstrap
+        if (-not $urlC -or -not $chaveC) { return }
+
+        $prev = $null
+        if (Test-Path -LiteralPath $PREVERIFICACAO) { try { $prev = [System.IO.File]::ReadAllText($PREVERIFICACAO) } catch {} }
+        $nomeRel = $NomeCliente
+        if (-not $nomeRel -and $prev -and $prev -match '"empresa: ([^"]+)"') { $nomeRel = $Matches[1].Trim() }
+        if (-not $nomeRel) { $nomeRel = "(nao identificado) $env:COMPUTERNAME" }
+        $versaoRel = ""
+        try { $versaoRel = ("" + (Get-Content -LiteralPath (Join-Path $SCRIPT_DIR "version.txt") -ErrorAction Stop | Select-Object -First 1)).Trim() } catch {}
+        $osRel = ""
+        try { $o = Get-WmiObject Win32_OperatingSystem -ErrorAction Stop; $osRel = "$($o.Caption) (build $($o.BuildNumber))" } catch {}
+
+        $corpo = [ordered]@{
+            tipo         = "instalacao"
+            nome         = $nomeRel
+            cnpj         = $Cnpj
+            versao       = $versaoRel
+            os           = $osRel
+            maquina      = $env:COMPUTERNAME
+            status       = $status
+            etapa        = $script:Etapa
+            mensagem     = (Mascarar $mensagem)
+            avisos       = @($script:Avisos | Select-Object -First 30 | ForEach-Object { Mascarar $_ })
+            duracaoSeg   = [int]((Get-Date) - $script:Inicio).TotalSeconds
+            url          = $TunnelUrl
+            verificacoes = $prev
+            log          = (LerLogParaRelatorio)
+        } | ConvertTo-Json -Depth 4 -Compress
+        # UTF-8 explicito (PowerShell 5.1 manda Latin1 e nomes com acento davam 400).
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($corpo)
+        Invoke-RestMethod "$urlC/telemetria/instalacao" -Method POST -Headers @{ "X-Bootstrap-Key" = $chaveC } `
+            -ContentType "application/json; charset=utf-8" -Body $bytes -TimeoutSec 30 | Out-Null
+        Write-Host "Relatorio da instalacao enviado a SigeDash Central (aba Instalacoes)." -ForegroundColor DarkGray
+    } catch {
+        Write-Host "AVISO: nao consegui enviar o relatorio da instalacao a Central ($($_.Exception.Message))." -ForegroundColor DarkGray
+    } finally {
+        # Sem central.json (ou se o envio falhar antes de ler o log), o transcript nao pode ficar em disco.
+        if ($script:Transcript) {
+            try { Stop-Transcript | Out-Null } catch {}
+            try { [System.IO.File]::Delete($script:Transcript) } catch {}
+            $script:Transcript = $null
+        }
+    }
+}
+
+function Falha($msg, $status = "falha") {
     Write-Host "[ERRO] $msg" -ForegroundColor Red
     Log "[ERRO] $msg"
 
@@ -96,6 +193,21 @@ function Falha($msg) {
             try { Copy-Item -LiteralPath $pgLog -Destination "C:\SigeDash\postgres-install.log" -Force } catch {}
             break
         }
+    }
+
+    if ($status -eq "bloqueado") {
+        # Pre-verificacao: nada foi alterado no servidor; os itens [BLOQUEIO] acima ja dizem o que fazer.
+        Write-Host ""
+        Write-Host ("=" * 60) -ForegroundColor Red
+        Write-Host "  A INSTALACAO NAO COMECOU" -ForegroundColor Red
+        Write-Host ("=" * 60) -ForegroundColor Red
+        Write-Host "  $msg" -ForegroundColor Yellow
+        Write-Host "  Nada foi alterado neste servidor. Depois de resolver, rode o instalador de novo." -ForegroundColor Yellow
+        Write-Host ("=" * 60) -ForegroundColor Red
+        Log "Instalacao nao iniciada (pre-verificacao)."
+        EnviarRelatorioCentral $status $msg
+        try { Remove-Item -LiteralPath $LOCK_FILE -Force -ErrorAction SilentlyContinue } catch {}
+        exit 1
     }
 
     Write-Host ""
@@ -122,6 +234,7 @@ function Falha($msg) {
     Write-Host "   - Event Viewer -> Logs de Aplicativos (erros do .NET/servico)"
     Write-Host ("=" * 60) -ForegroundColor Red
     Log "Instalacao abortada. Ver diagnostico.ps1 / desinstalar-tudo.ps1."
+    EnviarRelatorioCentral $status $msg
     try { Remove-Item -LiteralPath $LOCK_FILE -Force -ErrorAction SilentlyContinue } catch {}
     exit 1
 }
@@ -272,10 +385,25 @@ function BuscarCampoEmpresa($fdbPath, $campo) {
     $candidatos = @(
         "C:\Program Files\Firebird\Firebird_2_5\bin\isql.exe",
         "C:\Program Files (x86)\Firebird\Firebird_2_5\bin\isql.exe",
+        "C:\Program Files\Firebird\Firebird_3_0\isql.exe",
         "C:\Program Files\Firebird\Firebird_3_0\bin\isql.exe",
-        "C:\Program Files (x86)\Firebird\Firebird_3_0\bin\isql.exe"
+        "C:\Program Files (x86)\Firebird\Firebird_3_0\isql.exe",
+        "C:\Program Files (x86)\Firebird\Firebird_3_0\bin\isql.exe",
+        "C:\Program Files\Firebird\Firebird_4_0\isql.exe",
+        "C:\Program Files\Firebird\Firebird_5_0\isql.exe"
     )
-    $isql = $candidatos | Where-Object { Test-Path $_ } | Select-Object -First 1
+    # Primeiro pela pasta do servico do Firebird instalado (qualquer versao/caminho).
+    $isql = $null
+    $fbSvcs = Get-WmiObject Win32_Service -ErrorAction SilentlyContinue |
+        Where-Object { $_.PathName -match 'fbserver|fb_inet_server|fb_smp_server|fbguard|firebird\.exe' }
+    foreach ($s in $fbSvcs) {
+        if ($s.PathName -match '^"?([^"]+\\)[^\\"]+\.exe') {
+            foreach ($c in @((Join-Path $Matches[1] "isql.exe"), (Join-Path $Matches[1] "bin\isql.exe"))) {
+                if (-not $isql -and (Test-Path -LiteralPath $c)) { $isql = $c }
+            }
+        }
+    }
+    if (-not $isql) { $isql = $candidatos | Where-Object { Test-Path $_ } | Select-Object -First 1 }
     if (-not $isql) {
         Log "AVISO: isql.exe nao encontrado - informe os dados manualmente."
         return $null
@@ -306,6 +434,10 @@ function BuscarCampoEmpresa($fdbPath, $campo) {
 }
 function BuscarNomeFantasia($fdbPath) { return BuscarCampoEmpresa $fdbPath "NOMEFANTASIA" }
 
+# Erro inesperado (fora dos try/catch): vira falha COM relatorio para a Central, em vez de o script
+# morrer sem dizer em que etapa parou.
+trap { Falha ("Erro inesperado na etapa '" + $script:Etapa + "': " + $_.Exception.Message) }
+
 # Verifica privilegio de admin
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
     ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
@@ -313,24 +445,40 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
     exit 1
 }
 
-# Pre-requisito do AGENTE: .NET Framework 4.8 (Release >= 528040). Em Windows Server 2016/2012R2 pode
-# faltar. O backend e self-contained (nao precisa de runtime), mas o agente e framework-dependent -
-# sem 4.8 o servico SigeDashAgente nao inicia (os dados nao sincronizam). Aviso NAO-fatal.
+# Registro completo da sessao (inclui a saida dos sub-scripts) para o relatorio enviado a Central.
+# Fica em C:\Windows\Temp e e APAGADO ao final (contem segredos; o envio vai mascarado).
 try {
-    $ndp = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full" -ErrorAction Stop
-    if ([int]$ndp.Release -lt 528040) {
-        Log "AVISO: .NET Framework 4.8 ausente (Release=$($ndp.Release)). O AGENTE pode nao iniciar."
-        Log "       Instale o .NET Framework 4.8 (https://dotnet.microsoft.com/download/dotnet-framework/net48) e rode de novo, ou o agente so sincronizara apos instalar o 4.8."
-    }
-} catch {
-    Log "AVISO: nao foi possivel confirmar o .NET Framework 4.8 - se o agente nao iniciar, instale o 4.8."
-}
+    $script:Transcript = Join-Path "C:\Windows\Temp" ("sigedash-instalacao-" + [guid]::NewGuid().ToString("N") + ".log")
+    Start-Transcript -LiteralPath $script:Transcript -Force | Out-Null
+} catch { $script:Transcript = $null }
 
 # Liga a trava de manutencao (watchdog fica quieto ate o fim desta instalacao).
 try {
     New-Item -ItemType Directory -Path (Split-Path $LOCK_FILE) -Force | Out-Null
     Set-Content -LiteralPath $LOCK_FILE -Value "instalar-tudo $(Get-Date -Format s)" -Encoding ASCII
 } catch {}
+
+# ============================================================
+Titulo "PASSO 0 - Pre-verificacao do servidor"
+# ============================================================
+# Confere TODOS os requisitos conhecidos (Windows, .NET 4.8, Firebird/FDB, portas, internet, TLS,
+# firewall do tunnel, token do Cloudflare...) ANTES de alterar qualquer coisa. Se houver BLOQUEIO,
+# a instalacao nem comeca - em vez de parar no meio com um erro diferente a cada tentativa.
+try { if (Test-Path -LiteralPath $PREVERIFICACAO) { [System.IO.File]::Delete($PREVERIFICACAO) } } catch {}
+$scriptPrev = Join-Path $SCRIPT_DIR "verificar-ambiente.ps1"
+if (Test-Path -LiteralPath $scriptPrev) {
+    & $scriptPrev -FdbPath $FdbPath -ScriptDir $SCRIPT_DIR -TunnelManual:(-not [string]::IsNullOrWhiteSpace($TunnelToken))
+    $codPrev = $LASTEXITCODE
+    if ($codPrev -eq 2) {
+        Falha "A pre-verificacao encontrou problema(s) que impedem a instalacao (itens [BLOQUEIO] acima)." "bloqueado"
+    } elseif ($codPrev -and $codPrev -ne 0) {
+        Log "AVISO: a pre-verificacao terminou com codigo $codPrev - seguindo com a instalacao."
+    } else {
+        Sucesso "Pre-verificacao concluida."
+    }
+} else {
+    Log "AVISO: verificar-ambiente.ps1 ausente no pacote - pre-verificacao pulada."
+}
 
 # Auto-detecta nome do cliente via Firebird se nao informado
 if ([string]::IsNullOrWhiteSpace($NomeCliente)) {
@@ -667,6 +815,8 @@ Log "PROXIMOS PASSOS:"
 Log "  1. Aguarde 30 minutos para o agente sincronizar os primeiros dados"
 Log "  2. Envie a URL acima ao cliente para acesso pelo celular"
 Log "  3. Faca login com as credenciais criadas automaticamente"
+
+EnviarRelatorioCentral $(if ($script:Avisos.Count -gt 0) { "sucesso_avisos" } else { "sucesso" }) "Instalacao concluida."
 
 # Fim: libera o watchdog para voltar a vigiar os servicos.
 try { Remove-Item -LiteralPath $LOCK_FILE -Force -ErrorAction SilentlyContinue } catch {}
