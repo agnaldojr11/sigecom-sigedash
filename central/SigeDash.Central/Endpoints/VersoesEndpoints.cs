@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using SigeDash.Central.Data;
 using SigeDash.Central.Modelos;
+using SigeDash.Central.Seguranca;
 using SigeDash.Central.Servicos;
 
 namespace SigeDash.Central.Endpoints;
@@ -47,10 +48,14 @@ public static class VersoesEndpoints
             return Results.Ok(lista);
         }).RequireAuthorization();
 
-        // Curadoria: libera/oculta uma versão para o suporte (qualquer usuário do painel).
+        // Curadoria: libera/oculta uma versão para o suporte. SÓ ADMIN — liberar uma versão decide o
+        // que a equipe instala nos clientes; operador apenas vê e baixa o que já foi liberado. Auditado.
         app.MapPost("/painel/versoes/{tag}/liberar", async (
             string tag, LiberarDto dto, ClaimsPrincipal user, CentralDbContext db, CancellationToken ct) =>
         {
+            var (eu, erro) = await AutorizacaoPainel.ExigeAdminAsync(user, db);
+            if (erro is not null) return erro;
+
             var vl = await db.VersoesLiberadas.FirstOrDefaultAsync(v => v.Tag == tag, ct);
             if (vl is null)
             {
@@ -59,7 +64,12 @@ public static class VersoesEndpoints
             }
             vl.Liberada = dto.Liberada;
             vl.AtualizadoEm = DateTime.UtcNow;
-            vl.AtualizadoPor = user.FindFirstValue("login") ?? user.Identity?.Name;
+            vl.AtualizadoPor = eu!.Login;
+            db.LogsAuditoria.Add(new LogAuditoria
+            {
+                Usuario = eu.Login, Acao = "versao_liberada",
+                Detalhe = $"{tag}: {(dto.Liberada ? "liberada" : "ocultada")} para o suporte"
+            });
             await db.SaveChangesAsync(ct);
             return Results.Ok(new { tag, liberada = vl.Liberada });
         }).RequireAuthorization();

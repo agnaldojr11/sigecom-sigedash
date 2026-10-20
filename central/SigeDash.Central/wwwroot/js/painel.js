@@ -61,6 +61,8 @@
       meuLogin = eu.login;
     } catch (e) { souAdmin = false; }
     $("tab-equipe").hidden = !souAdmin;
+    // Versões já abertas antes de saber o papel: redesenha com/sem o botão Liberar.
+    if (!$("view-versoes").hidden && versoesTodas.length) renderPaginaVersoes();
   }
 
   // ── Frota ──
@@ -607,8 +609,11 @@
   }
 
   function renderVersao(v) {
-    var libBtn = '<button class="lib-btn ' + (v.liberada ? "on" : "") + '" data-tag="' + esc(v.tag) + '" data-lib="' + (v.liberada ? "1" : "0") + '">' +
-      (v.liberada ? "✓ Liberada" : "Liberar") + '</button>';
+    // Liberar/ocultar é só do administrador (o back também barra); o operador vê apenas o estado.
+    var libBtn = souAdmin
+      ? '<button class="lib-btn ' + (v.liberada ? "on" : "") + '" data-tag="' + esc(v.tag) + '" data-lib="' + (v.liberada ? "1" : "0") + '">' +
+          (v.liberada ? "✓ Liberada" : "Liberar") + '</button>'
+      : (v.liberada ? '<span class="pill ok">liberada</span>' : '<span class="pill neutro">não liberada</span>');
     var pre = v.prerelease ? '<span class="pill warn">pré-release</span>' : '';
     var assets = (v.assets || []).map(function (a) {
       var dis = v.liberada ? "" : "disabled";
@@ -617,7 +622,8 @@
     }).join("");
     if (!assets) assets = '<span class="vazio">Sem arquivos nesta release.</span>';
     var notas = v.notas ? '<div class="ver-notas">' + esc(v.notas).replace(/\n/g, "<br>") + '</div>' : '';
-    var hint = v.liberada ? '' : '<div class="ver-hint">Libere a versão para o suporte poder baixar.</div>';
+    var hint = v.liberada ? '' : '<div class="ver-hint">' +
+      (souAdmin ? 'Libere a versão para o suporte poder baixar.' : 'Só um administrador pode liberar esta versão para download.') + '</div>';
     return '<div class="ver-card' + (v.liberada ? " liberada" : "") + '">' +
       '<div class="ver-head">' +
         '<div><span class="ver-tag">' + esc(v.tag) + '</span> ' + pre +
@@ -652,7 +658,7 @@
   // Delegação de eventos na lista de versões (botões gerados dinamicamente).
   $("versoes-lista").addEventListener("click", function (e) {
     var lib = e.target.closest(".lib-btn");
-    if (lib) { toggleLiberar(lib.getAttribute("data-tag"), lib.getAttribute("data-lib") !== "1", lib); return; }
+    if (lib && souAdmin) { toggleLiberar(lib.getAttribute("data-tag"), lib.getAttribute("data-lib") !== "1", lib); return; }
     var as = e.target.closest(".asset-btn");
     if (as && !as.disabled) { baixarAsset(as.getAttribute("data-tag"), as.getAttribute("data-id"), as.getAttribute("data-nome"), as); }
   });
