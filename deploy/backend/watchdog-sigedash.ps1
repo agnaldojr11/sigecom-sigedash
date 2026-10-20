@@ -79,5 +79,9 @@ if (-not $ok -and (Get-Service "SigeDashBackend" -ErrorAction SilentlyContinue))
     } catch { L "ERRO ao reiniciar o backend: $_" }
 }
 
-# 4) Tunnel (acesso externo).
+# 4) Agente: e ELE que sincroniza os dados do SIGECOM para o app. Se ficar parado (ex.: uma
+# atualizacao antiga que parou os servicos e nao religou), o app abre mas os dados "congelam".
+Garante "SigeDashAgente" | Out-Null
+
+# 5) Tunnel (acesso externo).
 Garante "cloudflared" | Out-Null

@@ -75,6 +75,16 @@ function GarantirTarefas() {
             Log "Watchdog registrado (self-heal)."
         }
     } catch { Log "AVISO: nao foi possivel registrar o watchdog: $_" }
+    # Auto-restart em falha para backend e agente (clientes antigos foram instalados sem isso no
+    # agente: um crash o deixava parado e os dados do app paravam). Idempotente.
+    foreach ($svcNome in @($SVC_NAME, $SVC_AGENTE)) {
+        if (Get-Service $svcNome -ErrorAction SilentlyContinue) {
+            $prevEAPs = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+            & sc.exe failure $svcNome reset= 86400 actions= restart/5000/restart/15000/restart/60000 | Out-Null
+            & sc.exe failureflag $svcNome 1 | Out-Null
+            $ErrorActionPreference = $prevEAPs
+        }
+    }
 }
 
 function VeraoParaNumero($v) {
@@ -293,3 +303,5 @@ GarantirTarefas
 
 Log ""
 Log "=== Atualizacao concluida: $versaoAtual -> $tagLatest ==="
+
+exit 0

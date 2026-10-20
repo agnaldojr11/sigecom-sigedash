@@ -115,6 +115,10 @@ Log "Cliente configurado."
 Log "Registrando servico $SVC_NAME ..."
 & sc.exe create $SVC_NAME binPath= "`"$SVC_EXE`"" start= auto DisplayName= "SigeDash Agente" | Out-Null
 & sc.exe description $SVC_NAME "Coleta indicadores do SIGECOM (Firebird, somente leitura) e envia ao backend SigeDash." | Out-Null
+# Auto-restart em falha: se o agente cair, o Windows o reinicia (5s/15s/60s). Sem isso um crash
+# deixava o agente parado para sempre e os dados do app paravam de atualizar.
+& sc.exe failure $SVC_NAME reset= 86400 actions= restart/5000/restart/15000/restart/60000 | Out-Null
+& sc.exe failureflag $SVC_NAME 1 | Out-Null
 Log "Servico registrado."
 
 # --- Inicia o servico ---
