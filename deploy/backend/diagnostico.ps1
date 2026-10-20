@@ -162,10 +162,11 @@ if (Test-Path $FdbPath) {
     )
     $isql = $isqlCands | Where-Object { Test-Path $_ } | Select-Object -First 1
     if ($isql) {
-        $sqlFile = Join-Path $env:TEMP "sigedash_diag.sql"
-        @("SELECT 1 FROM RDB`$DATABASE;", "EXIT;") | Out-File $sqlFile -Encoding ASCII
+        $tmpDir = if (Test-Path "C:\Windows\Temp") { "C:\Windows\Temp" } else { $env:TEMP }
+        $sqlFile = Join-Path $tmpDir ("sigedash_diag_" + [guid]::NewGuid().ToString("N") + ".sql")
+        @("SELECT 1 FROM RDB`$DATABASE;", "EXIT;") | Out-File -LiteralPath $sqlFile -Encoding ASCII
         $out = & $isql -user SYSDBA -password masterkey $FdbPath -q -i $sqlFile 2>&1
-        Remove-Item $sqlFile -ErrorAction SilentlyContinue
+        try { [System.IO.File]::Delete($sqlFile) } catch {}
         if (($out | Out-String) -match "1") { OK "Conexao ao Firebird OK (SYSDBA)." }
         else { AVISO "Nao consegui consultar o Firebird." ("Detalhe: " + (($out | Out-String).Trim())) }
     } else { AVISO "isql.exe do Firebird nao encontrado." "Instale/verifique o Firebird do SIGECOM." }

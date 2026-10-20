@@ -272,9 +272,12 @@ function BuscarCampoEmpresa($fdbPath, $campo) {
         Log "AVISO: isql.exe nao encontrado - informe os dados manualmente."
         return $null
     }
-    $sqlFile = Join-Path $env:TEMP "sigedash_query.sql"
+    # Usa uma pasta temporaria SEGURA (C:\Windows\Temp) - o %TEMP% do usuario pode ter caracteres
+    # especiais/acentos no nome (ex.: "USUARIO~2"), que quebravam o Remove-Item (expansao de curinga).
+    $tmpDir = if (Test-Path "C:\Windows\Temp") { "C:\Windows\Temp" } else { $env:TEMP }
+    $sqlFile = Join-Path $tmpDir ("sigedash_query_" + [guid]::NewGuid().ToString("N") + ".sql")
     @("SELECT $campo FROM EMPRESA WHERE CODIGOEMPRESA = 1;", "EXIT;") |
-        Out-File $sqlFile -Encoding ASCII
+        Out-File -LiteralPath $sqlFile -Encoding ASCII
     try {
         $saida = & $isql -user SYSDBA -password masterkey $fdbPath -q -i $sqlFile 2>&1
         $val  = $saida | Where-Object {
@@ -289,7 +292,8 @@ function BuscarCampoEmpresa($fdbPath, $campo) {
         Log "AVISO: erro ao consultar Firebird ($campo): $_"
         return $null
     } finally {
-        Remove-Item $sqlFile -ErrorAction SilentlyContinue
+        # Apaga via .NET (caminho literal, sem expansao de curinga) - nao quebra com perfis "estranhos".
+        try { [System.IO.File]::Delete($sqlFile) } catch {}
     }
 }
 function BuscarNomeFantasia($fdbPath) { return BuscarCampoEmpresa $fdbPath "NOMEFANTASIA" }
