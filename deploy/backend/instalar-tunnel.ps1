@@ -211,3 +211,6 @@ Log "Exemplo: https://amaral.sigedash.com.br"
 Log ""
 Log "IMPORTANTE: o acesso so funciona enquanto o servidor do cliente estiver"
 Log "ligado e com internet ativa."
+# Sucesso explicito: o orquestrador decide pelo $LASTEXITCODE, que senao seria o do ultimo
+# comando nativo executado aqui (ex.: icacls/psql), gerando falso "falhou com codigo N".
+exit 0

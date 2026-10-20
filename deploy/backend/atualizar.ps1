@@ -40,13 +40,41 @@ $SVC_NAME   = "SigeDashBackend"
 $SVC_AGENTE = "SigeDashAgente"
 $VERSION_TXT = Join-Path $InstallDir "version.txt"
 $LOG_FILE    = Join-Path $InstallDir "atualizar.log"
-$TEMP_DIR    = Join-Path $env:TEMP "sigedash-update"
+# Pasta temporaria SEGURA (sem nome de usuario - perfis com acento quebravam caminhos).
+$TEMP_DIR    = Join-Path $(if (Test-Path "C:\Windows\Temp") { "C:\Windows\Temp" } else { $env:TEMP }) "sigedash-update"
+# Trava de manutencao: enquanto existir (e for recente), o watchdog NAO mexe nos servicos.
+$LOCK_FILE   = "C:\SigeDash\manutencao.lock"
 
 function Log($msg) {
     $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $line = "[$ts] $msg"
     Write-Host $line
-    try { Add-Content $LOG_FILE $line -Encoding UTF8 } catch {}
+    try { Add-Content -LiteralPath $LOG_FILE -Value $line -Encoding UTF8 } catch {}
+}
+
+# Self-heal das tarefas agendadas. Roda SEMPRE (inclusive quando nao ha versao nova), para que
+# clientes que so ATUALIZAM ganhem: a atualizacao in-app (SigeDash-Aplicar) e o watchdog (502).
+function GarantirTarefas() {
+    try {
+        $TASK_APLICAR = "SigeDash-Aplicar"
+        if (-not (Get-ScheduledTask -TaskName $TASK_APLICAR -ErrorAction SilentlyContinue)) {
+            $selfPath = Join-Path $InstallDir "atualizar.ps1"
+            $act = New-ScheduledTaskAction -Execute "powershell.exe" `
+                -Argument "-NonInteractive -ExecutionPolicy Bypass -File `"$selfPath`""
+            $set = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Hours 1) -StartWhenAvailable
+            Register-ScheduledTask -TaskName $TASK_APLICAR -Action $act -Settings $set `
+                -RunLevel Highest -User "SYSTEM" `
+                -Description "Aplica a atualizacao do SigeDash sob demanda (disparada pelo painel)" | Out-Null
+            Log "Tarefa sob demanda $TASK_APLICAR criada (self-heal)."
+        }
+    } catch { Log "AVISO: nao foi possivel garantir a tarefa SigeDash-Aplicar: $_" }
+    try {
+        $wdInst = Join-Path $InstallDir "instalar-watchdog.ps1"
+        if ((Test-Path -LiteralPath $wdInst) -and -not (Get-ScheduledTask -TaskName "SigeDash-Watchdog" -ErrorAction SilentlyContinue)) {
+            & powershell -NonInteractive -NoProfile -ExecutionPolicy Bypass -File $wdInst -InstallDir $InstallDir | Out-Null
+            Log "Watchdog registrado (self-heal)."
+        }
+    } catch { Log "AVISO: nao foi possivel registrar o watchdog: $_" }
 }
 
 function VeraoParaNumero($v) {
@@ -55,6 +83,7 @@ function VeraoParaNumero($v) {
 }
 
 Log "=== SigeDash - Verificacao de Atualizacao ==="
+GarantirTarefas
 
 # Le versao instalada
 $versaoAtual = "0.0.0"
@@ -104,6 +133,8 @@ $zipPath     = Join-Path $TEMP_DIR $zipName
 $extractPath = Join-Path $TEMP_DIR "extracted"
 
 Log "Baixando: $zipName ..."
+# Limpa sobra de uma atualizacao anterior que falhou (a extracao .NET falha se ja houver arquivos).
+if (Test-Path -LiteralPath $TEMP_DIR) { try { [System.IO.Directory]::Delete($TEMP_DIR, $true) } catch {} }
 New-Item -ItemType Directory -Path $TEMP_DIR    -Force | Out-Null
 New-Item -ItemType Directory -Path $extractPath -Force | Out-Null
 
@@ -116,9 +147,20 @@ try {
     exit 1
 }
 
-# Extrai o pacote
+# Extrai o pacote. Expand-Archive so existe no PowerShell 5+; o Windows Server 2012/2012R2 vem com
+# PowerShell 3/4 -> sem este fallback o auto-update NUNCA funcionava nesses servidores.
 Log "Extraindo pacote..."
-Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+try {
+    if (Get-Command Expand-Archive -ErrorAction SilentlyContinue) {
+        Expand-Archive -LiteralPath $zipPath -DestinationPath $extractPath -Force
+    } else {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath, $extractPath)
+    }
+} catch {
+    Log "ERRO ao extrair o pacote: $_"
+    exit 1
+}
 
 # Verifica a assinatura Authenticode dos executaveis ANTES de aplicar (auditoria A-03).
 # Comprometer o repo/release nao basta: pacote sem assinatura EV valida da SistemasBr e recusado.
@@ -152,13 +194,25 @@ foreach ($exe in $exesVerificar) {
     }
 }
 
+# Trava de manutencao: impede o watchdog (a cada 5 min) de religar o backend no meio da copia
+# (arquivo travado = atualizacao parcial). Expira sozinha em 2h se algo der muito errado.
+try { New-Item -ItemType Directory -Path (Split-Path $LOCK_FILE) -Force | Out-Null
+      Set-Content -LiteralPath $LOCK_FILE -Value "atualizar $(Get-Date -Format s)" -Encoding ASCII } catch {}
+
+$falhaAplicar = $null
+try {   # finally abaixo: os servicos SEMPRE voltam, mesmo se a copia falhar no meio
+
 # Para os servicos (backend e agente) antes de sobrescrever binarios
 foreach ($nome in @($SVC_NAME, $SVC_AGENTE)) {
     $s = Get-Service $nome -ErrorAction SilentlyContinue
     if ($s -and $s.Status -eq "Running") {
         Log "Parando servico $nome ..."
-        Stop-Service $nome -Force
+        Stop-Service $nome -Force -ErrorAction SilentlyContinue
     }
+}
+# Processo que nao encerrou segura os .exe/.dll e faz a copia falhar.
+foreach ($p in @("SigeDash.Api", "SigeDash.Agente")) {
+    Get-Process -Name $p -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 }
 Start-Sleep -Seconds 3
 
@@ -172,7 +226,7 @@ foreach ($f in $arqBackend) {
     $relativo = $f.FullName.Substring($extractPath.Length + 1)
     $destino  = Join-Path $InstallDir $relativo
     New-Item -ItemType Directory -Path (Split-Path $destino) -Force | Out-Null
-    Copy-Item $f.FullName $destino -Force
+    Copy-Item -LiteralPath $f.FullName -Destination $destino -Force
     $qtdBack++
 }
 Log "Backend: $qtdBack arquivos atualizados (appsettings.Production.json preservado)."
@@ -188,7 +242,7 @@ if ((Test-Path $agenteSrc) -and (Test-Path $AgenteDir)) {
         $relativo = $f.FullName.Substring($agenteSrc.Length + 1)
         $destino  = Join-Path $AgenteDir $relativo
         New-Item -ItemType Directory -Path (Split-Path $destino) -Force | Out-Null
-        Copy-Item $f.FullName $destino -Force
+        Copy-Item -LiteralPath $f.FullName -Destination $destino -Force
         $qtdAg++
     }
     Log "Agente: $qtdAg arquivos atualizados (Config\agente.config.json preservado)."
@@ -198,15 +252,21 @@ if ((Test-Path $agenteSrc) -and (Test-Path $AgenteDir)) {
     Log "Pacote sem subpasta 'agente' - atualizando apenas o backend."
 }
 
-# Reinicia os servicos
-foreach ($nome in @($SVC_NAME, $SVC_AGENTE)) {
-    $s = Get-Service $nome -ErrorAction SilentlyContinue
-    if ($s) {
-        Log "Iniciando servico $nome ..."
-        Start-Service $nome -ErrorAction SilentlyContinue
+} catch {
+    $falhaAplicar = $_
+    Log "ERRO durante a copia da atualizacao: $_"
+} finally {
+    # Reinicia os servicos SEMPRE (mesmo com falha) - nunca deixa o cliente fora do ar.
+    foreach ($nome in @($SVC_NAME, $SVC_AGENTE)) {
+        $s = Get-Service $nome -ErrorAction SilentlyContinue
+        if ($s) {
+            Log "Iniciando servico $nome ..."
+            Start-Service $nome -ErrorAction SilentlyContinue
+        }
     }
+    Start-Sleep -Seconds 4
+    try { Remove-Item -LiteralPath $LOCK_FILE -Force -ErrorAction SilentlyContinue } catch {}
 }
-Start-Sleep -Seconds 4
 
 $svc = Get-Service $SVC_NAME -ErrorAction SilentlyContinue
 if ($svc -and $svc.Status -eq "Running") {
@@ -220,26 +280,16 @@ if ($svcAg) {
     else { Log "AVISO: $SVC_AGENTE nao voltou a Running (status: $($svcAg.Status))." }
 }
 
-# Limpa temporarios
-try {
-    Remove-Item $TEMP_DIR -Recurse -Force -ErrorAction SilentlyContinue
-} catch {}
+# Limpa temporarios (caminho literal: sem expansao de curinga)
+try { [System.IO.Directory]::Delete($TEMP_DIR, $true) } catch {}
 
-# Self-heal: garante a tarefa sob demanda SigeDash-Aplicar (disparada pelo painel via schtasks /Run).
-# Assim clientes que so ATUALIZAM (sem reinstalar) tambem passam a ter a atualizacao in-app.
-try {
-    $TASK_APLICAR = "SigeDash-Aplicar"
-    if (-not (Get-ScheduledTask -TaskName $TASK_APLICAR -ErrorAction SilentlyContinue)) {
-        $selfPath = Join-Path $InstallDir "atualizar.ps1"
-        $act = New-ScheduledTaskAction -Execute "powershell.exe" `
-            -Argument "-NonInteractive -ExecutionPolicy Bypass -File `"$selfPath`""
-        $set = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Hours 1) -StartWhenAvailable
-        Register-ScheduledTask -TaskName $TASK_APLICAR -Action $act -Settings $set `
-            -RunLevel Highest -User "SYSTEM" `
-            -Description "Aplica a atualizacao do SigeDash sob demanda (disparada pelo painel)" | Out-Null
-        Log "Tarefa sob demanda $TASK_APLICAR criada (self-heal)."
-    }
-} catch { Log "AVISO: nao foi possivel garantir a tarefa SigeDash-Aplicar: $_" }
+if ($falhaAplicar) {
+    Log "=== Atualizacao NAO concluida (servicos religados na versao anterior/parcial). Rode de novo. ==="
+    exit 1
+}
+
+# Self-heal de novo: os arquivos novos (ex.: instalar-watchdog.ps1) acabaram de chegar.
+GarantirTarefas
 
 Log ""
 Log "=== Atualizacao concluida: $versaoAtual -> $tagLatest ==="

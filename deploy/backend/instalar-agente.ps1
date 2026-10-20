@@ -70,8 +70,14 @@ if ($svc) {
     Log "Servico $SVC_NAME ja existe - parando e removendo..."
     Stop-Service $SVC_NAME -Force -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 2
+    # Processo preso trava os binarios (copia falha) e deixa o servico "marcado para exclusao".
+    Get-Process -Name "SigeDash.Agente" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
     & sc.exe delete $SVC_NAME | Out-Null
-    Start-Sleep -Seconds 1
+    for ($i = 0; $i -lt 15 -and (Get-Service $SVC_NAME -ErrorAction SilentlyContinue); $i++) { Start-Sleep -Seconds 1 }
+    if (Get-Service $SVC_NAME -ErrorAction SilentlyContinue) {
+        Log "ERRO: o servico $SVC_NAME ficou 'marcado para exclusao'. Feche services.msc ou reinicie o servidor e rode de novo."
+        exit 1
+    }
 }
 
 # --- Copia binarios ---
@@ -131,3 +137,7 @@ if ($svc.Status -eq "Running") {
     Log "AVISO: servico nao esta em Running (status: $($svc.Status)). Verifique o Event Viewer."
     exit 1
 }
+
+# Sucesso explicito: o orquestrador decide pelo $LASTEXITCODE, que senao seria o do ultimo
+# comando nativo executado aqui (ex.: icacls/psql), gerando falso "falhou com codigo N".
+exit 0

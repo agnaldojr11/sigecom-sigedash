@@ -78,22 +78,37 @@ if (-not $Force) {
 
 Log "=== Inicio da desinstalacao ==="
 
-# --- 1) Servicos ---
-function RemoverServico($nome) {
+# --- 1) Tarefas agendadas PRIMEIRO ---
+# O watchdog (a cada 5 min) religaria os servicos no meio da desinstalacao se continuasse ativo.
+Passo "Removendo tarefas agendadas"
+foreach ($t in @("SigeDash-Watchdog", "SigeDash-Atualizar", "SigeDash-Aplicar")) {
+    if (Get-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue) {
+        Stop-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue
+        Unregister-ScheduledTask -TaskName $t -Confirm:$false -ErrorAction SilentlyContinue
+        if (Get-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue) { Erro "Tarefa '$t' nao removida." }
+        else { Ok "Tarefa '$t' removida." }
+    } else { Aviso "Tarefa '$t' nao existe (ja removida)." }
+}
+
+# --- 2) Servicos ---
+function RemoverServico($nome, $processo) {
     $svc = Get-Service $nome -ErrorAction SilentlyContinue
     if (-not $svc) { Aviso "Servico '$nome' nao existe (ja removido)."; return }
     try {
         if ($svc.Status -ne "Stopped") { Stop-Service $nome -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2 }
+        # Processo preso segura os arquivos e deixa o servico "marcado para exclusao".
+        if ($processo) { Get-Process -Name $processo -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue }
         & sc.exe delete $nome | Out-Null
-        Start-Sleep -Seconds 1
-        if (Get-Service $nome -ErrorAction SilentlyContinue) { Erro "Servico '$nome' ainda presente apos remocao (reinicie e tente de novo)." }
-        else { Ok "Servico '$nome' removido." }
+        for ($i = 0; $i -lt 15 -and (Get-Service $nome -ErrorAction SilentlyContinue); $i++) { Start-Sleep -Seconds 1 }
+        if (Get-Service $nome -ErrorAction SilentlyContinue) {
+            Erro "Servico '$nome' ficou 'marcado para exclusao'. Feche a janela Servicos (services.msc) e reinicie o servidor."
+        } else { Ok "Servico '$nome' removido." }
     } catch { Erro "Falha ao remover servico '$nome': $_" }
 }
 
 Passo "Parando e removendo servicos"
-RemoverServico "SigeDashBackend"
-RemoverServico "SigeDashAgente"
+RemoverServico "SigeDashBackend" "SigeDash.Api"
+RemoverServico "SigeDashAgente" "SigeDash.Agente"
 # cloudflared: usa o proprio uninstall antes do sc delete (limpa o registro do conector).
 $cfExe = "C:\SigeDash\Tunnel\cloudflared.exe"
 if (Test-Path $cfExe) {
@@ -101,24 +116,14 @@ if (Test-Path $cfExe) {
     Start-Sleep -Seconds 2
     & $cfExe service uninstall 2>&1 | Out-Null
 }
-RemoverServico "cloudflared"
+RemoverServico "cloudflared" "cloudflared"
 
 # Chave de EventLog remanescente do cloudflared (o 'service uninstall' nao remove).
 $evtKey = "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application\Cloudflared"
 if (Test-Path $evtKey) {
-    Remove-Item $evtKey -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $evtKey -Recurse -Force -ErrorAction SilentlyContinue
     if (Test-Path $evtKey) { Aviso "Nao foi possivel remover a chave de EventLog do cloudflared." }
     else { Ok "Chave de EventLog do cloudflared removida." }
-}
-
-# --- 2) Tarefas agendadas ---
-Passo "Removendo tarefas agendadas"
-foreach ($t in @("SigeDash-Atualizar", "SigeDash-Aplicar", "SigeDash-Watchdog")) {
-    if (Get-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue) {
-        Unregister-ScheduledTask -TaskName $t -Confirm:$false -ErrorAction SilentlyContinue
-        if (Get-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue) { Erro "Tarefa '$t' nao removida." }
-        else { Ok "Tarefa '$t' removida." }
-    } else { Aviso "Tarefa '$t' nao existe (ja removida)." }
 }
 
 # --- 3) Banco de dados sigedash ---
@@ -136,33 +141,67 @@ $psql = DescobriPsql
 if (-not $psql) {
     Aviso "psql.exe nao encontrado - pulando remocao do banco (PostgreSQL pode ja ter sido removido)."
 } else {
-    # Descobre como conectar como postgres: 1) trust (sem senha), 2) senha informada, 3) pergunta.
+    # Acesso como 'postgres' SEM prompt: 1) trust; 2) -PostgresSenha; 3) acesso local temporario
+    # (pg_hba.conf trust SO para o usuario postgres em 127.0.0.1/::1, desfeito logo em seguida).
+    # A senha do postgres e aleatoria e nao fica salva - entao o 3) e o caso normal.
     $senha = $PostgresSenha
     function TestaPg($s) {
         $env:PGPASSWORD = $s
-        $out = & $psql -U postgres -d postgres -t -A -w -c "SELECT 1" 2>&1
+        $out = & $psql -U postgres -h localhost -d postgres -t -A -w -c "SELECT 1" 2>&1
         $env:PGPASSWORD = $null
         return (($out | Out-String).Trim() -match "^1")
     }
+    function ReiniciarPg() {
+        $s = Get-Service | Where-Object { $_.Name -match "^postgresql" } | Select-Object -First 1
+        if ($s) { Restart-Service $s.Name -Force -ErrorAction SilentlyContinue }
+        Start-Sleep -Seconds 8
+    }
+    $hbaTemp = $null; $hbaBak = $null
     $conecta = $false
-    if (TestaPg "") { $senha = ""; $conecta = $true; Aviso "PostgreSQL em modo trust (sem senha)." }
+    if (TestaPg "") { $senha = ""; $conecta = $true }
     elseif (-not [string]::IsNullOrWhiteSpace($senha) -and (TestaPg $senha)) { $conecta = $true }
-    elseif (-not $Force) {
-        $ss = Read-Host -AsSecureString "  Senha do usuario 'postgres' (Enter para pular)"
-        $senha = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($ss))
-        if (-not [string]::IsNullOrWhiteSpace($senha) -and (TestaPg $senha)) { $conecta = $true }
+    else {
+        $svcPg = Get-Service | Where-Object { $_.Name -match "^postgresql" } | Select-Object -First 1
+        $dd = $null
+        if ($svcPg) {
+            if ($svcPg.Status -ne 'Running') { Start-Service $svcPg.Name -ErrorAction SilentlyContinue; Start-Sleep -Seconds 5 }
+            $ip = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\$($svcPg.Name)" -ErrorAction SilentlyContinue).ImagePath
+            if ($ip -match '-D\s+"([^"]+)"') { $dd = $Matches[1] } elseif ($ip -match '-D\s+(\S+)') { $dd = $Matches[1] }
+        }
+        if ($dd -and (Test-Path -LiteralPath (Join-Path $dd "pg_hba.conf"))) {
+            $hbaTemp = Join-Path $dd "pg_hba.conf"; $hbaBak = "$hbaTemp.sigedash-bak"
+            try {
+                Copy-Item -LiteralPath $hbaTemp -Destination $hbaBak -Force
+                $orig = [System.IO.File]::ReadAllText($hbaTemp)
+                $tmp  = "# SIGEDASH-TEMP`r`nhost    all    postgres    127.0.0.1/32    trust`r`nhost    all    postgres    ::1/128         trust`r`n"
+                [System.IO.File]::WriteAllText($hbaTemp, $tmp + $orig, (New-Object System.Text.UTF8Encoding $false))
+                ReiniciarPg
+                if (TestaPg "") { $senha = ""; $conecta = $true; Aviso "Usando acesso local temporario ao PostgreSQL." }
+            } catch { Aviso "Nao consegui liberar acesso temporario ao PostgreSQL: $_" }
+        }
     }
 
     if ($conecta) {
         $env:PGPASSWORD = $senha
         # WITH (FORCE) derruba conexoes remanescentes (PG13+).
-        $d1 = & $psql -U postgres -d postgres -t -A -w -c "DROP DATABASE IF EXISTS sigedash WITH (FORCE);" 2>&1
-        $d2 = & $psql -U postgres -d postgres -t -A -w -c "DROP USER IF EXISTS sigedash;" 2>&1
+        $d1 = & $psql -U postgres -h localhost -d postgres -t -A -w -c "DROP DATABASE IF EXISTS sigedash WITH (FORCE);" 2>&1
+        $d2 = & $psql -U postgres -h localhost -d postgres -t -A -w -c "DROP USER IF EXISTS sigedash;" 2>&1
         $env:PGPASSWORD = $null
         Log "DROP DATABASE: $($d1 | Out-String)"; Log "DROP USER: $($d2 | Out-String)"
         Ok "Banco e usuario 'sigedash' removidos (se existiam)."
     } else {
-        Aviso "Nao consegui conectar como 'postgres' - o banco 'sigedash' NAO foi removido. Remova manualmente se necessario."
+        Aviso "Nao consegui conectar como 'postgres' - o banco 'sigedash' NAO foi removido."
+        Aviso "Use -RemoverPostgres para remover o PostgreSQL inteiro, se ele for so do SigeDash."
+    }
+
+    # Desfaz o acesso temporario (se foi usado).
+    if ($hbaBak -and (Test-Path -LiteralPath $hbaBak)) {
+        try {
+            Copy-Item -LiteralPath $hbaBak -Destination $hbaTemp -Force
+            Remove-Item -LiteralPath $hbaBak -Force -ErrorAction SilentlyContinue
+            ReiniciarPg
+            Ok "pg_hba.conf original restaurado."
+        } catch { Erro "Nao consegui restaurar o pg_hba.conf - backup em $hbaBak" }
     }
 }
 

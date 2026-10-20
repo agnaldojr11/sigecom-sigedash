@@ -32,7 +32,10 @@ try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::S
 $PG_VERSION    = "16"
 $PG_INSTALLDIR = "C:\Program Files\PostgreSQL\$PG_VERSION"
 $PG_SVC        = "postgresql-x64-$PG_VERSION"
-$LOG_FILE      = "$env:TEMP\sigedash-postgres-install.log"
+# Pasta temporaria SEGURA: o %TEMP% do usuario pode ter nome curto (USUARIO~2)/acento, que quebra
+# cmdlets que resolvem curinga (Get-AuthenticodeSignature, Test-Path, Remove-Item...).
+$TMP_SEG       = $(if (Test-Path "C:\Windows\Temp") { "C:\Windows\Temp" } else { $env:TEMP })
+$LOG_FILE      = Join-Path $TMP_SEG "sigedash-postgres-install.log"
 
 function Log($msg) {
     $ts   = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -66,6 +69,84 @@ function DescobriPsql() {
     if ($cmd) { return $cmd.Source }
     return $null
 }
+
+# ---------------------------------------------------------------------------------------------
+# Acesso de superusuario ao PostgreSQL SEM NUNCA pedir senha. O wizard roda o PowerShell com o
+# console OCULTO: qualquer prompt (Read-Host, ou o psql pedindo senha) trava a instalacao para
+# sempre. Por isso todo psql usa -w (falha rapido em vez de perguntar).
+# ---------------------------------------------------------------------------------------------
+function TestaLoginPg($senha) {
+    if (-not $psqlExe) { return $false }
+    $env:PGPASSWORD = $senha
+    $prev = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+    $o = & $psqlExe -U postgres -h localhost -d postgres -w -t -A -c "SELECT 1" 2>&1
+    $ErrorActionPreference = $prev
+    $env:PGPASSWORD = $null
+    return (($o | Out-String).Trim() -match "^1")
+}
+
+# Pasta de dados do PostgreSQL (lida do comando do servico: -D "...").
+function DataDirPg() {
+    $svc = Get-Service | Where-Object { $_.Name -match "^postgresql" } | Select-Object -First 1
+    if ($svc) {
+        $ip = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\$($svc.Name)" -ErrorAction SilentlyContinue).ImagePath
+        if ($ip -match '-D\s+"([^"]+)"') { return $Matches[1] }
+        if ($ip -match '-D\s+(\S+)')     { return $Matches[1] }
+    }
+    foreach ($v in @("17","16","15","14","13")) {
+        $d = "C:\Program Files\PostgreSQL\$v\data"
+        if (Test-Path -LiteralPath (Join-Path $d "pg_hba.conf")) { return $d }
+    }
+    return $null
+}
+
+function ReiniciarPg() {
+    $svc = Get-Service | Where-Object { $_.Name -match "^postgresql" } | Select-Object -First 1
+    if ($svc) { Restart-Service $svc.Name -Force -ErrorAction SilentlyContinue }
+    for ($i = 0; $i -lt 20; $i++) { Start-Sleep -Seconds 2; if (TestaTCP 5432) { break } }
+    Start-Sleep -Seconds 2
+}
+
+# REINSTALACAO: a senha do 'postgres' foi gerada aleatoria na 1a instalacao e nao fica salva.
+# Como somos Administrador, liberamos acesso LOCAL temporario so para o usuario postgres
+# (127.0.0.1/::1, trust), fazemos o trabalho e restauramos o pg_hba.conf original ao final.
+# NAO alteramos a senha do postgres (um PostgreSQL de terceiros continua funcionando igual).
+$script:pgHbaTemp   = $null
+$script:pgHbaBak = $null
+function AbrirAcessoTemporario() {
+    $dd = DataDirPg
+    if (-not $dd) { Log "AVISO: pasta de dados do PostgreSQL nao localizada."; return $false }
+    $hba = Join-Path $dd "pg_hba.conf"
+    if (-not (Test-Path -LiteralPath $hba)) { Log "AVISO: pg_hba.conf nao encontrado em $dd."; return $false }
+    $bak = "$hba.sigedash-bak"
+    try {
+        Copy-Item -LiteralPath $hba -Destination $bak -Force
+        $orig = [System.IO.File]::ReadAllText($hba)
+        $temp = "# SIGEDASH-TEMP: acesso local temporario do instalador (removido ao final)`r`n" +
+                "host    all    postgres    127.0.0.1/32    trust`r`n" +
+                "host    all    postgres    ::1/128         trust`r`n"
+        [System.IO.File]::WriteAllText($hba, $temp + $orig, (New-Object System.Text.UTF8Encoding $false))
+    } catch { Log "AVISO: nao consegui ajustar o pg_hba.conf: $_"; return $false }
+    $script:pgHbaTemp = $hba; $script:pgHbaBak = $bak
+    ReiniciarPg
+    if (TestaLoginPg "") { return $true }
+    FecharAcessoTemporario
+    return $false
+}
+
+function FecharAcessoTemporario() {
+    if (-not $script:pgHbaBak) { return }
+    try {
+        Copy-Item -LiteralPath $script:pgHbaBak -Destination $script:pgHbaTemp -Force
+        Remove-Item -LiteralPath $script:pgHbaBak -Force -ErrorAction SilentlyContinue
+        Log "Acesso temporario ao PostgreSQL desfeito (pg_hba.conf original restaurado)."
+    } catch { Log "AVISO: nao consegui restaurar o pg_hba.conf ($_). Backup em $($script:pgHbaBak)" }
+    $script:pgHbaBak = $null
+    ReiniciarPg
+}
+
+# Qualquer erro inesperado: desfaz o acesso temporario antes de sair.
+trap { FecharAcessoTemporario; break }
 
 # Verifica privilegio de admin
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
@@ -101,40 +182,30 @@ if ($jaInstalado) {
         exit 1
     }
 
-    # Descobre a senha do superusuario postgres existente
-    # -t -A: saida sem cabecalho nem contagem de linhas (evita variacao de idioma "1 row" vs "1 linha")
-    $env:PGPASSWORD = ""
-    $testOut = & $psqlExe -U postgres -d postgres -t -A -c "SELECT 1" 2>&1
-    $env:PGPASSWORD = $null
+    # Servico parado parece "senha errada": garante o PostgreSQL no ar ANTES de testar o acesso.
+    if ($pgSvcAtual -and $pgSvcAtual.Status -ne 'Running') {
+        Log "Servico $($pgSvcAtual.Name) esta $($pgSvcAtual.Status) - iniciando..."
+        try { Start-Service $pgSvcAtual.Name -ErrorAction Stop } catch { Log "AVISO: nao consegui iniciar $($pgSvcAtual.Name): $_" }
+        for ($i = 0; $i -lt 15 -and -not (TestaTCP 5432); $i++) { Start-Sleep -Seconds 2 }
+    }
 
-    if (($testOut | Out-String).Trim() -match "^1") {
+    # Acesso de superusuario SEM prompt. Ordem: 1) trust; 2) -SuperSenha informado;
+    # 3) recuperacao automatica (acesso local temporario) - caso normal de REINSTALACAO.
+    if (TestaLoginPg "") {
         $SuperSenha = ""
-        Write-Host ""
-        Write-Host "AVISO DE SEGURANCA: o PostgreSQL local aceita conexao SEM SENHA (modo 'trust')." -ForegroundColor Red
-        Write-Host "Qualquer processo local pode conectar como superusuario. Recomendado apos a instalacao:" -ForegroundColor Yellow
-        Write-Host "  - editar pg_hba.conf para 'scram-sha-256' nas conexoes locais e reiniciar o PostgreSQL;" -ForegroundColor Yellow
-        Write-Host "  - garantir que o PostgreSQL escute apenas em 127.0.0.1." -ForegroundColor Yellow
-        Write-Host ""
-        Log "AVISO: PostgreSQL em modo trust (sem senha). Prosseguindo - ajuste o pg_hba.conf."
+        Log "AVISO: PostgreSQL aceita conexao local SEM SENHA (modo trust). Recomendado ajustar o pg_hba.conf."
+    } elseif (-not [string]::IsNullOrWhiteSpace($SuperSenha) -and (TestaLoginPg $SuperSenha)) {
+        Log "Conexao com postgres OK (senha informada por parametro)."
     } else {
-        Write-Host ""
-        Write-Host "PostgreSQL ja esta instalado nesta maquina." -ForegroundColor Yellow
-        Write-Host "Informe a senha do usuario 'postgres' para criar o banco do SigeDash." -ForegroundColor Yellow
-        Write-Host "(A senha foi definida quando o PostgreSQL foi instalado nesta maquina)" -ForegroundColor DarkYellow
-        Write-Host ""
-        $pgSenhaSegura = Read-Host -AsSecureString "Senha do postgres"
-        $SuperSenha    = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
-            [Runtime.InteropServices.Marshal]::SecureStringToBSTR($pgSenhaSegura))
-
-        $env:PGPASSWORD = $SuperSenha
-        $testOut2 = & $psqlExe -U postgres -d postgres -t -A -c "SELECT 1" 2>&1
-        $env:PGPASSWORD = $null
-
-        if (($testOut2 | Out-String).Trim() -notmatch "^1") {
-            Log "ERRO: senha invalida ou acesso recusado: $($testOut2 | Out-String)"
+        Log "Senha do 'postgres' desconhecida (normal em REINSTALACAO: ela e aleatoria e nao fica salva)."
+        Log "Liberando acesso local temporario para configurar o banco (desfeito ao final)..."
+        if (-not (AbrirAcessoTemporario)) {
+            Log "ERRO: nao consegui acesso de superusuario ao PostgreSQL ja instalado."
+            Log "Solucao: rode desinstalar-tudo.ps1 -RemoverPostgres e instale de novo, ou informe -SuperSenha."
             exit 1
         }
-        Log "Conexao com postgres OK usando senha informada."
+        $SuperSenha = ""
+        Log "Acesso temporario OK."
     }
 } else {
     # Nova instalacao
@@ -146,9 +217,9 @@ if ($jaInstalado) {
     }
 
     # Baixa o installer se necessario
-    if ([string]::IsNullOrWhiteSpace($InstallerExe) -or -not (Test-Path $InstallerExe)) {
+    if ([string]::IsNullOrWhiteSpace($InstallerExe) -or -not (Test-Path -LiteralPath $InstallerExe)) {
         $downloadUrl  = "https://get.enterprisedb.com/postgresql/postgresql-16.9-1-windows-x64.exe"
-        $InstallerExe = "$env:TEMP\postgresql-16-windows-x64.exe"
+        $InstallerExe = Join-Path $TMP_SEG "postgresql-16-windows-x64.exe"
 
         Log "Baixando PostgreSQL $PG_VERSION..."
         Log "(Isso pode levar alguns minutos)"
@@ -158,7 +229,7 @@ if ($jaInstalado) {
             $wc.DownloadFile($downloadUrl, $InstallerExe)
             Log "Download concluido: $InstallerExe"
             # Verifica a assinatura Authenticode do instalador (integridade)
-            $sigPg = Get-AuthenticodeSignature $InstallerExe
+            $sigPg = Get-AuthenticodeSignature -LiteralPath $InstallerExe
             if ($sigPg.Status -eq 'Valid') {
                 Log "Assinatura do instalador verificada: $($sigPg.SignerCertificate.Subject)"
             } elseif ($sigPg.Status -eq 'NotSigned' -or $sigPg.Status -eq 'HashMismatch') {
@@ -246,8 +317,8 @@ function Psql($sql, $db = "postgres") {
     # Continue evita que stderr do psql.exe vire excecao com ErrorActionPreference=Stop
     $prevEAP = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
-    # -t -A: saida sem cabecalho/contagem (locale-independent)
-    $out = & $psqlExe -U postgres -d $db -t -A -c $sql 2>&1
+    # -t -A: saida sem cabecalho/contagem (locale-independent); -w: nunca pede senha (nao trava)
+    $out = & $psqlExe -U postgres -h localhost -d $db -w -t -A -c $sql 2>&1
     $ErrorActionPreference = $prevEAP
     $env:PGPASSWORD = $null
     return $out
@@ -277,7 +348,9 @@ Log "Permissoes: $out"
 # Testa conexao com o usuario sigedash
 Log "Testando conexao com usuario 'sigedash'..."
 $env:PGPASSWORD = $SigeDashSenha
-$teste = & $psqlExe -U sigedash -d sigedash -c "SELECT version()" 2>&1
+$prevEAPt = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+$teste = & $psqlExe -U sigedash -h localhost -d sigedash -w -c "SELECT version()" 2>&1
+$ErrorActionPreference = $prevEAPt
 $env:PGPASSWORD = $null
 
 if ($teste -match "PostgreSQL") {
@@ -285,8 +358,12 @@ if ($teste -match "PostgreSQL") {
 } else {
     Log "ERRO: nao foi possivel conectar como usuario 'sigedash': $teste"
     Log "O banco pode estar com configuracao pg_hba.conf impedindo conexao local."
+    FecharAcessoTemporario
     exit 1
 }
+
+# Reinstalacao: terminou o trabalho de superusuario -> desfaz o acesso local temporario agora.
+FecharAcessoTemporario
 
 # --- Hardening do PostgreSQL (apenas em instalacao NOVA feita pelo instalador do SigeDash) ---
 # Nao mexe em PostgreSQL pre-existente (pode ser compartilhado). Ajustes:
@@ -324,7 +401,9 @@ if ($freshInstall) {
     }
     # Revalida a conexao do sigedash apos o hardening
     $env:PGPASSWORD = $SigeDashSenha
-    $rev = & $psqlExe -U sigedash -h localhost -d sigedash -t -A -c "SELECT 1" 2>&1
+    $prevEAPr = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+    $rev = & $psqlExe -U sigedash -h localhost -d sigedash -w -t -A -c "SELECT 1" 2>&1
+    $ErrorActionPreference = $prevEAPr
     $env:PGPASSWORD = $null
     if (($rev | Out-String).Trim() -match "^1") { Log "Hardening OK - sigedash conecta via scram em localhost." }
     else { Log "AVISO: conexao do sigedash falhou apos hardening: $rev - revise pg_hba/postgresql.conf." }
@@ -338,3 +417,7 @@ Write-Host "Senha   : $SigeDashSenha" -ForegroundColor Yellow   # console apenas
 Log "Porta   : 5432"
 Log ""
 Log "Proximo passo: execute instalar-backend.ps1 -PostgresSenha '<a senha exibida acima>'"
+
+# Sucesso explicito: o orquestrador decide pelo $LASTEXITCODE, que senao seria o do ultimo
+# comando nativo executado aqui (ex.: icacls/psql), gerando falso "falhou com codigo N".
+exit 0

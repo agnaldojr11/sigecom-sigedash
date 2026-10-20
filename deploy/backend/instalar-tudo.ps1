@@ -61,6 +61,9 @@ try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::S
 
 $LOG_GERAL = "C:\SigeDash\install.log"
 $SCRIPT_DIR = $PSScriptRoot
+# Trava de manutencao: enquanto existir, o watchdog (a cada 5 min) nao religa servicos no meio
+# da (re)instalacao. Removida ao final (sucesso ou falha); expira sozinha em 2h.
+$LOCK_FILE = "C:\SigeDash\manutencao.lock"
 
 function Log($msg) {
     $ts   = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -88,8 +91,12 @@ function Falha($msg) {
     Log "[ERRO] $msg"
 
     # Junta os logs das etapas em um lugar so, para facilitar o suporte.
-    $pgLog = "$env:TEMP\sigedash-postgres-install.log"
-    if (Test-Path $pgLog) { try { Copy-Item $pgLog "C:\SigeDash\postgres-install.log" -Force } catch {} }
+    foreach ($pgLog in @("C:\Windows\Temp\sigedash-postgres-install.log", "$env:TEMP\sigedash-postgres-install.log")) {
+        if (Test-Path -LiteralPath $pgLog) {
+            try { Copy-Item -LiteralPath $pgLog -Destination "C:\SigeDash\postgres-install.log" -Force } catch {}
+            break
+        }
+    }
 
     Write-Host ""
     Write-Host ("=" * 60) -ForegroundColor Red
@@ -115,6 +122,7 @@ function Falha($msg) {
     Write-Host "   - Event Viewer -> Logs de Aplicativos (erros do .NET/servico)"
     Write-Host ("=" * 60) -ForegroundColor Red
     Log "Instalacao abortada. Ver diagnostico.ps1 / desinstalar-tudo.ps1."
+    try { Remove-Item -LiteralPath $LOCK_FILE -Force -ErrorAction SilentlyContinue } catch {}
     exit 1
 }
 
@@ -318,6 +326,12 @@ try {
     Log "AVISO: nao foi possivel confirmar o .NET Framework 4.8 - se o agente nao iniciar, instale o 4.8."
 }
 
+# Liga a trava de manutencao (watchdog fica quieto ate o fim desta instalacao).
+try {
+    New-Item -ItemType Directory -Path (Split-Path $LOCK_FILE) -Force | Out-Null
+    Set-Content -LiteralPath $LOCK_FILE -Value "instalar-tudo $(Get-Date -Format s)" -Encoding ASCII
+} catch {}
+
 # Auto-detecta nome do cliente via Firebird se nao informado
 if ([string]::IsNullOrWhiteSpace($NomeCliente)) {
     Log "NomeCliente nao informado — buscando NOMEFANTASIA no banco Firebird..."
@@ -496,7 +510,12 @@ if (-not [string]::IsNullOrWhiteSpace($TunnelToken)) {
     if (-not (Test-Path $scriptTunnel)) { Falha "instalar-tunnel.ps1 nao encontrado em $SCRIPT_DIR" }
     try {
         & $scriptTunnel -TunnelToken $TunnelToken
-        Sucesso "Cloudflare Tunnel instalado."
+        if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
+            Log "AVISO: instalar-tunnel.ps1 retornou codigo $LASTEXITCODE - o acesso externo pode nao funcionar."
+            Log "Veja C:\SigeDash\Tunnel\tunnel-install.log (o PASSO 6 confere o acesso externo)."
+        } else {
+            Sucesso "Cloudflare Tunnel instalado."
+        }
     } catch {
         Log "AVISO: erro no tunnel: $_"
         Log "Instale manualmente com: instalar-tunnel.ps1 -TunnelToken <TOKEN>"
@@ -648,3 +667,6 @@ Log "PROXIMOS PASSOS:"
 Log "  1. Aguarde 30 minutos para o agente sincronizar os primeiros dados"
 Log "  2. Envie a URL acima ao cliente para acesso pelo celular"
 Log "  3. Faca login com as credenciais criadas automaticamente"
+
+# Fim: libera o watchdog para voltar a vigiar os servicos.
+try { Remove-Item -LiteralPath $LOCK_FILE -Force -ErrorAction SilentlyContinue } catch {}

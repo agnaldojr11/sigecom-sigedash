@@ -55,7 +55,15 @@ if ($svc) {
     Log "Servico $SVC_NAME encontrado - parando..."
     Stop-Service $SVC_NAME -Force -ErrorAction SilentlyContinue
     Start-Sleep -Seconds 2
+    # Processo que nao encerrou trava os arquivos (copia falha) e deixa o servico "marcado para exclusao".
+    Get-Process -Name "SigeDash.Api" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
     sc.exe delete $SVC_NAME | Out-Null
+    for ($i = 0; $i -lt 15 -and (Get-Service $SVC_NAME -ErrorAction SilentlyContinue); $i++) { Start-Sleep -Seconds 1 }
+    if (Get-Service $SVC_NAME -ErrorAction SilentlyContinue) {
+        Log "ERRO: o servico $SVC_NAME ficou 'marcado para exclusao' e nao pode ser recriado."
+        Log "Feche a janela Servicos (services.msc) e o Gerenciador de Tarefas, ou reinicie o servidor, e rode de novo."
+        exit 1
+    }
     Log "Servico removido."
 }
 
@@ -113,7 +121,10 @@ if (-not $psqlCmd) {
 if ($psqlCmd) {
     $env:PGPASSWORD = $PostgresSenha
     # -t -A: saida sem cabecalho nem contagem de linhas (funciona em qualquer idioma do PostgreSQL)
-    $dbTest = & $psqlCmd.Source -U sigedash -d sigedash -h localhost -t -A -c "SELECT 1" 2>&1
+    # -w: nunca pede senha (um prompt no console oculto do wizard travaria a instalacao)
+    $prevEAPdb = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+    $dbTest = & $psqlCmd.Source -U sigedash -d sigedash -h localhost -w -t -A -c "SELECT 1" 2>&1
+    $ErrorActionPreference = $prevEAPdb
     $env:PGPASSWORD = $null
     if (($dbTest | Out-String).Trim() -match "^1") {
         Log "Conexao com banco 'sigedash' verificada com sucesso."
@@ -273,3 +284,7 @@ Log "URL local: http://localhost:5000"
 Log ""
 Log "IMPORTANTE: anote a AdminKey exibida acima (nao fica salva em log) - ela e necessaria para criar usuarios."
 Log "Proximo passo: executar configurar-cliente.ps1 com esta AdminKey."
+
+# Sucesso explicito: o orquestrador decide pelo $LASTEXITCODE, que senao seria o do ultimo
+# comando nativo executado aqui (ex.: icacls/psql), gerando falso "falhou com codigo N".
+exit 0

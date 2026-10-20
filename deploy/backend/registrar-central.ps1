@@ -24,6 +24,9 @@ param(
     [string]$ScriptDir  = $PSScriptRoot
 )
 
+# Central e HTTPS: em Windows Server 2012/2012R2 o .NET usa TLS 1.0 por padrao (falha "canal seguro").
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch {}
+
 function LogC($m) { Write-Host "[central] $m" }
 
 $centralCfg = Join-Path $ScriptDir "central.json"

@@ -30,6 +30,16 @@ try {
     }
 } catch {}
 
+# Instalacao/atualizacao em andamento (trava criada pelo instalar-tudo/atualizar): NAO mexe nos
+# servicos - religar o backend no meio da copia trava arquivos e deixa a atualizacao pela metade.
+# A trava expira sozinha em 2h (se o processo que a criou morreu, o watchdog volta a agir).
+$LOCK = "C:\SigeDash\manutencao.lock"
+if (Test-Path -LiteralPath $LOCK) {
+    $idade = [TimeSpan]::Zero
+    try { $idade = (Get-Date) - (Get-Item -LiteralPath $LOCK).LastWriteTime } catch {}
+    if ($idade.TotalHours -lt 2) { exit 0 }
+}
+
 function Garante($nome) {
     $svc = Get-Service -Name $nome -ErrorAction SilentlyContinue
     if (-not $svc) { return $null }

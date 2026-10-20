@@ -16,6 +16,8 @@ param(
 )
 
 $ErrorActionPreference = "Continue"
+# Testes da Central e da URL publica sao HTTPS (Server 2012/2012R2 usa TLS 1.0 por padrao no .NET).
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch {}
 $ok = 0; $falhas = 0; $avisos = 0
 $linhas = New-Object System.Collections.Generic.List[string]
 
