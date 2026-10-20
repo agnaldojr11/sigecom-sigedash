@@ -17,7 +17,7 @@ namespace SigeDash.Central.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.8")
+                .HasAnnotation("ProductVersion", "8.0.31")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -233,6 +233,80 @@ namespace SigeDash.Central.Migrations
                     b.HasIndex("Ts");
 
                     b.ToTable("LogsAuditoria");
+                });
+
+            modelBuilder.Entity("SigeDash.Central.Modelos.RelatorioInstalacao", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Avisos")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Bloqueios")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ClienteId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Cnpj")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("DuracaoSeg")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Etapa")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Ip")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Log")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Maquina")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Mensagem")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Os")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("RecebidoEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Url")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Verificacoes")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Versao")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClienteId");
+
+                    b.HasIndex("RecebidoEm");
+
+                    b.ToTable("RelatoriosInstalacao");
                 });
 
             modelBuilder.Entity("SigeDash.Central.Modelos.UsuarioPainel", b =>

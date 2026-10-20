@@ -30,6 +30,12 @@ public class RetencaoHostedService : BackgroundService
                 var db = scope.ServiceProvider.GetRequiredService<CentralDbContext>();
                 var apagados = await db.HeartbeatHistorico.Where(h => h.Ts < corte).ExecuteDeleteAsync(ct);
                 if (apagados > 0) _log.LogInformation("Retenção: {n} heartbeats antigos (>{d}d) expurgados.", apagados, dias);
+
+                // Relatórios de instalação (logs mascarados, mas ainda operacionais): 180 dias por padrão.
+                var diasInst = Math.Max(7, _cfg.GetValue("Retencao:InstalacoesDias", 180));
+                var corteInst = DateTime.UtcNow.AddDays(-diasInst);
+                var relApagados = await db.RelatoriosInstalacao.Where(r => r.RecebidoEm < corteInst).ExecuteDeleteAsync(ct);
+                if (relApagados > 0) _log.LogInformation("Retenção: {n} relatórios de instalação (>{d}d) expurgados.", relApagados, diasInst);
             }
             catch (Exception ex) { _log.LogWarning("Retenção falhou: {msg}", ex.Message); }
 

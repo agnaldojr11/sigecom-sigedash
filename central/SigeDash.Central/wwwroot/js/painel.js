@@ -141,6 +141,7 @@
     try {
       var c = await api("/painel/clientes/" + id);
       clienteAberto = c;
+      document.querySelector("#overlay .modal").classList.remove("largo");
       $("det-nome").textContent = c.nome;
       $("det-sub").innerHTML = (c.cnpj ? esc(c.cnpj) + " · " : "") + (c.online ? "online" : "offline") + " · " + estadoPill(c.estado);
       var hb = c.heartbeat || {};
@@ -321,6 +322,7 @@
   function trocarView(nome) {
     if (nome === "equipe" && !souAdmin) nome = "frota";   // guarda no front (o back também barra)
     $("view-frota").hidden = nome !== "frota";
+    $("view-instalacoes").hidden = nome !== "instalacoes";
     $("view-versoes").hidden = nome !== "versoes";
     $("view-equipe").hidden = nome !== "equipe";
     Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (t) {
@@ -328,6 +330,111 @@
     });
     if (nome === "versoes") carregarVersoes();
     if (nome === "equipe") carregarEquipe();
+    if (nome === "instalacoes") carregarInstalacoes();
+  }
+
+  // ── Instalações (relatórios enviados pelos instaladores) ──
+  var INST_CLS = { sucesso: "ok", sucesso_avisos: "warn", falha: "crit", bloqueado: "crit" };
+  var INST_LBL = { sucesso: "sucesso", sucesso_avisos: "com avisos", falha: "falhou", bloqueado: "não começou" };
+  var VERIF_CLS = { OK: "ok", INFO: "neutro", AVISO: "warn", BLOQUEIO: "crit" };
+  function instPill(st) {
+    return '<span class="pill ' + (INST_CLS[st] || "neutro") + '">' + esc(INST_LBL[st] || st || "—") + '</span>';
+  }
+  function duracao(seg) {
+    if (seg == null) return "—";
+    return seg < 60 ? seg + "s" : Math.floor(seg / 60) + "min " + (seg % 60) + "s";
+  }
+
+  async function carregarInstalacoes() {
+    var body = $("inst-body"), msg = $("inst-msg");
+    msg.hidden = true;
+    body.innerHTML = '<tr><td colspan="6" class="vazio">Carregando…</td></tr>';
+    try {
+      var lista = await api("/painel/instalacoes" + ($("inst-problemas").checked ? "?problemas=true" : ""));
+      if (!lista.length) {
+        body.innerHTML = ""; msg.hidden = false;
+        msg.textContent = $("inst-problemas").checked ? "Nenhuma instalação com problema." : "Nenhum relatório recebido ainda (chegam a partir do instalador v1.0.54).";
+        return;
+      }
+      body.innerHTML = lista.map(function (r) {
+        var onde = r.status === "sucesso" ? '<span class="t">—</span>'
+          : '<div class="inst-etapa">' + esc(r.etapa || "—") + (r.bloqueios > 0 ? ' · ' + r.bloqueios + ' bloqueio(s)' : '') + '</div>' +
+            (r.mensagem ? '<div class="inst-motivo" title="' + esc(r.mensagem) + '">' + esc(r.mensagem) + '</div>' : '');
+        return '<tr data-id="' + r.id + '">' +
+          '<td class="mono">' + dataHora(r.recebidoEm) + '</td>' +
+          '<td><div class="cli-nome">' + esc(r.nome) + '</div>' + (r.cnpj ? '<div class="cli-cnpj">' + esc(r.cnpj) + '</div>' : '') + '</td>' +
+          '<td>' + instPill(r.status) + (r.tipo === "diagnostico" ? ' <span class="pill acc">diagnóstico</span>' : '') + '</td>' +
+          '<td>' + onde + '</td>' +
+          '<td class="mono">' + (r.versao ? "v" + esc(r.versao) : "—") + '</td>' +
+          '<td class="mono">' + esc(r.maquina || "—") + '</td>' +
+          '</tr>';
+      }).join("");
+    } catch (e) { body.innerHTML = ""; msg.hidden = false; msg.textContent = e.message; }
+  }
+
+  var logAberto = "";
+  async function abrirInstalacao(id) {
+    try {
+      var r = await api("/painel/instalacoes/" + id);
+      $("det-nome").textContent = r.nome;
+      $("det-sub").innerHTML = instPill(r.status) + " · " + dataHora(r.recebidoEm) + (r.cnpj ? " · " + esc(r.cnpj) : "");
+      var cls = INST_CLS[r.status] || "neutro";
+      var body =
+        '<div class="res-box ' + cls + '">' +
+          '<div class="res-etapa">' + (r.status === "sucesso" ? "Instalação concluída" : esc(r.etapa || "Etapa desconhecida")) + '</div>' +
+          (r.mensagem && r.status !== "sucesso" ? '<div class="res-msg">' + esc(r.mensagem) + '</div>' : '') +
+        '</div>' +
+        '<div class="kv">' +
+          item("Versão", r.versao ? "v" + esc(r.versao) : "—") +
+          item("Servidor", esc(r.maquina || "—")) +
+          item("Sistema", esc(r.os || "—")) +
+          item("Duração", duracao(r.duracaoSeg)) +
+          item("Endereço", r.url ? esc(r.url) : "—") +
+          item("IP de origem", esc(r.ip || "—")) +
+        '</div>';
+
+      var v = null;
+      try { v = r.verificacoes ? JSON.parse(r.verificacoes) : null; } catch (e) { v = null; }
+      if (v && v.itens) {
+        var itens = Array.isArray(v.itens) ? v.itens : [v.itens];
+        var problemas = itens.filter(function (i) { return i.nivel !== "OK"; });
+        var oks = itens.filter(function (i) { return i.nivel === "OK"; });
+        var linha = function (i) {
+          return '<div class="verif"><span class="pill ' + (VERIF_CLS[i.nivel] || "neutro") + '">' + esc(i.nivel) + '</span><div>' +
+            '<div class="vt">' + esc(i.titulo) + '</div>' +
+            (i.detalhe ? '<div class="vd">' + esc(i.detalhe) + '</div>' : '') +
+            (i.solucao && i.nivel !== "OK" ? '<div class="vs">' + esc(i.solucao) + '</div>' : '') +
+          '</div></div>';
+        };
+        body += '<div class="ind-titulo">Pré-verificação do servidor (' + (v.bloqueios || 0) + ' bloqueio(s), ' + (v.avisos || 0) + ' aviso(s))</div>';
+        body += problemas.map(linha).join("");
+        if (oks.length) body += '<details class="verif-ok"><summary>' + oks.length + ' itens OK</summary>' + oks.map(linha).join("") + '</details>';
+      }
+
+      if (r.avisos) {
+        body += '<div class="ind-titulo">Avisos durante a instalação</div>' +
+          r.avisos.split("\n").filter(Boolean).map(function (a) {
+            return '<div class="verif"><span class="pill warn">AVISO</span><div class="vd">' + esc(a.replace(/^\s*AVISO:?\s*/, "")) + '</div></div>';
+          }).join("");
+      }
+
+      logAberto = r.log || "";
+      body += '<div class="log-acoes"><div class="ind-titulo">Log da instalação</div>' +
+        (logAberto ? '<button id="btn-copiar-log" class="mini">Copiar log</button>' : '') + '</div>' +
+        (logAberto ? '<pre class="log-box">' + esc(logAberto) + '</pre>' : '<div class="t">Sem log.</div>');
+
+      if (souAdmin) {
+        body += '<div class="ind-titulo">Zona de perigo</div>' +
+          '<div class="perigo-box"><div class="t">Remove este relatório da Central (ex.: instalação de teste). Não afeta o servidor do cliente.</div>' +
+          '<button id="btn-excluir-relatorio" class="btn-pri perigo" data-id="' + r.id + '">Excluir relatório</button></div>';
+      }
+
+      document.querySelector("#overlay .modal").classList.add("largo");
+      $("det-body").innerHTML = body;
+      $("overlay").hidden = false;
+      var pre = document.querySelector("#det-body .log-box");
+      if (pre) pre.scrollTop = pre.scrollHeight;   // o fim do log é onde está o erro
+    } catch (e) { alert(e.message); }
   }
 
   // ── Equipe (usuários do painel) ──
@@ -570,7 +677,33 @@
     var b = e.target.closest(".est-btn");
     if (b) { mudarEstado(b.getAttribute("data-estado")); return; }
     if (e.target.closest("#btn-limite")) { salvarLimite(); return; }
+    var cp = e.target.closest("#btn-copiar-log");
+    if (cp) {
+      navigator.clipboard.writeText(logAberto).then(function () {
+        cp.textContent = "Copiado ✓"; setTimeout(function () { cp.textContent = "Copiar log"; }, 1500);
+      }).catch(function () { alert("Não foi possível copiar. Selecione o texto do log e copie manualmente."); });
+      return;
+    }
+    var exr = e.target.closest("#btn-excluir-relatorio");
+    if (exr) { excluirRelatorio(exr.getAttribute("data-id")); return; }
     if (e.target.closest("#btn-excluir-cliente")) excluirClienteAberto();
+  });
+
+  async function excluirRelatorio(id) {
+    var ok = await confirmar("Excluir relatório", "Excluir este relatório de instalação da Central? Esta ação não pode ser desfeita.", true);
+    if (!ok) return;
+    try {
+      await api("/painel/instalacoes/" + id, { method: "DELETE" });
+      $("overlay").hidden = true;
+      carregarInstalacoes();
+    } catch (e) { alert(e.message); }
+  }
+
+  // Instalações
+  $("inst-problemas").addEventListener("change", carregarInstalacoes);
+  $("inst-body").addEventListener("click", function (e) {
+    var tr = e.target.closest("tr[data-id]");
+    if (tr) abrirInstalacao(tr.getAttribute("data-id"));
   });
   $("btn-fechar").addEventListener("click", function () { $("overlay").hidden = true; });
   $("overlay").addEventListener("click", function (e) { if (e.target === $("overlay")) $("overlay").hidden = true; });

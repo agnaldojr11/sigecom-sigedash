@@ -80,6 +80,38 @@ public class VersaoLiberada
     public string? AtualizadoPor { get; set; }
 }
 
+/// <summary>Relatório de uma tentativa de instalação (ou diagnóstico) enviado pelo servidor do cliente.
+/// Permite ao suporte ver o que falhou sem acessar o servidor. Chega mesmo quando o cliente ainda
+/// não está registrado (falha antes do registro) — por isso guarda Nome/Cnpj próprios.
+/// O script mascara senhas/chaves/tokens antes de enviar.</summary>
+public class RelatorioInstalacao
+{
+    public long Id { get; set; }
+    public DateTime RecebidoEm { get; set; } = DateTime.UtcNow;
+    public int? ClienteId { get; set; }                 // casado por CNPJ/Nome quando o cliente já existe
+    public string Tipo { get; set; } = "instalacao";    // instalacao | diagnostico
+    public string Nome { get; set; } = "";
+    public string? Cnpj { get; set; }
+    public string? Versao { get; set; }
+    public string? Os { get; set; }
+    public string? Maquina { get; set; }
+    public string Status { get; set; } = "";            // sucesso | sucesso_avisos | falha | bloqueado
+    public string? Etapa { get; set; }                  // ex.: "PASSO 1 - PostgreSQL 16"
+    public string? Mensagem { get; set; }
+    public string? Avisos { get; set; }                 // linhas de AVISO, uma por linha
+    public string? Url { get; set; }
+    public int? DuracaoSeg { get; set; }
+    public int Bloqueios { get; set; }                  // da pré-verificação
+    public string? Verificacoes { get; set; }           // JSON da pré-verificação
+    public string? Log { get; set; }                    // log mascarado (cauda)
+    public string? Ip { get; set; }
+}
+
+public record RelatorioInstalacaoDto(
+    string? Tipo, string? Nome, string? Cnpj, string? Versao, string? Os, string? Maquina,
+    string? Status, string? Etapa, string? Mensagem, List<string>? Avisos, int? DuracaoSeg,
+    string? Url, string? Verificacoes, string? Log);
+
 /// <summary>Estados possíveis da assinatura de um cliente.</summary>
 public static class EstadoAssinatura
 {

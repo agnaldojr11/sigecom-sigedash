@@ -52,6 +52,7 @@ builder.Services.AddRateLimiter(o =>
     o.AddPolicy("login",      ctx => Limite(IpDe(ctx), 5,   TimeSpan.FromMinutes(1)));
     o.AddPolicy("admin",      ctx => Limite(IpDe(ctx), 10,  TimeSpan.FromMinutes(1)));
     o.AddPolicy("telemetria", ctx => Limite(IpDe(ctx), 120, TimeSpan.FromMinutes(1)));
+    o.AddPolicy("relatorio",  ctx => Limite(IpDe(ctx), 20,  TimeSpan.FromMinutes(1)));
 });
 
 builder.Services.AddResponseCompression();
@@ -114,6 +115,7 @@ app.MapTelemetria(app.Configuration);
 app.MapPainel(app.Configuration);
 app.MapUsuariosPainel();
 app.MapVersoes();
+app.MapInstalacoes();
 app.MapAdminCentral(app.Configuration);
 
 app.MapFallbackToFile("index.html");

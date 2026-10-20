@@ -107,7 +107,7 @@ tbody tr:last-child td { border-bottom: none; }
   border-radius: 9px; padding: 7px 16px; font-size: .9rem; font-weight: 600; }
 .tab:hover { color: var(--text); }
 .tab.ativo { color: var(--text); background: var(--surface2); border-color: var(--border); }
-#view-frota[hidden], #view-versoes[hidden], #view-equipe[hidden] { display: none; }
+#view-frota[hidden], #view-versoes[hidden], #view-equipe[hidden], #view-instalacoes[hidden] { display: none; }
 .sec-hint { font-size: .78rem; font-weight: 400; color: var(--dim); margin-left: 8px; }
 
 /* VERSÕES */
@@ -217,6 +217,31 @@ tbody tr:last-child td { border-bottom: none; }
 /* ZONA DE PERIGO (excluir cliente no detalhe) */
 .perigo-box { background: var(--crit-bg); border: 1px solid rgba(248,113,113,.4); border-radius: 12px; padding: 16px; }
 .perigo-box .t { color: var(--muted); font-size: .84rem; margin-bottom: 12px; line-height: 1.55; }
+
+/* INSTALAÇÕES (relatórios dos instaladores) */
+.chk { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: .85rem; margin-bottom: 12px; cursor: pointer; }
+.chk input { accent-color: var(--accent-dk); width: 16px; height: 16px; }
+.inst-motivo { color: var(--muted); font-size: .8rem; max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inst-etapa { font-size: .85rem; }
+.modal.largo { max-width: 880px; }
+.res-box { border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; border: 1px solid var(--border); background: var(--bg); }
+.res-box.crit { background: var(--crit-bg); border-color: rgba(248,113,113,.4); }
+.res-box.warn { background: var(--warn-bg); border-color: rgba(251,191,36,.4); }
+.res-box.ok { background: var(--ok-bg); border-color: rgba(52,211,153,.4); }
+.res-box .res-etapa { font-weight: 700; font-size: .92rem; }
+.res-box .res-msg { color: var(--text); font-size: .88rem; margin-top: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.verif { display: flex; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
+.verif:last-child { border-bottom: none; }
+.verif .pill { flex: none; margin-top: 1px; }
+.verif .vt { font-size: .86rem; font-weight: 600; }
+.verif .vd { color: var(--muted); font-size: .8rem; overflow-wrap: anywhere; }
+.verif .vs { color: var(--text); font-size: .8rem; margin-top: 3px; overflow-wrap: anywhere; }
+.verif .vs::before { content: "→ "; color: var(--accent); }
+details.verif-ok summary { cursor: pointer; color: var(--muted); font-size: .84rem; padding: 8px 0; }
+.log-acoes { display: flex; justify-content: space-between; align-items: center; margin: 20px 0 10px; }
+.log-acoes .ind-titulo { margin: 0; }
+.log-box { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin: 0;
+  font-family: var(--mono); font-size: .74rem; line-height: 1.5; color: var(--muted); max-height: 420px; overflow: auto; white-space: pre; }
 
 /* HISTÓRICO DE ASSINATURA (auditoria no detalhe) */
 .aud-item { display: flex; align-items: baseline; justify-content: space-between; gap: 12px;

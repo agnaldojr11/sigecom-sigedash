@@ -51,6 +51,53 @@ public static class TelemetriaEndpoints
             return Results.Ok(new { c!.Id, c.Nome, chaveTelemetria = c.ChaveTelemetria, novo });
         }).RequireRateLimiting("admin");
 
+        // Relatório de instalação/diagnóstico (sucesso ou falha) — o suporte vê na aba Instalações sem
+        // acessar o servidor do cliente. Mesma chave de provisionamento do registro, porque a falha
+        // pode acontecer ANTES de o cliente existir na Central.
+        app.MapPost("/telemetria/instalacao", async (RelatorioInstalacaoDto dto, HttpContext ctx, CentralDbContext db) =>
+        {
+            var bootstrap = cfg["Central:ChaveBootstrap"];
+            if (string.IsNullOrWhiteSpace(bootstrap))
+                return Results.Problem("Central:ChaveBootstrap não configurada.", statusCode: 503);
+            if (!Auth.ChaveConfere(ctx.Request.Headers["X-Bootstrap-Key"].ToString(), bootstrap))
+                return Results.Unauthorized();
+
+            var nome = Trunc(dto.Nome, 200);
+            if (string.IsNullOrWhiteSpace(nome)) return Results.BadRequest(new { erro = "Informe o nome do cliente." });
+            var cnpj = SoDigitos(dto.Cnpj);
+
+            ClienteCentral? c = null;
+            if (cnpj is not null) c = await db.Clientes.FirstOrDefaultAsync(x => x.Cnpj == cnpj);
+            c ??= await db.Clientes.FirstOrDefaultAsync(x => x.Nome == nome);
+
+            var tipo = dto.Tipo == "diagnostico" ? "diagnostico" : "instalacao";
+            var status = dto.Status is "sucesso" or "sucesso_avisos" or "falha" or "bloqueado" ? dto.Status : "falha";
+            var verif = Trunc(dto.Verificacoes, 40_000);
+
+            db.RelatoriosInstalacao.Add(new RelatorioInstalacao
+            {
+                ClienteId    = c?.Id,
+                Tipo         = tipo,
+                Nome         = nome!,
+                Cnpj         = cnpj,
+                Versao       = Trunc(dto.Versao, 20),
+                Os           = Trunc(dto.Os, 120),
+                Maquina      = Trunc(dto.Maquina, 80),
+                Status       = status,
+                Etapa        = Trunc(dto.Etapa, 120),
+                Mensagem     = Trunc(dto.Mensagem, 2000),
+                Avisos       = Trunc(string.Join("\n", (dto.Avisos ?? new()).Take(30)), 8000),
+                Url          = Trunc(dto.Url, 200),
+                DuracaoSeg   = dto.DuracaoSeg is >= 0 and < 86400 ? dto.DuracaoSeg : null,
+                Bloqueios    = ContarBloqueios(verif),
+                Verificacoes = verif,
+                Log          = Trunc(dto.Log, 100_000),
+                Ip           = ctx.Connection.RemoteIpAddress?.ToString()
+            });
+            await db.SaveChangesAsync();
+            return Results.Ok(new { ok = true });
+        }).RequireRateLimiting("relatorio");
+
         app.MapPost("/telemetria/heartbeat", async (
             HeartbeatDto dto, HttpContext ctx, CentralDbContext db) =>
         {
@@ -148,6 +195,18 @@ public static class TelemetriaEndpoints
         if (string.IsNullOrEmpty(s)) return s;
         s = s.Trim();
         return s.Length <= max ? s : s.Substring(0, max);
+    }
+
+    // Nº de bloqueios da pré-verificação (para filtrar/mostrar sem abrir o JSON).
+    private static int ContarBloqueios(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return 0;
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            return doc.RootElement.TryGetProperty("bloqueios", out var b) && b.TryGetInt32(out var n) ? n : 0;
+        }
+        catch { return 0; }
     }
 
     // CNPJ normalizado (só dígitos) para idempotência; null se vazio.
