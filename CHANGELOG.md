@@ -4,7 +4,13 @@ Este arquivo registra o que entra em cada versão liberada para os clientes.
 Cada mudança é anotada em **"Não liberado"** assim que fica pronta. No fim da sprint, essa seção vira a versão da sprint.
 O processo está descrito em [`docs/PROCESSO-RELEASE.md`](docs/PROCESSO-RELEASE.md).
 
-## [Não liberado] — Sprint 1
+## [Não liberado] — Sprint 1 (versão 1.1.0)
+
+_Nada ainda._
+
+---
+
+## [1.0.53] — 2026‑10‑20 — Hotfix P0 (aprovado fora do calendário)
 
 ### Corrigido
 - **Dados parando de sincronizar após "Atualizar agora".** O agente ficava parado quando a atualização era interrompida no meio. Nada religava o agente: ele não tinha reinício automático e o watchdog não cuidava dele.
